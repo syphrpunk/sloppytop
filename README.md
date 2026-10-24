@@ -82,16 +82,17 @@ mise install
 <details>
 <summary><b>Build from source</b></summary>
 
-Requires [mise](https://mise.jdx.dev) (installs Go, bun, and just from `mise.toml`).
+Requires [mise](https://mise.jdx.dev) (installs bun and just from `mise.toml`).
 
 ```bash
 git clone https://github.com/syphrpunk/neohtop-cli.git
 cd neohtop-cli
 mise install
+just setup
 ./st tui
 ```
 
-The Go sources in `cli/` are not on the release. `just build` still writes `./sloppytop-cli` on this machine.
+`just build` writes `ts/dist/sloppytop`.
 
 </details>
 
@@ -255,51 +256,20 @@ Screen settings persist at `~/.config/sloppytop/config.json`. An existing `~/.co
 
 ## Architecture
 
-The prebuilt binary is the TypeScript CLI. The Go sources in `cli/` use native OS APIs and are not release assets.
+The prebuilt binary is the TypeScript CLI. `sloppytop tui` is the screen. Collectors for macOS, Linux, and Windows live under `ts/src/monitor/`.
 
-```
-┌──────────────────────────────────────────┐
-│          Go TUI (Bubble Tea v2)          │
-│                                          │
-│  Stats Bar · Toolbar · Process Table     │
-│  Sparklines · Braille Bars · Overlays    │
-├──────────────────────────────────────────┤
-│          Native Go Monitor               │
-│                                          │
-│  process_darwin.go   system_darwin.go    │
-│  process_linux.go    system_linux.go     │
-│  process_windows.go  system_windows.go   │
-└──────────────────────────────────────────┘
-```
-
-Built with [Bubble Tea v2](https://github.com/charmbracelet/bubbletea) and [Lip Gloss v2](https://github.com/charmbracelet/lipgloss).
 
 <details>
 <summary><b>Project structure</b></summary>
 
 ```
 neohtop-cli/
-├── cli/
-│   ├── main.go               # entry point + --json + --version
-│   ├── model/                 # Bubble Tea model (state + update loop)
-│   ├── view/                  # UI components
-│   │   ├── stats_bar.go       #   CPU, memory, network, info panels
-│   │   ├── process_table.go   #   main data grid
-│   │   ├── toolbar.go         #   button bar
-│   │   ├── footer.go          #   status bar
-│   │   ├── sparkline.go       #   time-series sparklines
-│   │   ├── bar.go             #   braille progress bars
-│   │   ├── help.go            #   keybinding overlay
-│   │   ├── process_details.go #   process info modal
-│   │   ├── kill_confirm.go    #   kill confirmation
-│   │   ├── filter_panel.go    #   filter configuration
-│   │   ├── column_panel.go    #   column visibility
-│   │   ├── theme_panel.go     #   theme selector
-│   │   └── process_icons.go   #   140+ Nerd Font icons
-│   ├── monitor/               # OS-specific system monitoring
-│   ├── theme/                 # 15 color themes
-│   ├── filter/                # search, filter, sort, tree
-│   └── config/                # persistent user settings
+├── ts/src/
+│   ├── index.ts             # commands
+│   ├── monitor/             # macOS, Linux, and Windows collectors
+│   ├── store/               # config, metrics, report, recorder
+│   ├── tui/                 # screen
+│   └── filter/              # search, sort, tree
 ├── justfile
 ├── mise.toml
 └── CONTRIBUTING.md

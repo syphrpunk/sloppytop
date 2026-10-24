@@ -1,4 +1,4 @@
-// Port of cli/filter/tree_test.go core cases.
+// Process-tree cases.
 
 import { describe, expect, test } from 'bun:test'
 import type { ProcessInfo } from '../monitor/types.ts'

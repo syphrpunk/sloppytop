@@ -1,4 +1,4 @@
-// Byte and duration formatting matched to cli/view/format.go.
+// Byte and duration formatting.
 // Width is counted in Unicode code points. Braille and the tree marks are one cell wide.
 
 const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const

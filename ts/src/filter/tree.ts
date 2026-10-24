@@ -1,4 +1,4 @@
-// Port of cli/filter/tree.go — flatten a process list into depth-first tree
+// Flatten a process list into depth-first tree
 // order with rendering prefixes based on PPID→PID relationships.
 
 import type { ProcessInfo } from '../monitor/types.ts'

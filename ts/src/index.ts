@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// sloppytop — agent-friendly system monitor CLI (TypeScript port of cli/, built on incur).
+// sloppytop — agent-friendly system monitor CLI, built on incur.
 // Every command supports --format toon|json|yaml|md|jsonl, --llms, and MCP via incur.
 
 import { Binary, Cli, z } from 'incur'

@@ -1,4 +1,4 @@
-// Palettes copied from cli/theme/catppuccin.go. Unknown names resolve to charm.
+// Built-in palettes. Unknown names resolve to charm.
 
 export interface Theme {
   name: string

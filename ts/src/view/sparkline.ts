@@ -1,4 +1,4 @@
-// Braille sparklines — port of cli/view/sparkline.go (data → string only;
+// Braille sparklines (data → string only;
 // no ANSI color here, so the output embeds cleanly in any --format).
 //
 // Each character is one data point; the braille dot pattern encodes the

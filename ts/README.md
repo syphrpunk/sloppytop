@@ -1,6 +1,6 @@
 # sloppytop (TypeScript port)
 
-TypeScript port of the Go CLI in `../cli/`, built on [incur](https://github.com/wevm/incur) — wevm's agent-first CLI framework. The original [NeoHtop](https://github.com/Abdenasser/NeoHtop) is by [Abdenasser](https://github.com/Abdenasser) (MIT); this port keeps that license and attribution. Designed to serve double duty:
+TypeScript CLI built on [incur](https://github.com/wevm/incur) — wevm's agent-first CLI framework. The original [NeoHtop](https://github.com/Abdenasser/NeoHtop) is by [Abdenasser](https://github.com/Abdenasser) (MIT); this program keeps that license and attribution. Designed to serve double duty:
 
 - **Data & reporting tool** — every command outputs TOON (token-efficient default), JSON, YAML, Markdown, or JSONL via `--format`.
 - **Agentic tool** — agents discover the CLI via `sloppytop skills add` / `sloppytop mcp add` / `--llms`, get schema-validated inputs, and receive call-to-action suggestions after each run.
@@ -66,7 +66,7 @@ Compiled release binaries embed incur's update metadata: `sloppytop --update` ch
 | Kill process | ✅ `kill` with signal choice |
 | Process tree (`filter/tree.go`) | ✅ `tree` (DFS order + rendering prefixes, faithful port) |
 | Per-core CPU on macOS | ✅ via `os.cpus()` tick deltas — bun canary surfaces real `host_processor_info` counters, no FFI needed |
-| Agent wiring | ✅ `.agents/skills/` (symlinked into `.claude/`, `.augment/`) + `.mcp.json` (progressive-discovery MCP) |
+| Agent wiring | ✅ `.agents/skills/` (symlinked into `.claude/`) + `.mcp.json` (progressive-discovery MCP) |
 | Per-process disk I/O | ✅ macOS `bun:ffi` → libproc `proc_pid_rusage`; Linux `/proc/[pid]/io` (same-user without root, like Go) |
 | Threads + virtual memory on macOS | ✅ `bun:ffi` → `proc_pidinfo(PROC_PIDTASKINFO)` (verified against `ps -M`) |
 | Process detail (`ProcessDetail`) | ✅ `proc` shows cwd (+ `--env` for environ via `KERN_PROCARGS2` / `/proc/[pid]/environ`) |
@@ -74,10 +74,10 @@ Compiled release binaries embed incur's update metadata: `sloppytop --update` ch
 | Standalone binary | ✅ `just ts-compile` (bun `--compile`, ~63 MB); releases attach per-platform binaries built natively in CI (canary can't cross-target) |
 | Windows | ✅ monitor port (PowerShell CIM + `os.cpus()` ticks; no load avg / process owner / cwd) — CI-built, not yet hand-verified on hardware |
 | Config persistence | ✅ `~/.config/sloppytop/config.json` (+ SQLite metrics store and scheduled recorder — beyond Go parity) |
-| Reporting | ✅ `report` (hourly aggregates, top consumers, anomaly flags) + braille sparkline charts (port of `cli/view/sparkline.go`) |
+| Reporting | ✅ `report` (hourly aggregates, top consumers, anomaly flags) + braille sparkline charts |
 | Self-update | ✅ `--update` via incur's GitHub-release provider (compiled binaries only) |
 | Sparklines | ✅ `ts/src/view/sparkline.ts` — same 5-level braille mapping as the Go TUI |
-| TUI | ✅ `sloppytop tui` on OpenTUI: each probe in its own labeled rows (bordered cpu, mem, disk, net, and the other probes that returned a reading, when the terminal is wide; one reading per row; per-core sparklines in cpu), ruled process table, footer, and theme colors, plus on-demand env, files, connections, listen, and hardware, history, report, the probe log, one-shot record, probe switches, and the metrics listener. The compiled release binary includes this screen. The release does not upload `sloppytop-cli`. `just build` still writes that binary locally. |
+| TUI | ✅ `sloppytop tui` on OpenTUI: each probe in its own labeled rows (bordered cpu, mem, disk, net, and the other probes that returned a reading, when the terminal is wide; one reading per row; per-core sparklines in cpu), ruled process table, footer, and theme colors, plus on-demand env, files, connections, listen, and hardware, history, report, the probe log, one-shot record, probe switches, and the metrics listener. The compiled release binary includes this screen. `just build` writes `ts/dist/sloppytop`. |
 
 All low-level access uses native bun (`bun:ffi` `dlopen` on `libSystem.B.dylib`) — zero added dependencies beyond incur.
 
@@ -99,6 +99,6 @@ ts/src/
 │   ├── report.ts     # aggregate queries: hourly series, top consumers, anomalies
 │   └── service.ts    # scheduled recorder (launchd / systemd user timer)
 ├── view/
-│   └── sparkline.ts  # braille sparklines (port of cli/view/sparkline.go)
+│   └── sparkline.ts  # braille sparklines
 └── filter/           # regex filter + column sort + process tree port
 ```

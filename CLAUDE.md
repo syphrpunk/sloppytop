@@ -2,126 +2,59 @@
 
 ## Project Overview
 
-Sloppytop is a terminal-based process monitor — the CLI companion to [NeoHtop](https://github.com/Abdenasser/NeoHtop). Built with Go (Bubble Tea v2 + Lip Gloss v2), pure Go system monitoring, and native OS APIs.
+Sloppytop is a terminal process monitor — the CLI companion to [NeoHtop](https://github.com/Abdenasser/NeoHtop). The program is the TypeScript CLI in `ts/`, built on [incur](https://github.com/wevm/incur). `sloppytop tui` is the screen, on `@opentui/core`.
 
 ## Quick Reference
 
-Toolchain (Go, bun, just) is managed by [mise](https://mise.jdx.dev) — run `mise install` once. Tasks run via `just` (see `justfile`); the npm package under `npm/` is managed with bun.
+Toolchain (bun, just) is managed by [mise](https://mise.jdx.dev) — run `mise install` once. Tasks run via `just` (see `justfile`). The npm package under `npm/` is managed with bun.
 
 ```bash
-# Build & run (requires CGo on macOS)
-just build && ./sloppytop-cli
-
-# Dev build with race detector
-just dev
-
-# Run tests
-just test
-
-# Resolve dependencies
-just deps
+just setup     # bun install
+./st tui       # this checkout's screen
+just test      # bun test
+just ts-check  # tsc --noEmit
+just build     # compile ts/dist/sloppytop
 ```
 
-## TypeScript Port (ts/)
-
-`ts/` hosts the TypeScript port built on [incur](https://github.com/wevm/incur) (wevm's agent-first CLI framework) — see `ts/README.md` for port status. It reuses the Go `--json` field names so outputs stay compatible. Commands: `system`, `processes`, `top`, `tree`, `proc`, `snapshot`, `watch` (streaming), `kill`, plus persistence: `record`/`history`/`report` (SQLite metrics store via `bun:sqlite`; `report` = hourly aggregates, top consumers, anomaly flags, braille sparkline charts), `config`, and `service install|status|uninstall` (hourly recorder — launchd on macOS, systemd user timer on Linux). Monitors cover macOS (`bun:ffi` libproc), Linux (`/proc`), and Windows (PowerShell CIM). State lives in `~/.config/sloppytop/` (an existing `~/.config/neohtop/` directory is reused). All commands support `--format toon|json|yaml|md|jsonl`, `--llms`, and MCP; compiled release binaries self-update via `--update`. Native bun APIs only — no dependencies beyond incur. `sloppytop tui` is the screen, on `@opentui/core`. The release uploads that binary and does not upload `sloppytop-cli`.
-
-```bash
-just ts-setup   # bun install
-just ts <cmd>   # run the TS CLI
-just ts-check   # tsc --noEmit
-just ts-test    # bun test
-```
+Commands: `system`, `processes`, `top`, `tree`, `proc`, `snapshot`, `watch`, `kill`, `record`, `history`, `report`, `config`, `service`, `net`, `listen`, `hardware`, `probe`, `log`, `metrics`, `tui`. Monitors cover macOS (`bun:ffi` libproc), Linux (`/proc`), and Windows (PowerShell CIM). State lives in `~/.config/sloppytop/` (an existing `~/.config/neohtop/` directory is reused). An existing `~/.config/sloppytop-cli/config.json` is read once to seed columns, theme, and refresh, and is not written. All commands support `--format toon|json|yaml|md|jsonl`, `--llms`, and MCP. Compiled release binaries self-update via `--update`. Native bun APIs only — no dependencies beyond incur.
 
 ## Architecture
 
-The app follows the **Elm architecture** (Model → Update → View) via Bubble Tea v2.
-
 ```
-cli/
-├── main.go              # Entry point, --version/--json/--help flags
-├── model/               # App state + update logic (Bubble Tea Model)
-│   └── app.go           # Central model: state, keybindings, tick loop
-├── view/                # All rendering (pure functions, no state mutation)
-│   ├── stats_bar.go     # CPU sparklines, memory, disk, network panels
-│   ├── toolbar.go       # Button-style keybinding hints (3-tier responsive)
-│   ├── process_table.go # Main process table with sort indicators
-│   ├── footer.go        # Status bar (hostname, OS, selected PID)
-│   ├── help.go          # Help overlay
-│   ├── process_details.go
-│   ├── kill_confirm.go
-│   ├── filter_panel.go
-│   ├── column_panel.go
-│   ├── theme_panel.go
-│   ├── sparkline.go     # Braille dot-matrix charts
-│   ├── bar.go           # Block-character progress bars
-│   ├── format.go        # Formatting helpers (truncate, bytes, duration)
-│   ├── icons.go         # Emoji icons
-│   ├── process_icons.go # 140+ Nerd Font process icons
-│   └── layout.go        # Layout math
-├── monitor/             # Platform-specific data collection
-│   ├── monitor.go       # Common interface + Monitor struct
-│   ├── types.go         # ProcessInfo, SystemStats, delta structs
-│   ├── *_darwin.go      # macOS: libproc + mach APIs via CGo
-│   ├── *_linux.go       # Linux: /proc filesystem (pure Go)
-│   └── *_windows.go     # Windows: Win32 APIs (pure Go)
-├── theme/               # 15 built-in color themes
-│   ├── theme.go         # Theme interface + registry
-│   └── catppuccin.go    # All theme definitions
-├── filter/              # Search (regex), sort, and process tree logic
-├── config/              # Persistent config (~/.config/sloppytop-cli/config.json)
-└── types/               # Shared type definitions (Process, SystemStats, SortConfig)
+ts/src/
+├── index.ts           # incur CLI
+├── monitor/           # platform collectors
+├── store/             # config, sqlite, report, service
+├── tui/               # screen: frame, state, themes, keys
+├── filter/            # search, sort, process tree
+└── view/sparkline.ts  # braille sparklines
 ```
 
 ## Key Conventions
 
-- **Charm ecosystem v2** — imports are `charm.land/bubbletea/v2` and `charm.land/lipgloss/v2`, NOT the old `github.com/charmbracelet/` paths
-- **lipgloss.Width()** for string measurement — never use `len()` on styled/emoji strings
+- **Theme colors only** — screen color comes from `ts/src/tui/theme.ts` and `ts/src/tui/style.ts`
 - **Unicode rendering** — braille dots (U+2800–U+28FF) for sparklines, block chars (▏▎▍▌▋▊▉█) for bars, `…` for truncation
-- **Theme colors only** — always use `theme.Current()` colors, never hardcode ANSI codes
-- **No state in view/** — view functions are pure renderers that take data and return strings
-- **CGo required on macOS** — `CGO_ENABLED=1` for libproc/mach; Linux/Windows can be `CGO_ENABLED=0`
-
-## Build Targets
-
-| Target | Platform | CGo | Notes |
-|---|---|---|---|
-| `just build` | Native | Yes (macOS) | Default build |
-| `just build-linux-amd64` | Linux x86_64 | No | Pure Go |
-| `just build-linux-arm64` | Linux ARM64 | No | Pure Go |
-| `just build-macos-arm64` | macOS ARM | Yes | Apple Silicon |
-| `just build-macos-amd64` | macOS Intel | Yes | Cross-compile on macOS |
+- **One sample** — `takeSample` in `ts/src/sample.ts` feeds the screen and the commands
+- **Omit an unmeasured reading** — a measured 0 stays 0
 
 ## Adding Things
 
-**New theme:** Add to `cli/theme/catppuccin.go`, register in `ThemeNames` slice in `theme.go`.
+**New theme:** Add it in `ts/src/tui/theme.ts`.
 
-**New view component:** Create file in `cli/view/`, accept theme + data as params, return string. Wire into `model/app.go` View().
+**New screen row:** Render it from `ts/src/tui/frame.ts`. Key handling lives in `ts/src/tui/state.ts` and `ts/src/tui/run.ts`.
 
-**New keybinding:** Handle in `model/app.go` Update() under `KeyPressMsg`. Add hint to `view/toolbar.go` and `view/help.go`.
-
-**New monitor metric:** Add field to `monitor/types.go`, implement per-platform in `*_darwin.go`, `*_linux.go`, `*_windows.go`.
+**New monitor metric:** Add the field in `ts/src/monitor/types.ts` and read it in the platform collector.
 
 ## Testing
 
 ```bash
-just test                              # run all tests
-go test -count=1 ./filter/...          # run filter tests only
-go test -count=1 -run TestBuildProcess # run specific test
+just test
+cd ts && bun test src/filter
 ```
-
-Tests cover: filter logic, sort ordering, process tree building, config save/load, type constants.
 
 ## Release
 
-Push a git tag to trigger the GitHub Actions release workflow:
-
-```bash
-git tag -a v0.1.0 -m "Initial release"
-git push --tags
-```
-
-This runs the Go tests first, then builds the TypeScript CLI (`sloppytop`) for macOS Apple Silicon, Linux, and Windows, and creates a GitHub Release with checksums. The release does not upload `sloppytop-cli`. `.github/workflows/ci.yml` tests the Go sources and builds the Linux TypeScript binary on every push and pull request.
+Push a git tag to trigger the GitHub Actions release workflow. It builds `sloppytop` for macOS Apple Silicon, Linux, and Windows. `.github/workflows/ci.yml` type-checks, tests, and builds the Linux binary on every push and pull request.
 
 ## Handoff protocol
 

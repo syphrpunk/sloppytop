@@ -8,6 +8,8 @@ The `handoff-create --changelog` flow appends entries to "## Unreleased" as you 
 
 ## Unreleased
 
+- Removed the Go sources in `cli/` and the `.augment` skill links. `just build` compiles `ts/dist/sloppytop`. CI tests and builds the TypeScript CLI only.
+
 ## 0.3.0 - 2026-10-23
 
 ### Added

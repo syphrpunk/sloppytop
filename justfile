@@ -1,37 +1,33 @@
 # Sloppytop — task runner (run `just --list` to see all recipes)
 
-version := env_var_or_default("VERSION", "dev")
-
-# Default: build the native binary
+# Default: compile the native binary
 default: build
 
-# Resolve Go dependencies (run once or after adding new imports)
-deps:
-    cd cli && go mod tidy
+# Install TypeScript dependencies
+setup:
+    cd ts && bun install
 
-# Build the Go CLI (CGo required on macOS)
+# Compile this checkout to ts/dist/sloppytop
 build:
-    cd cli && CGO_ENABLED=1 go build -ldflags="-s -w -X main.version={{version}}" -o ../sloppytop-cli .
-    @echo "Binary built: ./sloppytop-cli"
+    cd ts && bun build --compile --minify src/index.ts --outfile dist/sloppytop
+    @echo "Binary built: ts/dist/sloppytop"
 
-# Development build (race detector enabled)
-dev:
-    cd cli && CGO_ENABLED=1 go build -race -o ../sloppytop-cli .
+# Run this checkout. Pass args after --, for example `just dev system`
+dev *args:
+    ./st {{args}}
 
-# Run Go tests
+# Run the TypeScript tests
 test:
-    cd cli && CGO_ENABLED=1 go test -count=1 ./...
+    cd ts && bun test
 
-# Clean build artifacts
+# Remove build output and leftover Go binary names
 clean:
-    cd cli && go clean
+    rm -rf ts/dist
     rm -f sloppytop-cli sloppytop-cli.exe sloppytop-cli-* neohtop-cli neohtop-cli.exe neohtop-cli-*
 
-# Install to system
+# Install the compiled binary
 install: build
-    cp sloppytop-cli /usr/local/bin/
-
-# ---- TypeScript port (ts/ — incur-based agent CLI) ----
+    cp ts/dist/sloppytop /usr/local/bin/sloppytop
 
 # Install TS dependencies
 ts-setup:
@@ -45,7 +41,7 @@ ts *args:
 st *args:
     ./st {{args}}
 
-# Type-check the TS port
+# Type-check the TS CLI
 ts-check:
     cd ts && bunx tsc --noEmit
 
@@ -54,27 +50,11 @@ ts-test:
     cd ts && bun test
 
 # Compile the TS CLI to a standalone binary (ts/dist/sloppytop)
-ts-compile:
-    cd ts && bun build --compile --minify src/index.ts --outfile dist/sloppytop
+ts-compile: build
 
 # Quit-check the compiled screen. Uses a temp config dir and does not print the frame.
 ts-smoke:
     python3 ts/smoke-tui.py ts/dist/sloppytop
 
-# Note: cross-compiling (--target=bun-<os>-<arch>) fails on bun canary —
-# cross-target runtimes aren't downloadable for canary versions. Release
-# binaries are compiled natively per-platform in CI (see release.yml).
-
-# Cross-compilation targets
-# Note: macOS builds require CGo (for libproc/mach), Linux builds are pure Go
-build-linux-amd64:
-    cd cli && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../sloppytop-cli-linux-amd64 .
-
-build-linux-arm64:
-    cd cli && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o ../sloppytop-cli-linux-arm64 .
-
-build-macos-arm64:
-    cd cli && GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -o ../sloppytop-cli-macos-arm64 .
-
-build-macos-amd64:
-    cd cli && GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -o ../sloppytop-cli-macos-amd64 .
+# Cross-target bun runtimes are not downloadable on canary. Release binaries
+# are compiled natively per platform in CI (see release.yml).

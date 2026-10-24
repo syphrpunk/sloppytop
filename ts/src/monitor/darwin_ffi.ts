@@ -1,5 +1,4 @@
-// libproc/libc bindings via bun:ffi — ports the CGo calls in
-// cli/monitor/process_darwin.go without a C toolchain. Struct offsets
+// libproc/libc bindings via bun:ffi. No C toolchain. Struct offsets
 // mirror <sys/proc_info.h> and <sys/resource.h>; degrade gracefully
 // (nulls) if dlopen or a call fails.
 
