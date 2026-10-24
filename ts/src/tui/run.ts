@@ -5,7 +5,7 @@ import { createCliRenderer, MouseButton, TextRenderable, type CliRenderer } from
 import type { ProbeSet } from '../monitor/probes.ts'
 import type { ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { isProbeName, type ProbeName } from '../monitor/probes.ts'
-import { takeSample } from '../sample.ts'
+import { takeSample, type Sample } from '../sample.ts'
 import { ensureTuiConfig, loadConfig, saveConfig, updateMetrics, updateProbes } from '../store/config.ts'
 import { appendProbeLog } from '../store/probe-log.ts'
 import { defaultPageLoaders, fulfillPage, hasPageEffect, type PageLoaders } from './pages.ts'
@@ -67,6 +67,12 @@ export function bindQuit(renderer: CliRenderer, onQuit: () => void): void {
   renderer.keyInput.on('keypress', (ev) => {
     if (quitKey(ev.name, ev.ctrl)) onQuit()
   })
+}
+
+/** One screen sample. A paused tick does not sample, and this path does not load an overlay page. */
+export async function runSampleTick(opts: { paused: boolean; sampleMs: number }): Promise<Sample | undefined> {
+  if (opts.paused) return
+  return takeSample(opts.sampleMs)
 }
 
 export async function runTui(loaders: PageLoaders = defaultPageLoaders()): Promise<void> {
@@ -384,10 +390,10 @@ export async function runTui(loaders: PageLoaders = defaultPageLoaders()): Promi
   const tick = async () => {
     if (stopped) return
     const started = Date.now()
-    if (!state.paused) {
-      try {
-        const sample = await takeSample(sampleMs)
-        if (stopped) return
+    try {
+      const sample = await runSampleTick({ paused: state.paused, sampleMs })
+      if (stopped) return
+      if (sample) {
         system = sample.system
         processes = sample.processes
         probes = sample.probes
@@ -399,11 +405,11 @@ export async function runTui(loaders: PageLoaders = defaultPageLoaders()): Promi
           probes: sample.probes,
           statusMessage: '',
         }
-      } catch (err) {
-        if (stopped) return
-        const message = err instanceof Error && err.message ? err.message : 'sample failed'
-        state = { ...state, waiting: false, statusMessage: message }
       }
+    } catch (err) {
+      if (stopped) return
+      const message = err instanceof Error && err.message ? err.message : 'sample failed'
+      state = { ...state, waiting: false, statusMessage: message }
     }
     if (stopped) return
     paint()

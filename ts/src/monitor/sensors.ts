@@ -11,6 +11,16 @@ export const HID_USAGE_ENV_TEMPERATURE = 0x33
 export const HID_USAGE_DATA_ENV_TEMPERATURE = 0x0434
 export const HID_USAGE_PD_TEMPERATURE = 0x36
 
+/**
+ * Apple vendor page and its temperature-sensor usage. This is the event-system
+ * client match, not an IOHIDManager element and not the consumer page.
+ * kIOHIDEventTypeTemperature is 15. Its level field is that type shifted 16.
+ */
+export const HID_PAGE_APPLE_VENDOR = 0xff00
+export const HID_USAGE_APPLE_VENDOR_TEMPERATURE = 0x0005
+export const HID_EVENT_TEMPERATURE = 15
+export const HID_EVENT_FIELD_TEMPERATURE_LEVEL = HID_EVENT_TEMPERATURE << 16
+
 const CELSIUS_MIN = -40
 const CELSIUS_MAX = 150
 
@@ -22,6 +32,11 @@ export function acceptsTemperatureElement(usagePage: number, usage: number): boo
     return true
   }
   return usagePage === HID_PAGE_POWER_DEVICE && usage === HID_USAGE_PD_TEMPERATURE
+}
+
+/** Vendor-page temperature usage. Other vendor usages and page 0xFF05 are not this match. */
+export function acceptsAppleVendorTemperature(usagePage: number, usage: number): boolean {
+  return usagePage === HID_PAGE_APPLE_VENDOR && usage === HID_USAGE_APPLE_VENDOR_TEMPERATURE
 }
 
 /**

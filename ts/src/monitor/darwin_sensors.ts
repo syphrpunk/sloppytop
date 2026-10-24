@@ -1,15 +1,21 @@
 // macOS temperature and thermal state from public APIs.
-// Temperature uses IOHIDManager matched to the sensor and power-device usage
-// pages, then the cached element value. The consumer page is not opened:
-// its fan-speed usage is a linear control, not a tachometer.
+// IOHIDManager matches the sensor and power-device usage pages.
+// IOHIDEventSystemClient matches the Apple vendor temperature usage.
+// The consumer page is not opened: its fan-speed usage is a linear control,
+// not a tachometer.
 // Thermal state is NSProcessInfo.thermalState. A failure omits the reading.
 
 import { dlopen, ptr, type Pointer } from 'bun:ffi'
 import {
+  acceptsAppleVendorTemperature,
   acceptsTemperatureElement,
   celsiusReading,
+  HID_EVENT_FIELD_TEMPERATURE_LEVEL,
+  HID_EVENT_TEMPERATURE,
+  HID_PAGE_APPLE_VENDOR,
   HID_PAGE_POWER_DEVICE,
   HID_PAGE_SENSOR,
+  HID_USAGE_APPLE_VENDOR_TEMPERATURE,
   thermalStateFromInt,
 } from './sensors.ts'
 import type { TemperatureReading, ThermalState } from './types.ts'
@@ -20,6 +26,8 @@ const SCALE_PHYSICAL = 1
 const GET_WITHOUT_UPDATE = 0x0004_0000
 const MAX_DEVICES = 64
 const MAX_ELEMENTS = 64
+/** Above this, the vendor set is omitted instead of being cut off mid-list. */
+const MAX_VENDOR_SERVICES = 128
 
 type Libs = {
   objc: ReturnType<typeof openObjc>
@@ -27,10 +35,34 @@ type Libs = {
   io: ReturnType<typeof openIo>
 }
 
+type EventLib = ReturnType<typeof openEvent>
+
 let libs: Libs | null | undefined
+let eventLib: EventLib | null | undefined
 let hidUnavailable = false
+let vendorUnavailable = false
 let thermalUnavailable = false
 const selectors = new Map<string, Pointer>()
+
+let hidManagersCreated = 0
+let hidClientsCreated = 0
+let hidReads = 0
+
+/** Managers and event clients actually constructed. A later read of the same set does not add. */
+export function hidSetupCounts(): { managers: number; clients: number } {
+  return { managers: hidManagersCreated, clients: hidClientsCreated }
+}
+
+/** Temperature scans started. An off sensors probe never reaches this. */
+export function hidReadCount(): number {
+  return hidReads
+}
+
+type CachedManager = { manager: Pointer; dict: Pointer }
+type CachedClient = { client: Pointer; dict: Pointer }
+
+const managers = new Map<number, CachedManager>()
+let vendorClient: CachedClient | null = null
 
 function openObjc() {
   return dlopen('/usr/lib/libobjc.A.dylib', {
@@ -72,6 +104,20 @@ function openIo() {
   })
 }
 
+/** Separate from the manager load so a missing event-system symbol leaves that probe working. */
+function openEvent() {
+  return dlopen('/System/Library/Frameworks/IOKit.framework/IOKit', {
+    IOHIDEventSystemClientCreate: { args: ['ptr'], returns: 'ptr' },
+    IOHIDEventSystemClientSetMatching: { args: ['ptr', 'ptr'], returns: 'void' },
+    IOHIDEventSystemClientCopyServices: { args: ['ptr'], returns: 'ptr' },
+    IOHIDServiceClientConformsTo: { args: ['ptr', 'u32', 'u32'], returns: 'u32' },
+    IOHIDServiceClientCopyProperty: { args: ['ptr', 'ptr'], returns: 'ptr' },
+    IOHIDServiceClientCopyEvent: { args: ['ptr', 'i64', 'i32', 'i64'], returns: 'ptr' },
+    IOHIDEventGetType: { args: ['ptr'], returns: 'u32' },
+    IOHIDEventGetFloatValue: { args: ['ptr', 'i32'], returns: 'f64' },
+  })
+}
+
 function ensure(): Libs | null {
   if (libs === null) return null
   if (libs) return libs
@@ -82,6 +128,19 @@ function ensure(): Libs | null {
     libs = null
     hidUnavailable = true
     thermalUnavailable = true
+    return null
+  }
+}
+
+function ensureEvent(): EventLib | null {
+  if (vendorUnavailable || eventLib === null) return null
+  if (eventLib) return eventLib
+  try {
+    eventLib = openEvent()
+    return eventLib
+  } catch {
+    eventLib = null
+    vendorUnavailable = true
     return null
   }
 }
@@ -133,6 +192,7 @@ export function readHidTemperatures(): TemperatureReading[] | undefined {
   if (process.platform !== 'darwin' || hidUnavailable) return
   const lib = ensure()
   if (!lib) return
+  hidReads += 1
   try {
     const found = scanTemperatures(lib)
     return found.length > 0 ? found : undefined
@@ -148,17 +208,15 @@ function scanTemperatures(lib: Libs): TemperatureReading[] {
   for (const page of [HID_PAGE_SENSOR, HID_PAGE_POWER_DEVICE]) {
     readPage(lib, page, found, seen)
   }
+  readVendorTemperatures(lib, found, seen)
   return found
 }
 
 function readPage(lib: Libs, page: number, found: TemperatureReading[], seen: Map<string, number>) {
-  const dict = matching(lib, page)
-  const manager = asPtr(lib.io.symbols.IOHIDManagerCreate(null, 0))
+  const manager = managers.get(page)?.manager ?? openManager(lib, page)
+  if (!manager) return
   let devices: Pointer | null = null
   try {
-    if (!dict || !manager) return
-    lib.io.symbols.IOHIDManagerSetDeviceMatching(manager, dict)
-    if (lib.io.symbols.IOHIDManagerOpen(manager, 0) !== 0) return
     devices = asPtr(lib.io.symbols.IOHIDManagerCopyDevices(manager))
     if (!devices) return
     const count = exactCount(lib.cf.symbols.CFSetGetCount(devices), MAX_DEVICES)
@@ -171,33 +229,159 @@ function readPage(lib: Libs, page: number, found: TemperatureReading[], seen: Ma
     }
   } finally {
     release(lib, devices)
-    if (manager) {
-      try {
-        lib.io.symbols.IOHIDManagerClose(manager, 0)
-      } catch {
-        // already closed, or open never succeeded
-      }
-      release(lib, manager)
-    }
-    release(lib, dict)
   }
 }
 
-function matching(lib: Libs, page: number): Pointer | null {
+/** Open once. A failed open is not cached, so the next sample can try again. */
+function openManager(lib: Libs, page: number): Pointer | null {
+  const dict = matching(lib, page)
+  hidManagersCreated += 1
+  const manager = asPtr(lib.io.symbols.IOHIDManagerCreate(null, 0))
+  if (!dict || !manager) {
+    release(lib, dict)
+    release(lib, manager)
+    return null
+  }
+  lib.io.symbols.IOHIDManagerSetDeviceMatching(manager, dict)
+  if (lib.io.symbols.IOHIDManagerOpen(manager, 0) !== 0) {
+    try {
+      lib.io.symbols.IOHIDManagerClose(manager, 0)
+    } catch {
+      // open never succeeded
+    }
+    release(lib, manager)
+    release(lib, dict)
+    return null
+  }
+  managers.set(page, { manager, dict })
+  return manager
+}
+
+function matching(lib: Libs, page: number, usage?: number): Pointer | null {
   const cls = asPtr(lib.objc.symbols.objc_getClass(ptr(Buffer.from('NSMutableDictionary\0'))))
   const dict = asPtr(send(lib, asPtr(send(lib, cls, 'alloc')), 'init'))
-  const key = cfString(lib, 'PrimaryUsagePage')
-  const value = cfNumber(lib, page)
+  const pageKey = cfString(lib, 'PrimaryUsagePage')
+  const pageValue = cfNumber(lib, page)
+  const usageKey = usage === undefined ? null : cfString(lib, 'PrimaryUsage')
+  const usageValue = usage === undefined ? null : cfNumber(lib, usage)
   let keep = false
   try {
-    if (!dict || !key || !value) return null
-    send(lib, dict, 'setObject:forKey:', value, key)
+    if (!dict || !pageKey || !pageValue) return null
+    if (usage !== undefined && (!usageKey || !usageValue)) return null
+    send(lib, dict, 'setObject:forKey:', pageValue, pageKey)
+    if (usageKey && usageValue) send(lib, dict, 'setObject:forKey:', usageValue, usageKey)
     keep = true
     return dict
   } finally {
-    release(lib, key)
-    release(lib, value)
+    release(lib, pageKey)
+    release(lib, pageValue)
+    release(lib, usageKey)
+    release(lib, usageValue)
     if (!keep) release(lib, dict)
+  }
+}
+
+/**
+ * Apple vendor temperature services. A null client, a service that does not
+ * conform, or an event that is not a temperature leaves that sensor out.
+ * A value outside the Celsius window is omitted. A measured 0 stays 0.
+ */
+function readVendorTemperatures(
+  lib: Libs,
+  found: TemperatureReading[],
+  seen: Map<string, number>,
+) {
+  if (vendorUnavailable) return
+  const event = ensureEvent()
+  if (!event) return
+  const page = HID_PAGE_APPLE_VENDOR
+  const usage = HID_USAGE_APPLE_VENDOR_TEMPERATURE
+  if (!acceptsAppleVendorTemperature(page, usage)) return
+  const client = vendorClient?.client ?? openVendorClient(lib, event, page, usage)
+  if (!client) return
+  let services: Pointer | null = null
+  try {
+    services = asPtr(event.symbols.IOHIDEventSystemClientCopyServices(client))
+    if (!services) return
+    const count = exactCount(lib.cf.symbols.CFArrayGetCount(services), MAX_VENDOR_SERVICES)
+    if (count === 0) return
+    for (let i = 0; i < count; i++) {
+      const service = asPtr(lib.cf.symbols.CFArrayGetValueAtIndex(services, i))
+      if (service) readVendorService(lib, event, service, page, usage, found, seen)
+    }
+  } catch {
+    vendorUnavailable = true
+  } finally {
+    release(lib, services)
+  }
+}
+
+/**
+ * A null client is omitted for this read and tried again next sample.
+ * A throw closes the vendor path for the process. The cached client is not released.
+ */
+function openVendorClient(lib: Libs, event: EventLib, page: number, usage: number): Pointer | null {
+  let dict: Pointer | null = null
+  let client: Pointer | null = null
+  try {
+    dict = matching(lib, page, usage)
+    hidClientsCreated += 1
+    client = asPtr(event.symbols.IOHIDEventSystemClientCreate(null))
+    if (!dict || !client) return null
+    event.symbols.IOHIDEventSystemClientSetMatching(client, dict)
+    vendorClient = { client, dict }
+    return client
+  } catch {
+    vendorUnavailable = true
+    return null
+  } finally {
+    if (!vendorClient || vendorClient.client !== client) {
+      release(lib, client)
+      release(lib, dict)
+    }
+  }
+}
+
+function readVendorService(
+  lib: Libs,
+  event: EventLib,
+  service: Pointer,
+  page: number,
+  usage: number,
+  found: TemperatureReading[],
+  seen: Map<string, number>,
+) {
+  if (!event.symbols.IOHIDServiceClientConformsTo(service, page, usage)) return
+  const hidEvent = asPtr(event.symbols.IOHIDServiceClientCopyEvent(service, HID_EVENT_TEMPERATURE, 0, 0))
+  if (!hidEvent) return
+  try {
+    if (event.symbols.IOHIDEventGetType(hidEvent) !== HID_EVENT_TEMPERATURE) return
+    const celsius = celsiusReading(
+      event.symbols.IOHIDEventGetFloatValue(hidEvent, HID_EVENT_FIELD_TEMPERATURE_LEVEL),
+      undefined,
+    )
+    if (celsius === undefined) return
+    found.push({ name: uniqueName(serviceName(lib, event, service), seen), celsius })
+  } finally {
+    release(lib, hidEvent)
+  }
+}
+
+function serviceName(lib: Libs, event: EventLib, service: Pointer): string {
+  const key = cfString(lib, 'Product')
+  try {
+    if (!key) return 'temperature'
+    const prop = asPtr(event.symbols.IOHIDServiceClientCopyProperty(service, key))
+    if (!prop) return 'temperature'
+    try {
+      if (lib.cf.symbols.CFGetTypeID(prop) !== lib.cf.symbols.CFStringGetTypeID()) return 'temperature'
+      const name = cstr(lib, prop).trim()
+      return name || 'temperature'
+    } finally {
+      release(lib, prop)
+    }
+  } finally {
+    release(lib, key)
   }
 }
 

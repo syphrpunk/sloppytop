@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  acceptsAppleVendorTemperature,
   acceptsTemperatureElement,
   celsiusReading,
   coreKinds,
@@ -8,8 +9,12 @@ import {
   parseGpuMemoryBytes,
   parseHwmonInput,
   thermalStateFromInt,
+  HID_EVENT_FIELD_TEMPERATURE_LEVEL,
+  HID_EVENT_TEMPERATURE,
+  HID_PAGE_APPLE_VENDOR,
   HID_PAGE_POWER_DEVICE,
   HID_PAGE_SENSOR,
+  HID_USAGE_APPLE_VENDOR_TEMPERATURE,
   HID_USAGE_DATA_ENV_TEMPERATURE,
   HID_USAGE_ENV_TEMPERATURE,
   HID_USAGE_PD_TEMPERATURE,
@@ -21,6 +26,15 @@ describe('sensors', () => {
     expect(acceptsTemperatureElement(HID_PAGE_SENSOR, HID_USAGE_DATA_ENV_TEMPERATURE)).toBe(true)
     expect(acceptsTemperatureElement(HID_PAGE_POWER_DEVICE, HID_USAGE_PD_TEMPERATURE)).toBe(true)
     expect(acceptsTemperatureElement(0x0c, 0x101)).toBe(false)
+    expect(acceptsTemperatureElement(HID_PAGE_APPLE_VENDOR, HID_USAGE_APPLE_VENDOR_TEMPERATURE)).toBe(false)
+  })
+
+  test('apple vendor temperature is page 0xff00 usage 0x0005', () => {
+    expect(acceptsAppleVendorTemperature(HID_PAGE_APPLE_VENDOR, HID_USAGE_APPLE_VENDOR_TEMPERATURE)).toBe(true)
+    expect(acceptsAppleVendorTemperature(0xff05, HID_USAGE_APPLE_VENDOR_TEMPERATURE)).toBe(false)
+    expect(acceptsAppleVendorTemperature(HID_PAGE_APPLE_VENDOR, 0x0001)).toBe(false)
+    expect(acceptsAppleVendorTemperature(0x0c, 0x101)).toBe(false)
+    expect(HID_EVENT_FIELD_TEMPERATURE_LEVEL).toBe(HID_EVENT_TEMPERATURE << 16)
   })
 
   test('celsius keeps 0, prefers a real logical value over an unscaled 0, and drops kelvin', () => {

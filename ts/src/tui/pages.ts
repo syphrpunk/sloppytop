@@ -58,7 +58,15 @@ export function hasPageEffect(effect: ScreenEffect): boolean {
   )
 }
 
+let pageFulfills = 0
+
+/** Overlay pages loaded. The screen tick does not add to this. */
+export function pageFulfillCount(): number {
+  return pageFulfills
+}
+
 export async function fulfillPage(effect: ScreenEffect, ctx: PageContext, loaders: PageLoaders): Promise<PagePatch> {
+  pageFulfills += 1
   if (effect.openNet) return loadConnections(ctx, loaders)
   if (effect.openListen) return loadListen(ctx, loaders)
   if (effect.openHardware || effect.refreshHardware) return loadHardware(effect.refreshHardware === true, ctx, loaders)

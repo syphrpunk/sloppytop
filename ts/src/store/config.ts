@@ -3,7 +3,7 @@
 // recorder log. An existing ~/.config/neohtop directory is kept so a rename
 // does not orphan recorded samples.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { defaultProbes, parseProbes, type ProbeName, type ProbeSet } from '../monitor/probes.ts'
@@ -240,12 +240,39 @@ function parseGroups(raw: unknown): ProcessGroup[] {
   return groups
 }
 
-export function loadConfig(): Config {
+let configParses = 0
+
+/** Parses of the config file. A repeated sample with an unchanged file does not add to this. */
+export function configParseCount(): number {
+  return configParses
+}
+
+type ConfigCache = { key: string; config: Config }
+
+let configCache: ConfigCache | undefined
+
+function configCacheKey(path: string): string {
   try {
-    return normalizeConfig(JSON.parse(readFileSync(configPath(), 'utf8')))
+    const stat = statSync(path)
+    return `${path}\0${stat.mtimeMs}\0${stat.size}`
   } catch {
-    return structuredClone(DEFAULTS)
+    return `${path}\0missing`
   }
+}
+
+export function loadConfig(): Config {
+  const path = configPath()
+  const key = configCacheKey(path)
+  if (configCache?.key === key) return structuredClone(configCache.config)
+  configParses += 1
+  let config: Config
+  try {
+    config = normalizeConfig(JSON.parse(readFileSync(path, 'utf8')))
+  } catch {
+    config = structuredClone(DEFAULTS)
+  }
+  configCache = { key, config: structuredClone(config) }
+  return structuredClone(config)
 }
 
 function readJson(path: string): unknown {
@@ -282,6 +309,7 @@ export function ensureTuiConfig(): Config {
 export function saveConfig(config: Config): void {
   ensureConfigDir()
   writeFileSync(configPath(), `${JSON.stringify(config, null, 2)}\n`)
+  configCache = undefined
 }
 
 /** Write defaults if no config exists yet; returns effective config */

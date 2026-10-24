@@ -727,19 +727,26 @@ function gpuRows(system: Partial<SystemStats>, width: number): string[] {
 }
 
 function sensorRows(system: Partial<SystemStats>, width: number): string[] {
-  const facts: Fact[] = []
+  const lines: string[] = []
   for (const reading of (system.temperatures ?? []).slice(0, 8)) {
-    facts.push({ label: plain(reading.name), value: formatCelsius(reading.celsius) })
+    lines.push(sensorLine(plain(reading.name), formatCelsius(reading.celsius), width))
   }
   for (const fan of (system.fans ?? []).slice(0, 4)) {
-    facts.push({ label: plain(fan.name), value: formatRpm(fan.rpm) })
+    lines.push(sensorLine(plain(fan.name), formatRpm(fan.rpm), width))
   }
-  const lines = stackFacts(facts, width)
   const hiddenTemps = Math.max(0, (system.temperatures?.length ?? 0) - 8)
   const hiddenFans = Math.max(0, (system.fans?.length ?? 0) - 4)
   const hidden = hiddenTemps + hiddenFans
   if (hidden > 0) lines.push(`+${hidden} sensors`)
   return lines
+}
+
+/** The Celsius or rpm value stays at the end. The name uses whatever columns remain. */
+function sensorLine(name: string, value: string, width: number): string {
+  const tail = `  ${value}`
+  const room = width - widthOf(tail)
+  if (room < 1) return clip(value, width)
+  return `${clip(name, room)}${tail}`
 }
 
 function thermalRows(system: Partial<SystemStats>, _width: number): string[] {

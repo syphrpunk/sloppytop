@@ -204,6 +204,85 @@ describe('stats strip', () => {
     expect(frame.text.split('\n').some((line) => line.startsWith('thermal'))).toBe(false)
   })
 
+  test('a long temperature list keeps one labeled row per reading and counts the rest', () => {
+    const temperatures = [
+      { name: 'ambient', celsius: 0 },
+      { name: 'tdev cold', celsius: -1.634 },
+      { name: 'PMU tdie1', celsius: 74.6 },
+      { name: 'PMU tdie2', celsius: 70 },
+      { name: 'gas gauge battery', celsius: 31 },
+      { name: 'NAND CH0 temp', celsius: 40 },
+      { name: 'tcal board', celsius: 25 },
+      { name: 'PMU2 tdie', celsius: 68.2 },
+      { name: 'extra north', celsius: 11 },
+      { name: 'extra south', celsius: 12 },
+      { name: 'extra east', celsius: 13 },
+    ]
+    const drawn = [
+      ['ambient', '0°C'],
+      ['tdev cold', '-1.6°C'],
+      ['PMU tdie1', '74.6°C'],
+      ['PMU tdie2', '70.0°C'],
+      ['gas gauge battery', '31.0°C'],
+      ['NAND CH0 temp', '40.0°C'],
+      ['tcal board', '25.0°C'],
+      ['PMU2 tdie', '68.2°C'],
+    ] as const
+    const system = {
+      thermal_state: 'nominal' as const,
+      temperatures,
+      fans: [{ name: 'intake', rpm: 0 }],
+    }
+    const frames = [
+      compose(screen({ width: 80, height: 48 }), { processes: [], system, history: emptyHistory() }),
+      compose(screen({ width: 100, height: 48 }), { processes: [], system, history: emptyHistory() }),
+      compose(screen({ width: 120, height: 48 }), { processes: [], system, history: emptyHistory() }),
+    ]
+    for (const frame of frames) {
+      expect(system.temperatures).toHaveLength(11)
+      expect(frame.text).toContain('+3 sensors')
+      expect(frame.text).toContain('intake')
+      expect(frame.text).toContain('0 rpm')
+      expect(frame.text).not.toContain('extra north')
+      expect(frame.text).not.toContain('extra south')
+      expect(frame.text).not.toContain('extra east')
+      expect(frame.text).not.toContain('unmeasured die')
+      const tempLines = frame.text.split('\n').filter((line) => line.includes('°C'))
+      for (const [name, value] of drawn) {
+        const hits = tempLines.filter((line) => line.includes(name) && line.includes(value))
+        expect(hits).toHaveLength(1)
+      }
+      for (const line of tempLines) {
+        const names = drawn.filter(([name]) => line.includes(name))
+        expect(names).toHaveLength(1)
+      }
+    }
+
+    const covered = compose(screen({ overlay: 'help', width: 120, height: 48 }), {
+      processes: [],
+      system,
+      history: emptyHistory(),
+    })
+    expect(covered.text).not.toContain('PMU tdie1')
+    expect(covered.text).not.toContain('gas gauge battery')
+    expect(covered.text).not.toContain('thermal  nominal')
+    expect(covered.text).not.toContain('intake')
+
+    const off = projectSystem(measured(system), { ...defaultProbes(), sensors: false })
+    const hidden = compose(screen({ width: 120, height: 48 }), {
+      processes: [],
+      system: off,
+      history: emptyHistory(),
+    })
+    expect(off.temperatures).toBeUndefined()
+    expect(off.fans).toBeUndefined()
+    expect(off.thermal_state).toBeUndefined()
+    expect(hidden.text).not.toContain('PMU tdie1')
+    expect(hidden.text).not.toContain('intake')
+    expect(hidden.text).not.toContain('thermal  nominal')
+    expect(system.temperatures).toHaveLength(11)
+  })
+
   test('core labels appear only when the kind list matches the core array', () => {
     const labeled = compose(screen(), {
       processes: [],
@@ -705,8 +784,12 @@ describe('screen boundaries', () => {
       expect(src.includes('process.kill')).toBe(false)
     }
     const tick = run.slice(run.indexOf('const tick = async'), run.indexOf('await new Promise'))
-    expect(tick.includes('takeSample')).toBe(true)
+    const sampleTick = run.slice(run.indexOf('export async function runSampleTick'), run.indexOf('export async function runTui'))
+    expect(tick.includes('runSampleTick')).toBe(true)
+    expect(tick.includes('paint()')).toBe(true)
+    expect(sampleTick.includes('takeSample')).toBe(true)
     expect(tick.includes('fulfillPage')).toBe(false)
+    expect(sampleTick.includes('fulfillPage')).toBe(false)
     expect(tick.includes('openFiles')).toBe(false)
     expect(tick.includes('hardwareInventory')).toBe(false)
     expect(tick.includes('listeningSockets')).toBe(false)
