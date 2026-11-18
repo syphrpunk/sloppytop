@@ -92,3 +92,17 @@ and worst loop delay of 45 ms (previous trace: 333 ms maximum). Resize p95
 was still 280 ms and startup had an 8.8 s outlier; neither gate is met.
 The 5,000-row run used 1.0% paused CPU with tracing. These small runs guide
 the work; they are not a final performance certification.
+
+## Direct PTY resize
+
+Run `python3 ts/smoke-tui.py ts/dist/sloppytop --timings` to bypass tmux's
+resize scheduling. This measures a 112×30 → 56×18 kernel PTY resize to
+the first compact redraw containing the title, system band and selected
+PID. `just tui-visual` still checks the emulator's settled cells.
+
+Six runs with the default 100 ms debounce took 102–103 ms to redraw.
+With a 16 ms debounce, six runs took 33–34 ms. The first start after
+rebuilding took 1,420 ms to first frame and 2,481 ms to populated; the
+next five took 72–85 and 1,064–1,205 ms respectively. This separates the
+resize bottleneck from tmux, but the fresh-binary startup outlier still
+needs investigation.

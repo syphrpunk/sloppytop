@@ -120,6 +120,8 @@ export async function runTui(
   const renderer = await createCliRenderer({
     exitOnCtrlC: false,
     useMouse: true,
+    // Coalesce a burst of window changes without leaving a stale frame for 100 ms.
+    debounceDelay: 16,
     backgroundColor: theme.base,
   })
   trace?.since('rendererSetup', rendererStarted)
