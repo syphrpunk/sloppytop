@@ -110,13 +110,14 @@ export interface HistoryView {
   load: number[]
   /** Stored readings other than cpu, memory, and load. Empty when none were measured. */
   series: HistorySeries[]
+  diskMetrics: import('../view/disk-history.ts').DiskHistoryMetric[]
   /** One text row per enum, such as `thermal  nominal`. Not a sparkline. */
   notes: string[]
   recent: HistoryPoint[]
 }
 
 export function emptyHistoryPage(status: HistoryView['status'], message: string): HistoryView {
-  return { status, message, cpu: [], memory: [], load: [], series: [], notes: [], recent: [] }
+  return { status, message, cpu: [], memory: [], load: [], series: [], diskMetrics: [], notes: [], recent: [] }
 }
 
 export interface ReportSummary {
@@ -226,6 +227,8 @@ export interface ScreenState {
   metricsHost: string
   metricsPort: number
   historyPage: HistoryView | null
+  /** Null is the overview; otherwise an index into available disk metrics. */
+  historyDiskIndex: number | null
   reportPage: ReportView | null
   logPage: LogView | null
   settingsPage: SettingsView | null
@@ -320,6 +323,7 @@ export function initialState(
     metricsHost: '127.0.0.1',
     metricsPort: 9464,
     historyPage: null,
+    historyDiskIndex: null,
     reportPage: null,
     logPage: null,
     settingsPage: null,
@@ -415,6 +419,16 @@ function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
   if (state.overlay === 'detail') return reduceDetail(state, key)
   if (state.overlay === 'hardware') return reduceHardware(state, key)
   if (state.overlay === 'settings') return reduceSettings(state, key)
+  if (state.overlay === 'history' && state.historyPage?.status === 'ready') {
+    if (key.name === 'd') {
+      return { state: { ...state, historyDiskIndex: state.historyDiskIndex === null ? 0 : null } }
+    }
+    const count = state.historyPage.diskMetrics.length
+    if (state.historyDiskIndex !== null && count > 0 && (key.name === 'left' || key.name === 'right')) {
+      const step = key.name === 'left' ? -1 : 1
+      return { state: { ...state, historyDiskIndex: (state.historyDiskIndex + step + count) % count } }
+    }
+  }
   if (key.name === 'escape' || key.name === 'esc' || key.name === 'q' || key.name === 'return' || key.name === 'enter') {
     return { state: { ...state, overlay: 'none' } }
   }
@@ -635,6 +649,7 @@ function openHistory(state: ScreenState): ReduceResult {
       ...state,
       overlay: 'history',
       historyPage: emptyHistoryPage('loading', 'loading…'),
+      historyDiskIndex: null,
     },
     effect: { openHistory: true },
   }

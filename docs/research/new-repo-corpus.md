@@ -17,7 +17,7 @@ Keep active scanning, packet capture, remote administration, fan control, cleanu
 
 - [01 — Sampling gaps, idle rates, and counter resets](slices/01-sampling-gaps.md): three source snapshots compared; reproduced incorrect RX history and dropped chart slots.
 - [02 — Linux memory pressure versus OOM kills](slices/02-linux-memory-pressure-and-oom.md): Headroom and Below compared; host kernel counter implemented and verified against live Linux procfs.
-- [03 — Per-device disk history and topology](slices/03-device-disk-history.md): iodyne source review and the first increment of comparable CLI disk charts.
+- [03 — Per-device disk history and topology](slices/03-device-disk-history.md): iodyne source review, comparable CLI and TUI charts, and read-only topology findings.
 
 ## Archive inventory
 

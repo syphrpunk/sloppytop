@@ -6,6 +6,7 @@ import type { Database } from 'bun:sqlite'
 import { disabledRecordProbes, type ProbeSet } from '../monitor/probes.ts'
 import type { FanReading, ProcessInfo, SystemStats, TemperatureReading } from '../monitor/types.ts'
 import { takeSample, type RecordableSample } from '../sample.ts'
+import { diskHistory } from '../view/disk-history.ts'
 import { loadConfig } from '../store/config.ts'
 import { insertSample, openDb, queryHistory, type HistoryRow } from '../store/db.ts'
 import { metricsResponse } from '../store/metrics.ts'
@@ -115,7 +116,7 @@ function readingValue(list: TemperatureReading[] | undefined, name: string, fiel
 
 export function historyView(rows: HistoryInput[]): HistoryView {
   if (rows.length === 0) {
-    return { status: 'empty', message: EMPTY_WINDOW, cpu: [], memory: [], load: [], series: [], notes: [], recent: [] }
+    return { status: 'empty', message: EMPTY_WINDOW, cpu: [], memory: [], load: [], series: [], diskMetrics: [], notes: [], recent: [] }
   }
   const chrono = [...rows].reverse()
   const series: HistorySeries[] = []
@@ -176,6 +177,7 @@ export function historyView(rows: HistoryInput[]): HistoryView {
     memory: chrono.map((row) => row.memory_used),
     load: chrono.map((row) => row.load_1),
     series,
+    diskMetrics: diskHistory(chrono).metrics,
     notes,
     recent: rows.slice(0, 5).map((row) => ({
       at: row.at.slice(11, 19),

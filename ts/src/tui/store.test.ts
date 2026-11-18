@@ -81,6 +81,44 @@ describe('record gate', () => {
 })
 
 describe('history and report pages', () => {
+  test('disk comparison has aligned charts and lets short screens switch metrics', () => {
+    const base = { cpu_usage_total: 1, memory_used: 1, load_1: 0 }
+    const disk = (name: string, read: number, latency?: number) => ({
+      name, read_bytes_per_s: read, write_bytes_per_s: 0, read_iops: 1, write_iops: 0,
+      ...(latency === undefined ? {} : { read_latency_ms: latency }),
+    })
+    const view = historyView([
+      { ...base, at: '2026-10-23T00:00:02Z', disk_devices: [disk('disk-alpha', 5, 2), disk('disk-beta', 0)] },
+      { ...base, at: '2026-10-23T00:00:01Z', disk_devices: [disk('disk-alpha', 10)] },
+    ])
+    const input = { processes: [], system: {}, history: emptyHistory() }
+    let state = screen({ overlay: 'history', historyPage: view, width: 52, height: 12 })
+    expect(compose(state, input).text).toContain('d  disks')
+    state = reduce(state, key('d'), []).state
+    const throughput = compose(state, input).text
+    expect(throughput).toContain('read B/s')
+    expect(throughput).toMatch(/1 disk-alpha +⠤*⣿⣤/)
+    expect(throughput).toMatch(/2 disk-beta +⠤*⠂⠀/)
+    expect(throughput).toContain('esc  close')
+    state = reduce(state, key('left'), []).state
+    const latency = compose(state, input).text
+    expect(latency).toContain('read avg ms')
+    expect(latency).toMatch(/2 disk-beta +⠤*⠂⠂/)
+    expect(reduce(state, key('right'), []).state.historyDiskIndex).toBe(0)
+    expect(reduce(state, key('d'), []).state.historyDiskIndex).toBeNull()
+    expect(reduce(state, key('escape'), []).state.overlay).toBe('none')
+  })
+
+  test('legacy history offers no disk hint and the disk tab explains missing data', () => {
+    const view = historyView([{ at: '2026-10-23T00:00:01Z', cpu_usage_total: 1, memory_used: 1, load_1: 0 }])
+    const state = screen({ overlay: 'history', historyPage: view })
+    const input = { processes: [], system: {}, history: emptyHistory() }
+    expect(compose(state, input).text).not.toContain('d  disks')
+    const disk = reduce(state, key('d'), []).state
+    expect(compose(disk, input).text).toContain('no recorded device readings')
+    expect(reduce(disk, key('right'), []).state).toBe(disk)
+  })
+
   test('an empty store draws the empty window and no sparkline', () => {
     const view = historyView([])
     expect(view.status).toBe('empty')

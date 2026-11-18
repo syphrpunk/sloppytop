@@ -1099,6 +1099,20 @@ function historyLines(state: ScreenState): string[] {
   if (!page || page.status === 'loading') return fitHistory(state.height, ['history …'], ['esc  close'])
   if (page.status !== 'ready') return fitHistory(state.height, ['history', ...wrapWords(page.message, state.width)], ['esc  close'])
   const width = chartWidth(state.width)
+  if (state.historyDiskIndex !== null) {
+    const metric = page.diskMetrics[state.historyDiskIndex]
+    if (!metric) return fitHistory(state.height, ['disk history', 'no recorded device readings'], ['d  overview  esc  close'])
+    const labelWidth = Math.min(32, Math.floor(width / 2))
+    const chartSize = Math.max(1, width - labelWidth - 2)
+    const lines = [`disk  ${metric.title}  ${state.historyDiskIndex + 1}/${page.diskMetrics.length}`]
+    for (const [index, { name, values }] of metric.series.entries()) {
+      const label = padRight(clip(`${index + 1} ${plain(name)}`, labelWidth), labelWidth)
+      lines.push(`${label}  ${sparkline(values, { width: chartSize, max: metric.max })}`)
+    }
+    lines.push('⠂ missing   oldest → newest')
+    const controls = page.diskMetrics.length > 1 ? '←/→  metric  d  overview  esc  close' : 'd  overview  esc  close'
+    return fitHistory(state.height, lines, [controls])
+  }
   const lines = ['history']
   if (page.cpu.length > 0) lines.push(historyChart('cpu', page.cpu, width, 100))
   if (page.memory.length > 0) lines.push(historyChart('mem', page.memory, width))
@@ -1114,7 +1128,7 @@ function historyLines(state: ScreenState): string[] {
       lines.push(`  ${point.at}  cpu ${point.cpu.toFixed(1)}  mem ${formatBytesCompact(point.memory)}  load ${point.load.toFixed(2)}`)
     }
   }
-  return fitHistory(state.height, lines, ['esc  close'])
+  return fitHistory(state.height, lines, [page.diskMetrics.length ? 'd  disks  esc  close' : 'esc  close'])
 }
 
 function reportLines(state: ScreenState): string[] {

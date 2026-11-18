@@ -3,19 +3,29 @@ import { sparkline, type SparklinePoint } from './sparkline.ts'
 
 const DEVICE_LIMIT = 4
 const METRICS = [
-  ['read_bytes_per_s', 'write_bytes_per_s'],
-  ['read_iops', 'write_iops'],
-  ['read_latency_ms', 'write_latency_ms'],
+  [{ key: 'read_bytes_per_s', title: 'read B/s' }, { key: 'write_bytes_per_s', title: 'write B/s' }],
+  [{ key: 'read_iops', title: 'read IOPS' }, { key: 'write_iops', title: 'write IOPS' }],
+  [{ key: 'read_latency_ms', title: 'read avg ms' }, { key: 'write_latency_ms', title: 'write avg ms' }],
 ] as const
-type Metric = (typeof METRICS)[number][number]
+type Metric = (typeof METRICS)[number][number]['key']
 type DeviceCharts = { name: string } & Partial<Record<Metric, string>>
+
+export interface DiskHistoryMetric {
+  key: Metric
+  title: string
+  max: number
+  series: { name: string; values: SparklinePoint[] }[]
+}
 
 function reading(value: number | undefined): SparklinePoint {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
 }
 
 /** Compare recorded devices oldest first, with a common ceiling per unit. */
-export function diskHistoryCharts(rows: readonly { disk_devices?: DiskDevice[] }[]): DeviceCharts[] {
+export function diskHistory(rows: readonly { disk_devices?: DiskDevice[] }[]): {
+  names: string[]
+  metrics: DiskHistoryMetric[]
+} {
   const peaks = new Map<string, number>()
   const indexed = rows.map(({ disk_devices }) => {
     const devices = new Map<string, DiskDevice>()
@@ -30,21 +40,36 @@ export function diskHistoryCharts(rows: readonly { disk_devices?: DiskDevice[] }
   const selected = [...peaks]
     .sort(([a, x], [b, y]) => y - x || (a < b ? -1 : a > b ? 1 : 0))
     .slice(0, DEVICE_LIMIT)
-  const devices = selected.map(([name]) => indexed.map((row) => row.get(name)))
-  const result: DeviceCharts[] = selected.map(([name]) => ({ name }))
+  const names = selected.map(([name]) => name)
+  const metrics: DiskHistoryMetric[] = []
   for (const pair of METRICS) {
     let max = 0
-    const series = devices.map((samples) => pair.map((key) => samples.map((disk) => {
-      const value = reading(disk?.[key])
-      if (value !== null) max = Math.max(max, value)
-      return value
-    })))
-    for (const [deviceIndex, chart] of result.entries()) {
-      for (const [metricIndex, key] of pair.entries()) {
-        const values = series[deviceIndex]?.[metricIndex]
-        if (values?.some((v) => v !== null)) chart[key] = sparkline(values, { max })
-      }
+    const views = pair.map(({ key, title }) => ({
+      key, title,
+      series: names.map((name) => ({
+        name,
+        values: indexed.map((row) => {
+          const value = reading(row.get(name)?.[key])
+          if (value !== null) max = Math.max(max, value)
+          return value
+        }),
+      })),
+    }))
+    for (const view of views) {
+      if (view.series.some(({ values }) => values.some((v) => v !== null))) metrics.push({ ...view, max })
     }
   }
-  return result.filter((chart) => METRICS.some((pair) => pair.some((key) => chart[key] !== undefined)))
+  return { names, metrics }
+}
+
+export function diskHistoryCharts(rows: readonly { disk_devices?: DiskDevice[] }[]): DeviceCharts[] {
+  const { names, metrics } = diskHistory(rows)
+  const byName = new Map<string, DeviceCharts>(names.map((name) => [name, { name }]))
+  for (const { key, max, series } of metrics) {
+    for (const { name, values } of series) {
+      const chart = byName.get(name)
+      if (chart && values.some((v) => v !== null)) chart[key] = sparkline(values, { max })
+    }
+  }
+  return [...byName.values()].filter((chart) => Object.keys(chart).length > 1)
 }

@@ -16,6 +16,7 @@ The `handoff-create --changelog` flow appends entries to "## Unreleased" as you 
 - TUI history charts show more recorded signals, plot network rates as stored, and retain gaps for missing readings.
 - Linux samples include kernel OOM kills since boot when available. Reports flag increases across adjacent same-boot samples separately from memory pressure.
 - `history --charts` compares recorded throughput, IOPS, and interval-average latency for up to four disk device names.
+- TUI history (`v`) has a disk comparison tab (`d`); left and right switch metrics.
 
 ## 0.3.0 - 2026-10-23
 
