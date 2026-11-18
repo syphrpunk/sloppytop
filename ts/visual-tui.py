@@ -85,7 +85,7 @@ def run(fixture, output, review_only=False):
     style_baselines = {
         "01-wide": "1e99e3bfff23def73010d6cf7a965f8ae07394dda00a4a8a566b4ecb864695b7",
         "02-narrow": "b9384ebaae3724131e44abf007240fc674974aef6e958490f526912ef4939475",
-        "04b-neighbors-bottom": "eb96b7a54c65ddd9f8eb1d628c521f999f3ba47032b17ccb1ea92772b347843d",
+        "04b-neighbors-bottom": "b6de05e3450d43b04b9d806ba463b518622174194dd83af0830e9ca351d621ab",
         "19-columns": "35207b7faf7de99beaee036f1dcb3fbca371a31a3b966e27a9d93622660e5084",
     }
     with tempfile.TemporaryDirectory(prefix="st-visual-") as folder:
@@ -161,6 +161,14 @@ def run(fixture, output, review_only=False):
             capture("05b-connections", ["connections 6/7 ·", "[::1]:8080 PID 200", "rx 0 B/s · tx —"], 56, 18)
             tmux("send-keys", "-t", "visual", "Right")
             capture("05c-dns", ["dns 7/7 ·", "server 192.0.2.53", "search fixture.test"], 56, 18)
+            tmux("send-keys", "-t", "visual", "c")
+            capture("05d-snapshot-form", ["compare saved discovery snapshots", "> before", "after", "Tab field"], 56, 18)
+            tmux("send-keys", "-t", "visual", "Escape")
+            capture("05e-snapshot-back", ["dns 7/7 ·", "server 192.0.2.53"], 56, 18)
+            tmux("send-keys", "-t", "visual", "e")
+            capture("05f-discovery-export", ["export redacted discovery overview", "new file only; never overwrites"], 56, 18)
+            tmux("send-keys", "-t", "visual", "Escape")
+            capture("05g-export-back", ["dns 7/7 ·", "server 192.0.2.53"], 56, 18)
             tmux("send-keys", "-t", "visual", "-l", "\x1b[<0;2;18M\x1b[<0;2;18m")
             capture("06-return", ["sloppytop", "system", "PID", "fixture-worker", "q quit"], 56, 18)
             tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")
@@ -209,9 +217,10 @@ def run(fixture, output, review_only=False):
             tmux("send-keys", "-t", "visual", "Down")
             capture("17aa-history-inspect-scroll", ["history sample 1/", "fixture-eth", "rx 0 B/s", "tx —"], 56, 12, compare=True)
             tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")
-            capture("17b-history-inspect-wide", ["history sample 1/", "anomaly evidence", "recorded interfaces", "fixture-eth", "─" * 90], 112, 30, compare=True)
+            capture("17b-history-inspect-wide", ["history sample 1/", "anomaly evidence", "recorded interfaces", "fixture-eth",
+                                                "recorded top processes", "200  100.0%  450M  fixture-worker", "─" * 90], 112, 30, compare=True)
             tmux("send-keys", "-t", "visual", "Left")
-            capture("17c-history-inspect-previous", ["history sample 2/", "preceding gap", "cause unknown"], 112, 30)
+            capture("17c-history-inspect-previous", ["history sample 2/", "preceding gap", "cause unknown", "no process rows stored"], 112, 30)
             tmux("resize-window", "-t", "visual", "-x", "56", "-y", "12")
             tmux("send-keys", "-t", "visual", "q")
             capture("18-history-return", ["PID", "fixture-worker", "q quit"], 56, 12)
@@ -233,6 +242,19 @@ def run(fixture, output, review_only=False):
                 if key == "c":
                     tmux("send-keys", "-t", "visual", "-l", "\x1b[<65;9;7M" * 20)
                     capture("19-columns-bottom", ["> [ ] cgroup", "Space toggle"], 56, 12)
+                if key == "w":
+                    tmux("send-keys", "-t", "visual", "c")
+                    capture("19-report-compare", ["24h window comparison", "coverage  insufficient"], 56, 12)
+                    tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")
+                    tmux("send-keys", "-t", "visual", "w")
+                    capture("19-report-workloads", ["fixture group (1 matched)", "incomplete  1/24 stored", "CPU 100.0%"], 112, 30)
+                    tmux("send-keys", "-t", "visual", "l")
+                    capture("19-report-rss", ["RSS growth evidence", "no RSS growth flags"], 112, 30)
+                    tmux("send-keys", "-t", "visual", "e")
+                    capture("19-report-export", ["export redacted diagnostics", "> destination", "new file only"], 112, 30)
+                    tmux("send-keys", "-t", "visual", "Escape")
+                    capture("19-report-export-back", ["RSS growth evidence"], 112, 30)
+                    tmux("resize-window", "-t", "visual", "-x", "56", "-y", "12")
                 tmux("send-keys", "-t", "visual", "q")
                 capture(f"20-{label}-return", ["PID", "fixture-worker", "q quit"], 56, 12)
             tmux("send-keys", "-t", "visual", "q")

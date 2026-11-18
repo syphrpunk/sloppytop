@@ -490,13 +490,22 @@ export function queryHistory(db: Database, sinceIso: string, limit: number): His
   })
 }
 
-export function queryTopProcesses(db: Database, sampleId: number): Record<string, unknown>[] {
+export interface StoredProcessRow {
+  pid: number
+  name: string
+  cpu_usage: number
+  memory_bytes: number
+  user: string
+  command: string
+}
+
+export function queryTopProcesses(db: Database, sampleId: number): StoredProcessRow[] {
   return db
     .prepare(
       `SELECT pid, name, cpu_usage, memory_bytes, user, command
        FROM process_samples WHERE sample_id = ? ORDER BY cpu_usage DESC`,
     )
-    .all(sampleId) as Record<string, unknown>[]
+    .all(sampleId) as StoredProcessRow[]
 }
 
 function jsonOrNull(value: unknown[] | undefined): string | null {

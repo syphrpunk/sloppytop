@@ -266,6 +266,19 @@ subtree with the same collector as `tree --summary-pid`. Press `t` again
 to return. Coverage is shown per metric; the subtree may omit processes,
 and summed RSS can count shared pages more than once. This is separate from
 the `g` cgroup view.
+Press `v`, then `i`, to scroll through anomaly evidence, interfaces, and
+stored top processes for each of the five newest History samples. Process
+arguments are not shown. In Report (`w` from the main screen), `c` compares
+the last 24 hours with the preceding 24 hours, `w` shows per-sample CPU/RSS
+for configured groups, and `l` shows RSS-growth evidence and thresholds.
+Press the same key again for the overview. Scroll with arrows or the mouse
+wheel. Coverage counts stored observations, not all host processes.
+In discovery (`D`), use `c` to compare two saved snapshots. Type the two
+local paths, use Tab to switch fields, and press Enter to compare. Both
+files must be full snapshots or both must be redacted snapshots. Use `e`
+in discovery to save the loaded overview as counts and coverage only, or
+`e` in Report to save redacted diagnostics. Exports create a new local file
+and never overwrite; diagnostic timestamps may still be sensitive.
 
 ```json
 {

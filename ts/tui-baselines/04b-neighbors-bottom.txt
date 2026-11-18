@@ -15,4 +15,4 @@ sloppytop  Charm
 │ eth0 fe80::13%eth0 stale                             │
 │ eth0 fe80::14%eth0 stale                             │
 ╰──────────────────────────────────────────────────────╯
-q close   ←/→ tab   ↑/↓ scroll   r refresh
+q close   ←/→ tab ↑/↓ scroll r refresh c diff e export

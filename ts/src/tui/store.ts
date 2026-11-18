@@ -9,16 +9,19 @@ import { takeSample, type RecordableSample } from '../sample.ts'
 import { diskHistory } from '../view/disk-history.ts'
 import { historyCoverage } from '../view/history-coverage.ts'
 import { loadConfig } from '../store/config.ts'
-import { dbInfo, insertSample, openDb, queryHistory, type HistoryRow } from '../store/db.ts'
+import { diagnosticReport } from '../store/diagnostics.ts'
+import { dbInfo, insertSample, openDb, queryHistory, queryTopProcesses, type HistoryRow } from '../store/db.ts'
 import { metricsResponse } from '../store/metrics.ts'
 import { readProbeLog } from '../store/probe-log.ts'
 import {
+  compareReportWindows,
   reportAnomalies,
   reportGroups,
   reportHourly,
   reportLeaks,
   reportTopConsumers,
   reportWindow,
+  reportWorkloadHistory,
 } from '../store/report.ts'
 import { sampleFreshness, status, type StatusResult } from '../store/service.ts'
 import type {
@@ -114,7 +117,11 @@ function readingValue(list: TemperatureReading[] | undefined, name: string, fiel
   return value !== undefined && Number.isFinite(value) ? value : undefined
 }
 
-export function historyView(rows: HistoryInput[], findings: ReturnType<typeof reportAnomalies> = []): HistoryView {
+export function historyView(
+  rows: HistoryInput[],
+  findings: ReturnType<typeof reportAnomalies> = [],
+  readProcesses?: (id: number) => ReturnType<typeof queryTopProcesses>,
+): HistoryView {
   if (rows.length === 0) {
     return { status: 'empty', message: EMPTY_WINDOW, cpu: [], memory: [], load: [], series: [], diskMetrics: [], notes: [], recent: [] }
   }
@@ -188,6 +195,7 @@ export function historyView(rows: HistoryInput[], findings: ReturnType<typeof re
       gapSeconds: timeline.coverage.unobserved_intervals.find((gap) => gap.before === row.at)?.seconds,
       interfaces: row.network_interfaces,
       anomalies: findings.filter((finding) => finding.at === row.at),
+      processes: row.id === undefined ? undefined : readProcesses?.(row.id).map(({ command: _, ...process }) => process),
       cpu: row.cpu_usage_total,
       memory: row.memory_used,
       load: row.load_1,
@@ -311,29 +319,39 @@ export function loadHistory(): HistoryView {
   return withDb((db) => {
     const since = new Date(Date.now() - HISTORY_HOURS * 3_600_000).toISOString()
     const rows = queryHistory(db, since, HISTORY_LIMIT)
-    return historyView(rows, rows.length ? reportAnomalies(db, rows.at(-1)!.at) : [])
+    return historyView(rows, rows.length ? reportAnomalies(db, rows.at(-1)!.at) : [], id => queryTopProcesses(db, id))
   })
 }
 
 export function loadReport(): ReportView {
-  return withDb((db) => {
-    const since = new Date(Date.now() - HISTORY_HOURS * 3_600_000).toISOString()
-    if (!reportWindow(db, since)) return reportView(null)
-    const hourly = reportHourly(db, since)
-    const top = reportTopConsumers(db, since, 5).map((row) => ({
-      name: row.name,
-      cpu_avg: row.cpu_avg,
-      memory_avg_bytes: row.memory_avg_bytes,
-    }))
-    const anomalies = reportAnomalies(db, since).map((row) => ({ at: row.at, type: row.type, detail: row.detail }))
-    const leaks = reportLeaks(db, since).map((row) => ({
-      name: row.name,
-      metric: row.metric,
-      total_growth_bytes: row.total_growth_bytes,
-    }))
-    const groups = reportGroups(db, since, loadConfig().groups).map((row) => ({ name: row.name, score: row.score }))
-    return reportView({ hourly, top, anomalies, leaks, groups })
-  })
+  return withDb(db => readReport(db))
+}
+
+export function loadDiagnostic() {
+  const since = new Date(Date.now() - HISTORY_HOURS * 3_600_000).toISOString()
+  const scheduler = process.platform === 'darwin' || process.platform === 'linux' ? status() : undefined
+  return withDb(db => diagnosticReport(db, since, scheduler))
+}
+
+export function readReport(db: Database, configuredGroups = loadConfig().groups, now = Date.now()): ReportView {
+  const since = new Date(now - HISTORY_HOURS * 3_600_000).toISOString()
+  const leaks = reportLeaks(db, since)
+  const evidence = {
+    comparison: compareReportWindows(db, HISTORY_HOURS, now),
+    workloads: reportWorkloadHistory(db, since, configuredGroups),
+    groupCount: configuredGroups.length,
+    leaks,
+  }
+  if (!reportWindow(db, since)) return { ...reportView(null), evidence }
+  const hourly = reportHourly(db, since)
+  const top = reportTopConsumers(db, since, 5).map((row) => ({
+    name: row.name,
+    cpu_avg: row.cpu_avg,
+    memory_avg_bytes: row.memory_avg_bytes,
+  }))
+  const anomalies = reportAnomalies(db, since).map((row) => ({ at: row.at, type: row.type, detail: row.detail }))
+  const groups = reportGroups(db, since, configuredGroups).map((row) => ({ name: row.name, score: row.score }))
+  return { ...reportView({ hourly, top, anomalies, leaks, groups }), evidence }
 }
 
 export function loadLog(): { lines: string[] } {

@@ -36,6 +36,14 @@ export function readSnapshot(path: string): Snapshot | RedactedSnapshot | undefi
   } catch { return undefined }
 }
 
+export function compareSnapshotFiles(beforePath: string, afterPath: string) {
+  const before = readSnapshot(beforePath), after = readSnapshot(afterPath)
+  if (!before || !after) throw new Error('could not read a valid local discovery snapshot')
+  if ('redacted' in before && 'redacted' in after) return compareRedactedSnapshots(before, after)
+  if ('redacted' in before || 'redacted' in after) throw new Error('compare two full or two redacted snapshots, not one of each')
+  return compareSnapshots(before, after)
+}
+
 export function compareRedactedSnapshots(before: RedactedSnapshot, after: RedactedSnapshot) {
   const observed = sections.map((section) => {
     function coverage(rows: RedactedSnapshot[typeof section]) {

@@ -21,8 +21,9 @@ test('history renders age and an unobserved interval as a distinct cell', () => 
 import { defaultProbes } from '../monitor/probes.ts'
 import type { SystemStats } from '../monitor/types.ts'
 import { DEFAULT_TUI } from '../store/config.ts'
+import { openDb, insertSample } from '../store/db.ts'
 import { compose, emptyHistory } from './frame.ts'
-import { EMPTY_WINDOW, attemptRecord, bindMetricsListener, historyView, logView, readService, reportView } from './store.ts'
+import { EMPTY_WINDOW, attemptRecord, bindMetricsListener, historyView, logView, readReport, readService, reportView } from './store.ts'
 import { initialState, reduce, wantsQuit, type KeyPress, type ScreenState } from './state.ts'
 
 function key(name: string, extra: Partial<KeyPress> = {}): KeyPress {
@@ -47,6 +48,40 @@ function mtime(path: string): number | null {
     return null
   }
 }
+
+test('report renders sampled deltas, workload coverage, and full stored RSS evidence', () => {
+  using db = openDb(':memory:')
+  const now = Date.parse('2026-11-18T12:00:00Z')
+  const system = {
+    cpu_usage_total: 0, core_count: 1, cpu_usage_per_core: [0], memory_used: 0, memory_total: 1024 ** 3,
+    load_avg: [0, 0, 0], process_count: 2, disk_total_bytes: 0, disk_used_bytes: 0, disk_free_bytes: 0,
+    memory_free: 1024 ** 3, network_rx_bytes: 0, network_tx_bytes: 0,
+    hostname: 'fixture', os_version: 'fixture', kernel_version: 'fixture', uptime_secs: 0, cpu_brand: 'fixture',
+  } satisfies SystemStats
+  const insert = (offset: number, cpu: number, rss: number) => insertSample(
+    db, new Date(now - offset).toISOString(), { ...system, cpu_usage_total: cpu },
+    [{ pid: 7, ppid: 1, name: 'growth-fixture', cpu_usage: 0, memory_bytes: rss, disk_read_bytes: 0,
+      disk_write_bytes: 0, runtime_secs: 0, user: '', command: 'not shown', status: 'Running' }],
+    { processLimit: 1, retentionDays: 36500 },
+  )
+  insert(25 * 3_600_000, 10, 32 * 2 ** 20)
+  for (let i = 0; i < 12; i++) insert((12 - i) * 300_000, 0, (32 + 8 * i) * 2 ** 20)
+  const state = { ...screen({ height: 40 }), overlay: 'report' as const,
+    reportPage: readReport(db, [{ name: 'test group', patterns: ['growth-fixture'] }], now) }
+  const render = (current: ScreenState) => compose(current, { processes: [], system: {}, history: emptyHistory() }).text
+  const compare = render(reduce(state, key('c'), []).state)
+  expect(compare).toContain('CPU -10 pp')
+  expect(compare).toContain('coverage  unequal')
+  const workloads = render(reduce(state, key('w'), []).state)
+  expect(workloads).toContain('incomplete  1/2 stored')
+  expect(workloads).toContain('CPU 0.0%')
+  expect(workloads).not.toContain('not shown')
+  const leak = render(reduce(state, key('l'), []).state)
+  expect(leak).toContain('growth-fixture')
+  expect(leak).toContain('12 points')
+  expect(leak).toContain('recent slope')
+  expect(leak).toContain('minimumRelativeGrowth: 0.05')
+})
 
 describe('record gate', () => {
   test('cpu off refuses before the sample and the insert', async () => {

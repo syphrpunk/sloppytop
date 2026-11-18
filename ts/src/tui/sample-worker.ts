@@ -2,11 +2,14 @@ import type { Sample } from '../sample.ts'
 import type { DiscoveryDetail, Overview } from '../discovery/overview.ts'
 import type { RecorderHealth } from './store.ts'
 import type { summarizeTree } from '../monitor/workload.ts'
+import type { ReportView } from './state.ts'
 
 export type WorkerRequest = { kind: 'sample'; ms: number } | { kind: 'discovery'; section: 'overview' | 'connections' | 'dns' }
-  | { kind: 'recorder' } | { kind: 'subtree'; pid: number; ms: number }
+  | { kind: 'recorder' } | { kind: 'subtree'; pid: number; ms: number } | { kind: 'report' }
+  | { kind: 'artifact'; input: import('./artifacts.ts').ArtifactRequest }
 export type WorkerReply = { sample: Sample } | { overview: Overview } | { detail: DiscoveryDetail }
-  | { recorder: RecorderHealth } | { subtree: ReturnType<typeof summarizeTree> } | { error: string }
+  | { recorder: RecorderHealth } | { subtree: ReturnType<typeof summarizeTree> } | { report: ReportView }
+  | { artifact: string[] } | { error: string }
 const self = globalThis as unknown as {
   onmessage: (event: MessageEvent<WorkerRequest>) => void
   postMessage: (result: WorkerReply) => void
@@ -22,6 +25,12 @@ self.onmessage = async ({ data }) => {
     } else if (data.kind === 'subtree') {
       const { takeSample } = await import('../sample.ts')
       self.postMessage({ subtree: (await takeSample(data.ms, data.pid)).workload })
+    } else if (data.kind === 'report') {
+      const { loadReport } = await import('./store.ts')
+      self.postMessage({ report: loadReport() })
+    } else if (data.kind === 'artifact') {
+      const { runArtifact } = await import('./artifacts.ts')
+      self.postMessage({ artifact: await runArtifact(data.input) })
     } else {
       const { discoverDetail, discoverOverview } = await import('../discovery/overview.ts')
       if (data.section === 'overview') self.postMessage({ overview: await discoverOverview() })

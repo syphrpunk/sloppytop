@@ -6,8 +6,9 @@ import { defaultPageLoaders } from './src/tui/pages.ts'
 import { defaultProbes } from './src/monitor/probes.ts'
 import type { Sample } from './src/sample.ts'
 import { insertSample, openDb } from './src/store/db.ts'
-import { updateProbes } from './src/store/config.ts'
+import { loadConfig, saveConfig, updateProbes } from './src/store/config.ts'
 import { summarizeTree } from './src/monitor/workload.ts'
+import { loadReport } from './src/tui/store.ts'
 
 const rows = Number(process.env.ST_FIXTURE_ROWS ?? 24)
 if (!Number.isInteger(rows) || rows < 1 || rows > 5_000) throw new Error('fixture rows must be 1–5000')
@@ -38,6 +39,7 @@ const sample: Sample = {
 if (process.env.ST_VISUAL_HISTORY === '1') {
   if (!process.env.XDG_CONFIG_HOME) throw new Error('visual fixture requires a disposable XDG_CONFIG_HOME')
   updateProbes(['cpu'], false)
+  saveConfig({ ...loadConfig(), groups: [{ name: 'fixture group', patterns: ['fixture-worker'] }] })
   const db = openDb()
   const now = Date.now()
   for (const hours of [4, 1, 0]) {
@@ -48,7 +50,7 @@ if (process.env.ST_VISUAL_HISTORY === '1') {
         name: 'fixture-disk', read_bytes_per_s: hours ? 100 : 0, write_bytes_per_s: 50,
         read_iops: 2, write_iops: 1,
       }],
-    }, [], { processLimit: 0, retentionDays: 30 })
+    }, hours === 0 ? sample.processes.slice(0, 1) : [], { processLimit: 1, retentionDays: 30 })
   }
   db.close()
 }
@@ -102,4 +104,4 @@ await runTui(loaders, async () => {
   scheduler: 'systemd', installed: true, loaded: true, scheduler_state: 'armed', recorder_state: 'idle',
   last_run: { outcome: 'failed', exit_code: 7 }, last_successful_sample_at: '2026-11-18T04:00:00.000Z',
   sample_age_seconds: 0,
-}), pid => summarizeTree([{ pid: 200, ppid: 1, cpu: 0, rss: 0 }, { pid: 201, ppid: 200, rss: 0 }], pid))
+}), pid => summarizeTree([{ pid: 200, ppid: 1, cpu: 0, rss: 0 }, { pid: 201, ppid: 200, rss: 0 }], pid), loadReport)

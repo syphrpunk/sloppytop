@@ -5,6 +5,17 @@ const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const
 const COMPACT_UNITS = ['B', 'K', 'M', 'G', 'T'] as const
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 
+/** Skip cell columns without cutting a grapheme. */
+export function skipCells(text: string, count: number): string {
+  if (count <= 0) return text
+  let cells = 0
+  for (const { segment, index } of graphemes.segment(text)) {
+    if (cells >= count) return text.slice(index)
+    cells += widthOf(segment)
+  }
+  return ''
+}
+
 export function widthOf(text: string): number {
   return Bun.stringWidth(text)
 }

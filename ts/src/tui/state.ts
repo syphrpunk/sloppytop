@@ -25,6 +25,16 @@ export type Overlay =
   | 'log'
   | 'settings'
   | 'record'
+  | 'artifact'
+
+export interface ArtifactForm {
+  kind: 'compare' | 'discovery' | 'diagnostic'
+  paths: string[]
+  field: number
+  column?: number
+  status: 'input' | 'loading' | 'ready' | 'error'
+  lines: string[]
+}
 
 export const DISCOVERY_TABS = ['overview', 'interfaces', 'routes', 'neighbors', 'listeners', 'connections', 'dns'] as const
 
@@ -103,6 +113,7 @@ export interface HistoryPoint {
   gapSeconds?: number
   interfaces?: import('../monitor/types.ts').NetworkInterfaceRate[]
   anomalies?: import('../store/report.ts').Anomaly[]
+  processes?: Omit<import('../store/db.ts').StoredProcessRow, 'command'>[]
   cpu: number
   memory: number
   load: number
@@ -168,11 +179,8 @@ export interface ReportAnomalyLine {
   detail: string
 }
 
-export interface ReportLeakLine {
-  name: string
-  metric: 'rss'
-  total_growth_bytes: number
-}
+export type ReportLeakLine = import('../store/report.ts').LeakFlag
+export type ReportTab = 'overview' | 'compare' | 'workloads' | 'rss'
 
 export interface ReportGroupLine {
   name: string
@@ -191,6 +199,12 @@ export interface ReportView {
   anomalies: ReportAnomalyLine[]
   leaks: ReportLeakLine[]
   groups: ReportGroupLine[]
+  evidence?: {
+    comparison: ReturnType<typeof import('../store/report.ts').compareReportWindows>
+    workloads: ReturnType<typeof import('../store/report.ts').reportWorkloadHistory>
+    groupCount: number
+    leaks: ReportLeakLine[]
+  }
 }
 
 export interface LogView {
@@ -259,9 +273,11 @@ export interface ScreenState {
   historyDiskIndex: number | null
   historyPointIndex: number | null
   reportPage: ReportView | null
+  reportTab: ReportTab
   logPage: LogView | null
   settingsPage: SettingsView | null
   recordPage: { message: string } | null
+  artifact?: ArtifactForm
 }
 
 export interface ScreenEffect {
@@ -286,6 +302,7 @@ export interface ScreenEffect {
   toggleProbe?: { name: ProbeName; enabled: boolean }
   toggleMetrics?: boolean
   record?: boolean
+  artifact?: import('./artifacts.ts').ArtifactRequest
 }
 
 export interface ReduceResult {
@@ -360,6 +377,7 @@ export function initialState(
     historyDiskIndex: null,
     historyPointIndex: null,
     reportPage: null,
+    reportTab: 'overview',
     logPage: null,
     settingsPage: null,
     recordPage: null,
@@ -454,6 +472,12 @@ function reduceSearch(state: ScreenState, key: KeyPress): ReduceResult {
 }
 
 function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
+  if (state.overlay === 'artifact' && state.artifact) return reduceArtifact(state, key, state.artifact)
+  if (state.overlay === 'report') {
+    if (key.name === 'e') return openArtifact(state, 'diagnostic')
+    const tab = key.name === 'c' ? 'compare' : key.name === 'w' ? 'workloads' : key.name === 'l' ? 'rss' : undefined
+    if (tab) return { state: { ...state, reportTab: state.reportTab === tab ? 'overview' : tab, overlayScroll: 0 } }
+  }
   if (state.overlay === 'kill') return reduceKill(state, key)
   if (state.overlay === 'columns') return reduceColumns(state, key)
   if (state.overlay === 'theme') return reduceTheme(state, key)
@@ -462,6 +486,8 @@ function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
   if (state.overlay === 'settings') return reduceSettings(state, key)
   if (state.overlay === 'discovery' && state.discoveryPage) {
     const page = state.discoveryPage
+    if (key.name === 'c') return openArtifact(state, 'compare')
+    if (key.name === 'e') return openArtifact(state, 'discovery')
     if (key.name === 'r') return {
       state: { ...state, discoveryPage: { tab: page.tab, offset: 0, refreshed: true, loading: true, data: page.data } },
       effect: { openDiscovery: true },
@@ -501,6 +527,55 @@ function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
     return { state: { ...state, overlay: 'none' } }
   }
   return { state }
+}
+
+function openArtifact(state: ScreenState, kind: ArtifactForm['kind']): ReduceResult {
+  const missing = kind === 'discovery' && (!state.discoveryPage?.data || !state.probes.network)
+  return { state: { ...state, overlay: 'artifact', artifact: {
+    kind, paths: kind === 'compare' ? ['', ''] : [''], field: 0,
+    status: missing ? 'error' : 'input',
+    lines: missing ? ['open or refresh discovery overview before exporting'] : [],
+  } } }
+}
+
+function reduceArtifact(state: ScreenState, key: KeyPress, form: ArtifactForm): ReduceResult {
+  if (key.name === 'escape' || key.name === 'esc' || (key.name === 'q' && form.status !== 'input')) {
+    const overlay = form.kind === 'diagnostic' ? 'report' : 'discovery'
+    // A cancelled live read may have been invalidated while the form was open.
+    const reload = overlay === 'discovery' && state.discoveryPage?.loading
+    return { state: { ...state, overlay, artifact: undefined }, ...(reload ? { effect: { openDiscovery: true } }
+      : overlay === 'report' && state.reportPage?.status === 'loading' ? { effect: { openReport: true } } : {}) }
+  }
+  if (form.status === 'ready' && form.kind === 'compare' && (key.name === 'left' || key.name === 'right')) {
+    const column = Math.max(0, (form.column ?? 0) + (key.name === 'left' ? -8 : 8))
+    return { state: { ...state, artifact: { ...form, column } } }
+  }
+  if (form.status !== 'input') return { state }
+  const current = form.paths[form.field] ?? ''
+  if (key.name === 'tab') return { state: { ...state, artifact: { ...form, field: (form.field + 1) % form.paths.length } } }
+  if (key.name === 'return' || key.name === 'enter') {
+    if (!current.trim()) return { state }
+    const empty = form.paths.findIndex(path => !path.trim())
+    if (empty >= 0) return { state: { ...state, artifact: { ...form, field: empty } } }
+    const path = form.paths[0]!
+    const overview = state.discoveryPage?.data
+    const artifact = form.kind === 'compare' ? { kind: 'compare' as const, before: path, after: form.paths[1]! }
+      : form.kind === 'diagnostic' ? { kind: 'diagnostic' as const, path }
+      : overview ? { kind: 'discovery' as const, path, overview } : undefined
+    if (!artifact) return { state }
+    return { state: { ...state, artifact: { ...form, status: 'loading' } }, effect: { artifact } }
+  }
+  let next = current
+  if (key.name === 'backspace' || key.name === 'delete') next = [...current].slice(0, -1).join('')
+  else if (!key.ctrl && key.name === 'space') next += ' '
+  else if (!key.ctrl && [...key.name].length === 1) next += key.name
+  return setArtifactPath(state, next)
+}
+
+export function setArtifactPath(state: ScreenState, path: string): ReduceResult {
+  const form = state.artifact
+  if (state.overlay !== 'artifact' || form?.status !== 'input' || /[\x00-\x1f\x7f]/.test(path) || path.length > 4096) return { state }
+  return { state: { ...state, artifact: { ...form, paths: form.paths.map((value, i) => i === form.field ? path : value) } } }
 }
 
 function reduceDetail(state: ScreenState, key: KeyPress): ReduceResult {
@@ -763,6 +838,7 @@ function openReport(state: ScreenState): ReduceResult {
     state: {
       ...state,
       overlay: 'report',
+      reportTab: 'overview',
       reportPage: {
         status: 'loading',
         message: 'loading…',

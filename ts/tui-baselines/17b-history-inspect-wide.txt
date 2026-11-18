@@ -9,9 +9,9 @@ sloppytop  Charm
 │ psi_io_some_avg10 12 >= 10                                                                                   │
 │ recorded interfaces                                                                                          │
 │   fixture-eth  rx 0 B/s  tx —                                                                                │
+│ recorded top processes (by CPU)                                                                              │
+│   200  100.0%  450M  fixture-worker                                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-
-
 
 
 

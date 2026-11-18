@@ -24,6 +24,7 @@ import {
   ensureSelection,
   initialState,
   reduce,
+  setArtifactPath,
   visibleRows,
   wantsQuit,
   type DisplayRow,
@@ -72,6 +73,7 @@ export async function runTui(
   loadDiscoveryDetail?: (section: 'connections' | 'dns') => Promise<DiscoveryDetail>,
   loadRecorder?: () => RecorderHealth,
   loadSubtree?: (pid: number) => ReturnType<typeof import('../monitor/workload.ts').summarizeTree>,
+  loadReport?: () => import('./state.ts').ReportView,
 ): Promise<void> {
   const started = performance.now()
   const trace = startTuiTrace()
@@ -207,7 +209,7 @@ export async function runTui(
         effect.openNet || effect.openListen || effect.openHardware || effect.refreshHardware ||
         effect.openTopology || effect.loadCgroup != null) void fulfillAndApply(effect)
     if (effect.openHistory || effect.openDiscovery || effect.openReport || effect.openLog ||
-        effect.openSettings || effect.record || effect.loadSubtree != null) void fulfillStore(effect)
+        effect.openSettings || effect.record || effect.loadSubtree != null || effect.artifact) void fulfillStore(effect)
   }
 
   const persistProbe = (toggle: { name: ProbeName; enabled: boolean }) => {
@@ -386,6 +388,18 @@ export async function runTui(
         if (stopped || token !== storeToken || state.overlay !== 'detail' || state.detail?.pid !== pid || !state.detail.subtree) return
         const totals = reply && 'subtree' in reply ? reply.subtree : undefined
         state = { ...state, detail: { ...state.detail, subtree: totals ? { status: 'ready', totals } : { status: 'unavailable' } } }
+      } else if (effect.artifact && state.overlay === 'artifact') {
+        onDemandWorker.close()
+        const reply = await onDemandWorker.request({ kind: 'artifact', input: effect.artifact }, 15_000)
+        if (stopped || token !== storeToken || state.overlay !== 'artifact' || !state.artifact) return
+        if (!reply || !('artifact' in reply)) throw new Error('artifact unavailable')
+        state = { ...state, artifact: { ...state.artifact, status: 'ready', lines: reply.artifact } }
+      } else if (effect.openReport && state.overlay === 'report') {
+        onDemandWorker.close()
+        const reply = loadReport ? { report: loadReport() } : await onDemandWorker.request({ kind: 'report' }, 15_000)
+        if (stopped || token !== storeToken || state.overlay !== 'report') return
+        if (!reply || !('report' in reply)) throw new Error('report unavailable')
+        state = { ...state, reportPage: reply.report }
       } else {
         const store = await import('./store.ts')
         if (stopped || token !== storeToken) return
@@ -395,8 +409,6 @@ export async function runTui(
           state = { ...state, recordPage: { message: result.message } }
         } else if (effect.openHistory && state.overlay === 'history') {
           state = { ...state, historyPage: store.loadHistory() }
-        } else if (effect.openReport && state.overlay === 'report') {
-          state = { ...state, reportPage: store.loadReport() }
         } else if (effect.openLog && state.overlay === 'log') {
           state = { ...state, logPage: { status: 'ready', message: '', lines: store.loadLog().lines } }
         }
@@ -422,6 +434,9 @@ export async function runTui(
       }
       if (effect.loadSubtree != null && state.overlay === 'detail' && state.detail?.pid === effect.loadSubtree && state.detail.subtree) {
         state = { ...state, detail: { ...state.detail, subtree: { status: 'unavailable' } } }
+      }
+      if (effect.artifact && state.overlay === 'artifact' && state.artifact) {
+        state = { ...state, artifact: { ...state.artifact, status: 'error', lines: [message] } }
       }
     }
     if (!stopped) paint()
@@ -528,6 +543,14 @@ export async function runTui(
       stop()
       resolve()
     }
+    renderer.keyInput.on('paste', (ev) => {
+      const form = state.artifact
+      if (stopped || state.overlay !== 'artifact' || form?.status !== 'input' || ev.bytes.length > 4096) return
+      ev.preventDefault()
+      const pasted = new TextDecoder().decode(ev.bytes)
+      accept(setArtifactPath(state, (form.paths[form.field] ?? '') + pasted).state)
+      paint()
+    })
     renderer.keyInput.on('keypress', (ev) => {
       if (ev.eventType === 'release' || stopped) return
       const key: KeyPress = { name: ev.name, ctrl: ev.ctrl, shift: ev.shift }

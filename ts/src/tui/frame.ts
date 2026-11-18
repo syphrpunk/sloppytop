@@ -17,6 +17,7 @@ import {
   padRight,
   plain,
   widthOf,
+  skipCells,
 } from './format.ts'
 import {
   DISCOVERY_TABS,
@@ -194,7 +195,7 @@ export function compose(
     const historical = state.overlay === 'history' ? historyLines(state) : undefined
     overlayScrollMax = historical?.maxOffset
     let body = discovery?.lines ?? historical?.lines ?? overlayLines(state, input.processes, input.system)
-    if (['hardware', 'detail', 'net', 'listen', 'report', 'log', 'help'].includes(state.overlay)) {
+    if (['hardware', 'detail', 'net', 'listen', 'report', 'log', 'help', 'artifact'].includes(state.overlay)) {
       const room = Math.max(0, height - 4)
       overlayScrollMax = Math.max(0, body.length - room)
       const offset = Math.min(state.overlayScroll ?? 0, overlayScrollMax)
@@ -206,15 +207,18 @@ export function compose(
     while (lines.length < capacity) add('')
   }
 
-  const close = 'q close'
+  const close = state.overlay === 'artifact' && state.artifact?.status === 'input' ? 'Esc back' : 'q close'
   const overlayHints = state.overlay === 'kill' ? 'y confirm   n cancel'
-    : state.overlay === 'discovery' ? '←/→ tab   ↑/↓ scroll   r refresh'
+    : state.overlay === 'discovery' ? '←/→ tab ↑/↓ scroll r refresh c diff e export'
     : state.overlay === 'hardware' ? state.page?.hardwareTab === 'readings' ? 'd disks   s inventory'
       : state.page?.hardwareTab === 'topology' ? 'd inventory   s readings   r refresh' : 'd disks   s readings   r refresh'
     : state.overlay === 'detail' ? state.detail?.subtree ? 't process details' : 't subtree   g cgroup   e env   o files'
     : state.overlay === 'columns' ? '↑/↓ select   Space toggle'
     : state.overlay === 'theme' ? '↑/↓ preview   Enter use'
     : state.overlay === 'settings' ? '↑/↓ select   Space toggle   m listener'
+    : state.overlay === 'report' ? 'c compare  w workloads  l RSS  e export'
+    : state.overlay === 'artifact' && state.artifact?.status === 'input' ? 'Tab field   Enter submit'
+    : state.overlay === 'artifact' && state.artifact?.kind === 'compare' && state.artifact.status === 'ready' ? '←/→ pan'
     : state.overlay === 'history' && state.historyPage?.status === 'ready'
       ? state.historyPointIndex !== null ? 'i overview   ←/→ sample'
         : state.historyDiskIndex === null ? (state.historyPage.diskMetrics.length ? 'd disks   i inspect' : 'i inspect')
@@ -1042,6 +1046,7 @@ function overlayLines(state: ScreenState, processes: ProcessInfo[], system: Part
   if (state.overlay === 'log') return logLines(state)
   if (state.overlay === 'settings') return settingsLines(state)
   if (state.overlay === 'record') return recordLines(state)
+  if (state.overlay === 'artifact') return artifactLines(state)
   return []
 }
 
@@ -1075,9 +1080,25 @@ function overlayTitle(overlay: ScreenState['overlay']): string {
       return 'settings'
     case 'record':
       return 'record'
+    case 'artifact':
+      return 'local JSON'
     default:
       return 'sloppytop'
   }
+}
+
+function artifactLines(state: ScreenState): string[] {
+  const form = state.artifact
+  if (!form) return []
+  const title = form.kind === 'compare' ? 'compare saved discovery snapshots'
+    : form.kind === 'discovery' ? 'export redacted discovery overview' : 'export redacted diagnostics'
+  if (form.status === 'loading') return [title, 'working…']
+  if (form.status !== 'input') return [title, ...form.lines.map(line => skipCells(plain(line), form.column ?? 0))]
+  const labels = form.kind === 'compare' ? ['before', 'after'] : ['destination']
+  const width = panelWidth(state.width)
+  return [title, ...(form.kind === 'compare' ? ['two local JSON files of the same kind'] : ['new file only; never overwrites']),
+    ...labels.flatMap((label, i) => [`${form.field === i ? '>' : ' '} ${label}`,
+      `  ${form.paths[i] ? clip(form.paths[i]!, width - 2) : '(type file path)'}`])]
 }
 
 function framed(title: string, body: string[], width: number): string[] {
@@ -1264,6 +1285,11 @@ function historyLines(state: ScreenState) {
     for (const link of point.interfaces ?? []) {
       lines.push(`  ${plain(link.name)}  rx ${discoveryRate(link.rx_bytes_per_s)}  tx ${discoveryRate(link.tx_bytes_per_s)}`)
     }
+    lines.push('recorded top processes (by CPU)')
+    if (!point.processes?.length) lines.push('  no process rows stored')
+    for (const process of point.processes ?? []) {
+      lines.push(`  ${process.pid}  ${formatPercent(process.cpu_usage)}  ${formatBytesCompact(process.memory_bytes)}  ${plain(process.name)}`)
+    }
     return fitHistory(state, lines)
   }
   if (state.historyDiskIndex !== null) {
@@ -1299,6 +1325,56 @@ function historyLines(state: ScreenState) {
 function reportLines(state: ScreenState): string[] {
   const page = state.reportPage
   if (!page || page.status === 'loading') return ['report …', 'esc  close']
+  if (page.evidence && state.reportTab !== 'overview') {
+    const { comparison, workloads, groupCount, leaks } = page.evidence
+    if (state.reportTab === 'compare') {
+      const lines = ['24h window comparison', `coverage  ${comparison.coverage.replaceAll('_', ' ')}`]
+      for (const [label, window] of [['current', comparison.current], ['previous', comparison.previous]] as const) {
+        lines.push(`${label}  ${window.samples} samples · ${window.observed_slots}/${window.hourly_slots} hourly slots`,
+          `  from ${window.from}`, `  until ${window.to_exclusive} (excluded)`)
+        if (window.cpu_avg_pct !== null && window.memory_used_avg_bytes !== null && window.load1_avg !== null) {
+          lines.push(`  avg CPU ${formatPercent(window.cpu_avg_pct)}  mem ${formatBytesCompact(window.memory_used_avg_bytes)}`,
+            `  avg load ${window.load1_avg.toFixed(2)}`)
+        }
+      }
+      const delta = comparison.sampled_delta
+      const signed = (value: number) => `${value > 0 ? '+' : ''}${value}`
+      lines.push('sampled delta (current − previous)')
+      if (delta) lines.push(`  CPU ${signed(delta.cpu_avg_percentage_points)} pp · load ${signed(delta.load1_avg)}`,
+        `  memory ${delta.memory_used_avg_bytes < 0 ? '−' : delta.memory_used_avg_bytes > 0 ? '+' : ''}${formatBytes(Math.abs(delta.memory_used_avg_bytes))}`)
+      else lines.push('  unavailable')
+      if (comparison.warning) lines.push(...wrapWords(comparison.warning, panelWidth(state.width)))
+      return lines
+    }
+    if (state.reportTab === 'workloads') return [
+      'recorded workload CPU and summed RSS', 'coverage refers to stored process rows',
+      'an incomplete zero does not prove absence',
+      ...(!groupCount ? ['no workload groups configured'] : !workloads.length ? ['no samples in the last 24h'] :
+        workloads.flatMap(sample => [
+          `${sample.at}  #${sample.sample_id}`,
+          `  ${sample.coverage}  ${sample.stored_processes}/${sample.sampled_processes} stored`,
+          ...sample.groups.flatMap(group => [
+            `  ${plain(group.name)} (${group.matched_processes} matched)`,
+            `    CPU ${formatPercent(group.cpu_pct)}   RSS ${formatBytes(group.rss_bytes)}`,
+          ]),
+        ])),
+    ]
+    return ['RSS growth evidence', 'stored process rows · not proof of a leak',
+      ...(!leaks.length ? ['no RSS growth flags in the last 24h'] : leaks.flatMap(row => [
+        plain(row.name),
+        `  ${row.samples} points · ${row.duration_secs} s · R² ${row.r_squared}`,
+        `  from ${row.evidence.from}`,
+        `  to   ${row.evidence.to}`,
+        `  first ${row.evidence.first_rss_bytes} B`,
+        `  last  ${row.evidence.last_rss_bytes} B`,
+        `  growth ${row.total_growth_bytes} B`,
+        `  slope ${row.slope_bytes_per_s} B/s`,
+        `  recent slope ${row.evidence.recent_slope_bytes_per_s} B/s`,
+        '  thresholds',
+        ...Object.entries(row.evidence.thresholds).map(([name, value]) => `    ${name}: ${value}`),
+      ])),
+    ]
+  }
   if (page.status !== 'ready' || !page.summary) return ['report', ...wrapWords(page.message, panelWidth(state.width)), 'esc  close']
   const summary = page.summary
   const width = chartWidth(panelWidth(state.width))
