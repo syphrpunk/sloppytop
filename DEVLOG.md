@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## macOS packaging startup controls — 2026-11-18
+
+- Benchmarked disposable standalone and bundled payloads. The first-frame gate is still unmet, and no Developer ID signed/notarized candidate was available to test.
+
+
 ## Sustained TUI runs and remaining cold-start gate — 2026-11-18
 
 - Verified longer live and synthetic soaks and direct PTY resize. The fresh-file macOS startup gate needs a runtime/distribution decision; no gate was waived.
