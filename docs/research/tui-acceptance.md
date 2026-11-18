@@ -1,9 +1,14 @@
 # TUI acceptance status
 
-The TUI goal and both Memento items (`nht-005268`, `nht-ead7a9`) remain open.
+The repository acceptance checks below cover the usability and performance
+items (`nht-005268`, `nht-ead7a9`) under the revised scope.
 The [backlog](tui-follow-up.md) describes the original issues; the
 [performance notes](tui-performance.md) preserve the original budgets,
 method and before/after numbers.
+
+The operator removed only the macOS fresh-file startup gate and its
+signing/packaging investigation. Its failed measurements are retained;
+repeat-launch startup and the rest of the TUI acceptance checks remain.
 
 | Requirement | Evidence and remaining checks |
 |---|---|
@@ -12,19 +17,19 @@ method and before/after numbers.
 | Overlay focus, interactions and history | Visual scenarios `04b`, `04c`, `06`, and `13`–`20` exercise wheel/keyboard bounds, close targeting, scrolling history and every overlay's dismissal. The column picker follows the selection in a 12-row pane. |
 | On-demand metric coverage | Visual scenarios `08`–`11` and `pages.test.ts` cover battery capacity, disk topology, electrical and interface readings, and cgroup totals. Tests distinguish missing readings and preserve zero, and verify cgroup details are not logged. |
 | Visual regression | `just tui-visual` generates text/SVG and optional PNG in `ts/dist/tui-visual/`. Exact text baselines cover neighbor scrolling, disk history and the narrow column picker; reviewed SVG hashes cover wide/narrow process tables, neighbor scrolling and the picker. A deliberate text mutation produced a unified diff; a background-color mutation failed the style check. Unicode cell-width tests and the narrow fixture protect CPU values beside wide-character names. |
-| Usable performance | Latest live and 5,000-row soaks met interaction, loop lag and idle budgets and demonstrated memory reclamation. Twelve direct PTY repeats measured 25 ms shrink p95. Earlier misses are retained. Fresh macOS cold launch remains above the 500 ms first-frame target and can exceed 2 s to populate; a minimal compiled Bun control and APFS clones reproduced the delay. Do not treat repeat-launch startup as a cold-start pass. |
-| Build and verification | Latest local run: 289 pass and one Linux-only skip; type-check, build, live smoke and visual checks passed. Linux arm64 previously passed type-check, standalone build, all 288 then-current tests and the live smoke as UID 1000. Review the current diff and rerun applicable gates before closure. |
+| Usable performance | With OpenTUI 0.9.2, twelve repeat launches measured 223 ms p95 to first frame, 1,297 ms to populate and 24 ms to shrink. Interaction p95 stayed below 100 ms across live and 100/1,000/5,000-row workloads; max loop lag was below 46 ms in the four-workload run. A separate 80-second 5,000-row soak peaked at 84.5 MiB and dropped to 77.5 MiB. While paused it used 0.2% CPU and 116 MiB RSS. Earlier misses are retained. |
+| Build and verification | macOS: 289 pass and one Linux-only skip; type-check, standalone build, live smoke, visual checks, and compiled discovery/storage/MCP smoke passed. The discovery smoke now checks terminal cells rather than raw incremental writes. Linux arm64 previously passed type-check, standalone build, all 288 then-current tests and the live smoke as UID 1000; that run predates OpenTUI 0.9.2. |
 
 The authorized packaging investigation tested two bundled alternatives
 and a standalone bytecode build; none met the fresh-file targets. See
 the [comparative timings](tui-performance.md#macos-packaging-investigation).
-The next distinct control is a Developer ID signed/notarized candidate;
-the local keychain has no usable signing identity. No OS protections,
-release packaging, or targets were changed to obtain a pass.
+No Developer ID signed/notarized candidate was tested. That investigation
+is no longer required for this goal. The earlier fresh-file results are
+not recorded as passing.
 
 A five-pair loader timing control after lazy loading placed the fresh-file
 delay before the first dyld diagnostic (1.12–1.29 s fresh versus 3–6 ms on
-repeat). The remaining gate is not a measured TUI initialization problem.
+repeat). This isolated the first-launch delay from TUI initialization.
 
 [The second Mac](tui-performance.md#second-mac-mbp2023) also missed both
 fresh-file targets. Its System Trace recorded pre-start waits ending in

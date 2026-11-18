@@ -1,64 +1,54 @@
 #!/usr/bin/env python3
 """Exercise a compiled discovery page and verify the CLI/MCP privacy boundary."""
 
-import fcntl
 import json
 import os
-import pty
-import re
 import select
-import signal
+import shlex
 import socket
-import struct
 import subprocess
 import sys
 import tempfile
-import termios
 import time
 import urllib.request
 
 
 def screen(binary, env, width, fixture=False):
-    pid, fd = pty.fork()
-    if pid == 0:
-        fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", 25, width, 0, 0))
-        os.execve(binary, [binary, "tui"], env)
-    ansi = re.compile(rb"\x1b\[[0-?]*[ -/]*[@-~]")
-    answered = step = 0
-    buf = b""
-    start = time.monotonic()
-    try:
-        while time.monotonic() - start < 20:
-            if select.select([fd], [], [], 0.15)[0]:
-                buf += os.read(fd, 8192)
-            while answered < buf.count(b"[6n"):
-                os.write(fd, f"\x1b[25;{width}R".encode())
-                answered += 1
-            plain = ansi.sub(b"", buf)
-            if step == 0 and b"PID" in plain and time.monotonic() - start > 1.5:
-                os.write(fd, b"D")
-                step = 1
-            coverage_drawn = b"denied" in plain and b"partial" in plain
-            if step == 1 and b"cached peers" in plain and (not fixture or coverage_drawn):
-                if fixture:
+    # Differential redraws can split visible labels across cursor writes.
+    # Assert against decoded terminal cells, not concatenated PTY bytes.
+    with tempfile.TemporaryDirectory(prefix="st-discovery-pty-") as folder:
+        base = ["tmux", "-S", os.path.join(folder, "tmux.sock"), "-f", "/dev/null"]
+        terminal_env = {key: value for key, value in env.items() if key not in ("TERM", "TMUX", "TMUX_PANE")}
+
+        def tmux(*args, check=True):
+            return subprocess.run([*base, *args], env=terminal_env, check=check,
+                                  capture_output=True, text=True, timeout=8).stdout
+
+        def wait_for(label, predicate):
+            until = time.monotonic() + 20
+            while time.monotonic() < until:
+                frame = tmux("capture-pane", "-p", "-t", "smoke")
+                if predicate(frame):
                     return
-                os.write(fd, b"\x1b[C")
-                step = 2
-                buf = b""
-                answered = 0
-            elif step == 2 and (b"ip address:" in plain or b"ifconfig:" in plain):
-                os.write(fd, b"r")
-                step = 3
-                buf = b""
-                answered = 0
-            elif step == 3 and b"refreshed" in plain:
-                return
-        flags = {token.decode(): token in plain for token in (b"denied", b"ARP cache", b"partial", b"cached peers")}
-        raise AssertionError(f"{width} columns: discovery PTY did not finish step {step}; {flags}")
-    finally:
-        os.kill(pid, signal.SIGKILL)
-        os.waitpid(pid, 0)
-        os.close(fd)
+                time.sleep(0.05)
+            raise AssertionError(f"{width} columns: discovery PTY did not show {label}")
+
+        try:
+            tmux("new-session", "-d", "-s", "smoke", "-x", str(width), "-y", "25",
+                 "exec " + shlex.join([binary, "tui"]))
+            wait_for("main screen", lambda frame: "PID" in frame and "q quit" in frame)
+            tmux("send-keys", "-t", "smoke", "D")
+            wait_for("overview", lambda f: ("cached peers" in f and
+                     (not fixture or ("denied" in f and "partial" in f))))
+            tmux("send-keys", "-t", "smoke", "Right")
+            wait_for("interfaces", lambda f: "interfaces ·" in f)
+            tmux("send-keys", "-t", "smoke", "r")
+            wait_for("refreshed interfaces", lambda f: "interfaces ·" in f and "refreshed" in f)
+            tmux("send-keys", "-t", "smoke", "q")
+            wait_for("return to main", lambda frame: "q quit" in frame)
+        finally:
+            tmux("send-keys", "-t", "smoke", "C-c", check=False)
+            tmux("kill-server", check=False)
 
 
 def mcp(binary, env):

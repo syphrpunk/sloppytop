@@ -1,7 +1,8 @@
 # TUI follow-up
 
 Usability and visual regressions: `nht-005268`. Dedicated performance session:
-`nht-ead7a9`. This is a backlog, not a claim that the issues are fixed.
+`nht-ead7a9`. The table records the original backlog; see the
+[acceptance checklist](tui-acceptance.md) for current evidence and status.
 
 ## Issues observed this session
 
@@ -60,7 +61,7 @@ that the tmux session exits. It never captures the real process list.
 
 ## Dedicated performance session
 
-Capture cold start (first usable frame), input-to-visible-update p50/p95,
+Capture repeat-launch startup (first usable frame), input-to-visible-update p50/p95,
 event-loop lag, resize recovery, sample duration, and idle CPU/RSS. Compare
 live, paused, and deterministic data at 100, 1,000 and 5,000 rows. Exercise
 scroll/search, process-tree toggling and discovery refresh at 56×18 and

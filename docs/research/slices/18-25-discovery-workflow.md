@@ -108,7 +108,7 @@ smoke. Linux exec tracing confirmed `record` and `watch` did not launch
 discovery providers; the compiled macOS scrape returned ordinary sampler
 metrics only, with no discovery providers on the scrape call path.
 
-Reproduce the compiled discovery smoke on Linux or macOS:
+Reproduce the compiled discovery smoke on Linux or macOS with `tmux` and Python 3:
 
 ```sh
 just build

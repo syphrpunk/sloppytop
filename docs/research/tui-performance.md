@@ -1,5 +1,10 @@
 # TUI responsiveness
 
+**Acceptance scope:** The operator removed macOS fresh-file launch latency
+and its signing/packaging investigation from this goal. Those measurements
+remain below as history, not passing results. Repeat-launch startup and
+every other TUI performance budget still apply.
+
 ## Acceptance budgets (before tuning)
 
 Measure in an isolated terminal at the default 1 s refresh and 500 ms counter
@@ -9,8 +14,8 @@ not performance promises for arbitrary machines and OS providers.
 
 | Observable | Budget |
 |---|---|
-| Cold start to interactive frame | ≤ 500 ms p95 |
-| Cold start to populated, usable process table | ≤ 2 s p95 |
+| Repeat launch to interactive frame | ≤ 500 ms p95 |
+| Repeat launch to populated, usable process table | ≤ 2 s p95 |
 | Input to visibly correct frame (search, scroll and dismiss; during live sampling and while frozen) | ≤ 100 ms p95; no trial above 250 ms |
 | Resize to correct frame | ≤ 150 ms p95; no trial above 300 ms |
 | Main-thread event loop lag while sampling | ≤ 50 ms p95; maximum ≤ 150 ms |
