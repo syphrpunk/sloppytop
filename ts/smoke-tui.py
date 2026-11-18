@@ -139,6 +139,21 @@ def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
         wait_frame(f"scheduler  {service['scheduler_state']}",
                    f"last run  {last_run.get('outcome', 'unknown')}",
                    service["last_successful_sample_at"], "(any insert)")
+        target = os.path.join(os.path.realpath(config), "alternate.db")
+        for answer in ("n", "y"):
+            tmux("send-keys", "-t", "smoke", "p")
+            wait_frame("Recorder destination path")
+            tmux("send-keys", "-t", "smoke", "-l", target)
+            tmux("send-keys", "-t", "smoke", "Enter")
+            wait_frame("Review recorder destination", "Current database", "Target database", target)
+            tmux("send-keys", "-t", "smoke", answer)
+            wait_frame("Destination verified:" if answer == "y" else "latest insert")
+        if os.path.exists(target):
+            raise RuntimeError("switching destination unexpectedly created a database")
+        tmux("send-keys", "-t", "smoke", "r")
+        wait_frame("Restore default destination?", target)
+        tmux("send-keys", "-t", "smoke", "y")
+        wait_frame("Destination verified:", service["last_successful_sample_at"])
         tmux("send-keys", "-t", "smoke", "q")
         wait_frame("q quit")
         tmux("send-keys", "-t", "smoke", "-l", f"/pid:{pid}")

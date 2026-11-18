@@ -87,7 +87,7 @@ def run(fixture, output, review_only=False):
         "02-narrow": "7fc0f001801d24fbe6dc580704678baf9ca12a2bbb054ab35e3136ff95c1e48a",
         "04b-neighbors-bottom": "b6de05e3450d43b04b9d806ba463b518622174194dd83af0830e9ca351d621ab",
         "19-settings": "d12171621afaa126abc20eac8905ed45aa6ba358e3f7e8048962ae2bcab8443d",
-        "19-settings-recorder-wide": "a3b0eb1dd93c946cf2b83d32b25a786839ed83458a14c2525aca2e25d34889f1",
+        "19-settings-recorder-wide": "b1e351ff6c72b83706a306cb753d6822cd5aae41bddcec289875206100f2bbc6",
         "19-recorder-enable-review": "856751ac742d812d57b5e43cba7d3fc7f8b8466fb13d13522d79505268389f22",
         "19-columns": "35207b7faf7de99beaee036f1dcb3fbca371a31a3b966e27a9d93622660e5084",
     }
