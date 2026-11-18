@@ -257,6 +257,10 @@ watch -n2 'sloppytop snapshot --format json | jq ".system.cpu_usage_per_core"'
 ## Configuration
 
 Screen settings persist at `~/.config/sloppytop/config.json`. An existing `~/.config/neohtop` directory stays in use until the new directory exists.
+Press `m` in the TUI to check recorder health on macOS or Linux. Settings
+shows scheduler and recorder state, the last run outcome when known, and
+the age of the last successful DB insert (including manual recordings).
+Close and reopen Settings to refresh. To manage the job, use `service`.
 
 ```json
 {

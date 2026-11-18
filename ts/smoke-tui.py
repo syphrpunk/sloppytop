@@ -49,15 +49,16 @@ def main() -> int:
             history = run("history")
             report = run("report")
             diagnostic = run("report", "--diagnostic")
+            service = run("service", "status")
             if not (recorded["recorded"] and history["returned"] == 1
                     and history["samples"][0]["id"] == recorded["sample_id"]
                     and report["window"]["samples"] == 1
                     and diagnostic["redacted"] and diagnostic["coverage"]["samples"] == 1):
                 raise RuntimeError("compiled diagnosis commands did not agree on the recorded sample")
-            return smoke_history(binary, config, env)
+            return smoke_history(binary, config, env, service)
         return smoke(binary, config, args.timings)
 
-def smoke_history(binary: str, config: str, env: dict) -> int:
+def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
     base = ["tmux", "-S", os.path.join(config, "smoke.sock"), "-f", "/dev/null"]
 
     def tmux(*args, check=True):
@@ -83,8 +84,15 @@ def smoke_history(binary: str, config: str, env: dict) -> int:
         wait_frame("history sample 1/1", "recorded interfaces")
         tmux("send-keys", "-t", "smoke", "q")
         wait_frame("q quit")
+        tmux("send-keys", "-t", "smoke", "m")
+        last_run = service.get("last_run", {})
+        wait_frame(f"scheduler  {service['scheduler_state']}",
+                   f"last run  {last_run.get('outcome', 'unknown')}",
+                   service["last_successful_sample_at"], "(any insert)")
         tmux("send-keys", "-t", "smoke", "q")
-        print("compiled diagnosis smoke ok: one recording reached history, report and TUI")
+        wait_frame("q quit")
+        tmux("send-keys", "-t", "smoke", "q")
+        print("compiled diagnosis smoke ok: one recording reached history, report and TUI; Settings agrees with service status")
         return 0
     finally:
         tmux("kill-server", check=False)

@@ -373,14 +373,15 @@ describe('probe log and settings', () => {
   })
 
   test('settings shows a stopped listener and leaves install as a command', () => {
-    const service = readService(() => ({
+    const readHealth = () => ({
       scheduler: 'launchd', installed: false, loaded: false, files: [],
       scheduler_state: 'inactive', recorder_state: 'unknown',
-    }))
-    expect(service.line).toBe('service  launchd  not installed  not loaded')
-    expect(readService(() => {
+    } as const)
+    const service = readService(() => ({ ...readHealth(), files: [] }), () => undefined)
+    expect(service.sample_age_seconds).toBeUndefined()
+    expect(() => readService(() => {
       throw new Error('service status is not supported on win32')
-    }).line).toBe('service status is not supported on win32')
+    })).toThrow('service status is not supported on win32')
 
     const frame = compose(
       screen({
@@ -393,15 +394,37 @@ describe('probe log and settings', () => {
           port: 9464,
           listening: false,
           metricsMessage: '',
-          serviceLine: service.line,
+          recorder: { status: 'ready', health: service },
         },
       }),
       { processes: [], system: {}, history: emptyHistory() },
     )
     expect(frame.text).toContain('not installed')
+    expect(frame.text).toContain('last run  unknown')
+    expect(frame.text).toContain('sample age  unavailable')
     expect(frame.text).toContain('127.0.0.1:9464  stopped')
     expect(frame.text).toContain('> [x] cpu')
     expect(frame.text).toContain('service install stays a command')
+  })
+
+  test('recorder health keeps a failed run separate from a fresh successful insert', () => {
+    const last = '2026-11-18T04:00:00.000Z'
+    const health = readService(() => ({
+      scheduler: 'systemd', installed: true, loaded: true, files: ['private'],
+      scheduler_state: 'armed', recorder_state: 'idle', last_run: { outcome: 'failed', exit_code: 7 },
+    }), () => last, Date.parse(last))
+    expect(health).not.toHaveProperty('files')
+    const settings = reduce(screen({ width: 56, height: 12 }), key('m'), []).state
+    const page = settings.settingsPage!
+    const input = { processes: [], system: {}, history: emptyHistory() }
+    const text = compose({ ...settings, settingsPage: { ...page, recorder: { status: 'ready', health } } }, input).text
+    expect(text).toContain('recorder  idle')
+    expect(text).toContain('failed (exit 7)')
+    expect(text).toContain(last)
+    expect(text).toContain('sample age  0 s')
+    expect(text).toContain('> [x] cpu')
+    expect(compose({ ...settings, settingsPage: { ...page, recorder: { status: 'error', message: 'status failed' } } }, input).text)
+      .toContain('recorder unavailable: status failed')
   })
 
   test('store keys open pages, and q on a page does not quit', () => {

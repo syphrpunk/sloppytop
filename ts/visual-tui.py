@@ -211,7 +211,7 @@ def run(fixture, output, review_only=False):
                 ("k", "kill-cancel", ["kill 200 fixture-worker?", "n cancel"]),
                 ("c", "columns", ["[x] pid"]),
                 ("t", "theme", ["Charm"]),
-                ("m", "settings", ["metrics", "stopped"]),
+                ("m", "settings", ["metrics", "stopped", "recorder  idle", "failed (exit 7)", "sample age  0 s"]),
                 ("n", "connections", ["127.0.0.1:8080"]),
                 ("l", "listeners", ["8080", "fixture-worker"]),
                 ("b", "probe-log", ["probe proc", "probe listen"]),
@@ -219,7 +219,7 @@ def run(fixture, output, review_only=False):
                 ("a", "record-refused", ["PROBE_DISABLED"]),
             ]:
                 tmux("send-keys", "-t", "visual", key)
-                capture(f"19-{label}", ["q close", *markers], 56, 12, compare=label == "columns")
+                capture(f"19-{label}", ["q close", *markers], 56, 12, compare=label in ("columns", "settings"))
                 if key == "c":
                     tmux("send-keys", "-t", "visual", "-l", "\x1b[<65;9;7M" * 20)
                     capture("19-columns-bottom", ["> [ ] cgroup", "Space toggle"], 56, 12)

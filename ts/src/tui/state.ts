@@ -203,7 +203,8 @@ export interface SettingsView {
   port: number
   listening: boolean
   metricsMessage: string
-  serviceLine: string
+  recorder: { status: 'loading' } | { status: 'error'; message: string }
+    | { status: 'ready'; health: import('./store.ts').RecorderHealth }
 }
 
 export interface ScreenState {
@@ -794,7 +795,7 @@ function openSettings(state: ScreenState): ReduceResult {
         port: state.metricsPort,
         listening: state.metricsListening,
         metricsMessage: '',
-        serviceLine: 'service …',
+        recorder: { status: 'loading' },
       },
     },
     effect: { openSettings: true },

@@ -1345,7 +1345,8 @@ function logLines(state: ScreenState): string[] {
 function settingsLines(state: ScreenState): string[] {
   const page = state.settingsPage
   if (!page) return ['settings', 'esc  close']
-  const lines = ['settings', page.serviceLine, `metrics  ${page.host}:${page.port}  ${page.listening ? 'listening' : 'stopped'}`]
+  const lines = recorderLines(page.recorder)
+  lines.push(`metrics  ${page.host}:${page.port}  ${page.listening ? 'listening' : 'stopped'}`)
   if (page.metricsMessage) lines.push(page.metricsMessage)
   const room = Math.max(1, Math.min(SETTINGS_WINDOW, state.height - 5 - lines.length))
   for (const name of pickerWindow(PROBE_NAMES, state.panelIndex, room)) {
@@ -1355,6 +1356,22 @@ function settingsLines(state: ScreenState): string[] {
   }
   lines.push('service install stays a command')
   return lines
+}
+
+function recorderLines(recorder: NonNullable<ScreenState['settingsPage']>['recorder']): string[] {
+  if (recorder.status === 'loading') return ['recorder health …']
+  if (recorder.status === 'error') return [`recorder unavailable: ${plain(recorder.message)}`]
+  const health = recorder.health
+  const run = health.last_run
+  const exit = run?.exit_code === undefined ? '' : ` (exit ${run.exit_code})`
+  const age = health.sample_age_seconds
+  return [
+    `service  ${health.scheduler}  ${health.installed ? 'installed' : 'not installed'}`,
+    `scheduler  ${health.scheduler_state}   recorder  ${health.recorder_state}`,
+    `last run  ${run ? run.outcome + exit : 'unknown'}`,
+    `last sample  ${health.last_successful_sample_at ?? 'unavailable'}`,
+    `sample age  ${age === undefined ? 'unavailable' : `${age} s`} (any insert)`,
+  ]
 }
 
 function recordLines(state: ScreenState): string[] {

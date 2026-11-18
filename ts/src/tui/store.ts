@@ -9,7 +9,7 @@ import { takeSample, type RecordableSample } from '../sample.ts'
 import { diskHistory } from '../view/disk-history.ts'
 import { historyCoverage } from '../view/history-coverage.ts'
 import { loadConfig } from '../store/config.ts'
-import { insertSample, openDb, queryHistory, type HistoryRow } from '../store/db.ts'
+import { dbInfo, insertSample, openDb, queryHistory, type HistoryRow } from '../store/db.ts'
 import { metricsResponse } from '../store/metrics.ts'
 import { readProbeLog } from '../store/probe-log.ts'
 import {
@@ -20,7 +20,7 @@ import {
   reportTopConsumers,
   reportWindow,
 } from '../store/report.ts'
-import { status, type StatusResult } from '../store/service.ts'
+import { sampleFreshness, status, type StatusResult } from '../store/service.ts'
 import type {
   HistorySeries,
   HistoryView,
@@ -256,17 +256,16 @@ export function logView(entries: readonly unknown[]): { lines: string[] } {
   return { lines }
 }
 
-export function readService(load: () => StatusResult = status): { line: string } {
-  try {
-    const result = load()
-    const installed = result.installed ? 'installed' : 'not installed'
-    const loaded = result.loaded ? 'loaded' : 'not loaded'
-    return { line: `service  ${result.scheduler}  ${installed}  ${loaded}` }
-  } catch (err) {
-    const message = err instanceof Error && err.message ? err.message : 'service status failed'
-    return { line: message }
-  }
+export function readService(
+  load: () => StatusResult = status,
+  last: () => string | undefined = () => withDb(db => dbInfo(db).last),
+  now = Date.now(),
+) {
+  const { files: _, ...health } = load()
+  return { ...health, ...sampleFreshness(last(), now) }
 }
+
+export type RecorderHealth = ReturnType<typeof readService>
 
 export function bindMetricsListener(
   opts: { host: string; port: number; sample: () => Promise<Partial<SystemStats>> },

@@ -95,4 +95,8 @@ await runTui(loaders, async () => {
     : { section, providers: [observe('resolv.conf', { text: '' }, () => ({ rows: [{
       scope: 'system' as const, servers: ['192.0.2.53'], search: ['fixture.test'],
     }] }), 'linux', time)] }
-})
+}, () => ({
+  scheduler: 'systemd', installed: true, loaded: true, scheduler_state: 'armed', recorder_state: 'idle',
+  last_run: { outcome: 'failed', exit_code: 7 }, last_successful_sample_at: '2026-11-18T04:00:00.000Z',
+  sample_age_seconds: 0,
+}))

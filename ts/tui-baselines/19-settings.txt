@@ -1,0 +1,12 @@
+sloppytop  Charm
+╭─ settings ───────────────────────────────────────────╮
+│ service  systemd  installed                          │
+│ scheduler  armed   recorder  idle                    │
+│ last run  failed (exit 7)                            │
+│ last sample  2026-11-18T04:00:00.000Z                │
+│ sample age  0 s (any insert)                         │
+│ metrics  127.0.0.1:9464  stopped                     │
+│ > [x] cpu                                            │
+│ service install stays a command                      │
+╰──────────────────────────────────────────────────────╯
+q close   ↑/↓ select   Space toggle   m listener

@@ -8,6 +8,7 @@ import { isProbeName, type ProbeName } from '../monitor/probes.ts'
 import { ensureTuiConfig, loadConfig, saveConfig, updateMetrics, updateProbes } from '../store/config.ts'
 import { appendProbeLog } from '../store/probe-log.ts'
 import type { PageLoaders } from './pages.ts'
+import type { RecorderHealth } from './store.ts'
 import {
   applyPointer,
   compose,
@@ -69,6 +70,7 @@ export async function runTui(
   loadDiscovery?: () => Promise<Overview>,
   sampleTick?: SampleTick,
   loadDiscoveryDetail?: (section: 'connections' | 'dns') => Promise<DiscoveryDetail>,
+  loadRecorder?: () => RecorderHealth,
 ): Promise<void> {
   const started = performance.now()
   const trace = startTuiTrace()
@@ -106,6 +108,7 @@ export async function runTui(
   let metricsStarting = false
   const sampler = sampleTick ? undefined : createTuiSampler()
   const discoveryWorker = createCollectorWorker()
+  const recorderWorker = createCollectorWorker()
   let discoveryQueue = Promise.resolve()
 
   const theme = getTheme(state.theme)
@@ -173,6 +176,7 @@ export async function runTui(
     if (timer) clearTimeout(timer)
     sampler?.close()
     discoveryWorker.close()
+    recorderWorker.close()
     if (metricsStop) {
       try {
         metricsStop()
@@ -367,6 +371,12 @@ export async function runTui(
         state = { ...state, discoveryPage: { ...state.discoveryPage, loading: false,
           ...(detail ? { detail } : data ? { data } : { message: 'network probe is off' }),
         } }
+      } else if (effect.openSettings && state.overlay === 'settings') {
+        recorderWorker.close()
+        const reply = loadRecorder ? { recorder: loadRecorder() } : await recorderWorker.request({ kind: 'recorder' }, 8_000)
+        if (stopped || token !== storeToken || state.overlay !== 'settings' || !state.settingsPage) return
+        if (!reply || !('recorder' in reply)) throw new Error('recorder health unavailable')
+        state = { ...state, settingsPage: { ...state.settingsPage, recorder: { status: 'ready', health: reply.recorder } } }
       } else {
         const store = await import('./store.ts')
         if (stopped || token !== storeToken) return
@@ -380,8 +390,6 @@ export async function runTui(
           state = { ...state, reportPage: store.loadReport() }
         } else if (effect.openLog && state.overlay === 'log') {
           state = { ...state, logPage: { status: 'ready', message: '', lines: store.loadLog().lines } }
-        } else if (effect.openSettings && state.overlay === 'settings' && state.settingsPage) {
-          state = { ...state, settingsPage: { ...state.settingsPage, serviceLine: store.readService().line } }
         }
       }
     } catch (err) {
@@ -401,7 +409,7 @@ export async function runTui(
         state = { ...state, logPage: { status: 'error', message, lines: [] } }
       }
       if (effect.openSettings && state.overlay === 'settings' && state.settingsPage) {
-        state = { ...state, settingsPage: { ...state.settingsPage, serviceLine: message } }
+        state = { ...state, settingsPage: { ...state.settingsPage, recorder: { status: 'error', message } } }
       }
     }
     if (!stopped) paint()
