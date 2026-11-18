@@ -260,3 +260,23 @@ Apple Silicon standalone build, live PTY smoke, and visual suite passed.
 Three interleaved fresh-copy PTY trials per version measured 2.96–3.25 s
 to first frame on 0.6.8 and 2.88–3.27 s on 0.9.2. The ranges overlap,
 and neither version meets the cold-start target.
+
+### Instruments launch trace
+
+Used the existing Xcode Instruments **System Trace** template with
+`xcrun xctrace record --template 'System Trace' --time-limit 5s --no-prompt
+--output <trace> --launch -- <binary> --version`. Traced a fresh APFS copy
+and then the same executable again, with no security settings changed.
+In the fresh trace, the target's main thread blocked for **537.13 ms**
+and was made runnable by Malwarebytes' `RTProtectionDaemon`, as identified
+by the daemon PID's executable path. The first recorded target syscall
+followed about **26 µs** after that wakeup. An earlier `syspolicyd` wakeup
+followed a roughly **21 µs** block. No target wakeup by `RTProtectionDaemon`
+appeared in the repeat trace. This attributes one material pre-start wait
+on this host; it does not explain every millisecond across prior runs or
+establish how another Mac behaves. No profiling tools were installed.
+
+The captures are local under `~/tmp/st-instruments.PqHJI7/` (`fresh.trace`
+and `repeat.trace`). Inspect `thread-narrative` and `syscall` via
+`xctrace export --xpath '/trace-toc/run/data/table[@schema="…"]'`.
+Raw captures can contain host process metadata and are not committed.
