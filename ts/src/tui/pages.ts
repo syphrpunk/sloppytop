@@ -3,6 +3,8 @@
 
 import { openFiles } from '../monitor/files.ts'
 import { hardwareInventory } from '../monitor/hardware.ts'
+import { diskTopology } from '../monitor/disk-topology.ts'
+import { summarizeCgroup } from '../monitor/cgroup-summary.ts'
 import { processDetail } from '../monitor/index.ts'
 import { listeningSockets } from '../monitor/listen.ts'
 import { sampleNet } from '../monitor/net.ts'
@@ -22,6 +24,8 @@ export interface PageLoaders {
   sampleNet: (sampleMs: number) => Promise<PageState['net']>
   listeningSockets: () => PageState['listen']
   hardwareInventory: (opts: { refresh?: boolean }) => HardwareView
+  diskTopology: typeof diskTopology
+  summarizeCgroup: (pid: number, ms: number) => ReturnType<typeof summarizeCgroup>
 }
 
 export interface PageContext {
@@ -43,6 +47,8 @@ export function defaultPageLoaders(): PageLoaders {
     sampleNet: async (sampleMs) => sampleNet(sampleMs),
     listeningSockets: () => listeningSockets(),
     hardwareInventory: (opts) => hardwareInventory(opts),
+    diskTopology,
+    summarizeCgroup: (pid, ms) => process.platform === 'linux' ? summarizeCgroup(pid, ms) : Promise.resolve(undefined),
   }
 }
 
@@ -54,7 +60,9 @@ export function hasPageEffect(effect: ScreenEffect): boolean {
     effect.openNet === true ||
     effect.openListen === true ||
     effect.openHardware === true ||
-    effect.refreshHardware === true
+    effect.refreshHardware === true ||
+    effect.openTopology === true ||
+    effect.loadCgroup != null
   )
 }
 
@@ -69,10 +77,26 @@ export async function fulfillPage(effect: ScreenEffect, ctx: PageContext, loader
   pageFulfills += 1
   if (effect.openNet) return loadConnections(ctx, loaders)
   if (effect.openListen) return loadListen(ctx, loaders)
+  if (effect.openTopology) return loadTopology(ctx, loaders)
+  if (effect.loadCgroup != null) return loadCgroup(effect.loadCgroup, ctx, loaders)
   if (effect.openHardware || effect.refreshHardware) return loadHardware(effect.refreshHardware === true, ctx, loaders)
   const pid = effect.loadFiles ?? effect.loadEnv ?? effect.detailPid
   if (pid == null) return { log: [] }
   return loadProc(pid, effect.loadEnv != null, effect.loadFiles != null, ctx, loaders)
+}
+
+async function loadCgroup(pid: number, ctx: PageContext, loaders: PageLoaders): Promise<PagePatch> {
+  const unavailable: PagePatch = { log: [], detail: { pid, loaded: false, cgroup: { status: 'unavailable' } } }
+  if (procBlocked(ctx.probes)) return unavailable
+  try {
+    const totals = await loaders.summarizeCgroup(pid, ctx.sampleMs)
+    if (!totals) return unavailable
+    return { log: [], detail: { pid, loaded: false, cgroup: {
+      status: 'ready', cpu: totals.cpu_percent_of_one_core, memory: totals.charged_memory_bytes,
+    } } }
+  } catch {
+    return unavailable
+  }
 }
 
 async function loadProc(
@@ -150,6 +174,17 @@ async function loadHardware(refresh: boolean, ctx: PageContext, loaders: PageLoa
   }
 }
 
+function loadTopology(ctx: PageContext, loaders: PageLoaders): PagePatch {
+  const hardwareTab = 'topology'
+  if (!ctx.probes.hardware) return { log: [], page: { ...off('hardware', 'hardware'), hardwareTab } }
+  try {
+    const topology = loaders.diskTopology()
+    return { log: [], page: { kind: 'hardware', status: 'ready', hardwareTab, message: '', topology } }
+  } catch (err) {
+    return { log: [], page: { ...failed('hardware', err), hardwareTab } }
+  }
+}
+
 function procBlocked(probes: ProbeSet): string | null {
   if (!probes.proc) return probeOff('proc')
   if (!probes.processes) return probeOff('processes')
@@ -203,6 +238,8 @@ function allowHardware(report: HardwareView): HardwareView {
         ? { maximum_capacity_percent: report.battery.maximum_capacity_percent }
         : {}),
       ...(report.battery.cycle_count !== undefined ? { cycle_count: report.battery.cycle_count } : {}),
+      ...(report.battery.design_capacity_mah !== undefined ? { design_capacity_mah: report.battery.design_capacity_mah } : {}),
+      ...(report.battery.raw_maximum_capacity_mah !== undefined ? { raw_maximum_capacity_mah: report.battery.raw_maximum_capacity_mah } : {}),
     }
   }
   if (report.cpu_features && report.cpu_features.length > 0) view.cpu_features = [...report.cpu_features]

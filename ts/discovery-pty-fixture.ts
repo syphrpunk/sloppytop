@@ -2,6 +2,7 @@
 import { composeOverview } from './src/discovery/overview.ts'
 import { observe } from './src/discovery/provider.ts'
 import { runTui } from './src/tui/run.ts'
+import { defaultPageLoaders } from './src/tui/pages.ts'
 import { defaultProbes } from './src/monitor/probes.ts'
 import type { Sample } from './src/sample.ts'
 
@@ -17,6 +18,9 @@ const sample: Sample = {
     disk_total_bytes: 500 * 2 ** 30, disk_used_bytes: 180 * 2 ** 30, disk_free_bytes: 320 * 2 ** 30,
     hostname: 'fixture', os_version: 'test OS', kernel_version: '1', process_count: rows,
     network_rx_bytes: 18_000, network_tx_bytes: 6_000,
+    electrical_sensors: [{ channel: 'hwmon0/in0', name: 'fixture rail', unit: 'volts', value: 0 }],
+    powercap_packages: [{ zone: 'package-0', name: 'fixture package', watts: 0 }],
+    network_interfaces: [{ name: 'eth0', rx_bytes_per_s: 0 }],
   },
   processes: Array.from({ length: rows }, (_, i) => ({
     pid: 200 + i, ppid: i ? 200 : 1, name: i === 0 ? 'fixture-worker' : `fixture-child-${i}`,
@@ -26,7 +30,22 @@ const sample: Sample = {
   })),
 }
 
-await runTui(undefined, async () => {
+const loaders = {
+  ...defaultPageLoaders(),
+  processDetail: async () => ({}),
+  summarizeCgroup: async (pid: number) => ({ pid, cgroup: '/fixture', scope: 'cgroup_and_descendants', charged_memory_bytes: 0 }),
+  hardwareInventory: () => ({
+    collected_at: '2026-11-18T04:00:00Z', chip: 'Fixture CPU', displays: [],
+    battery: { health: 'Normal', maximum_capacity_percent: 92, cycle_count: 0,
+      design_capacity_mah: 5000, raw_maximum_capacity_mah: 4600 },
+  }),
+  diskTopology: () => [
+    { name: 'disk0', kind: 'disk' as const },
+    { name: 'disk0s1', kind: 'partition' as const, parent: 'disk0' },
+  ],
+}
+
+await runTui(loaders, async () => {
   const time = new Date('2026-11-18T04:00:00Z')
   const denied = observe('ip address', { issue: 'denied' }, () => ({ rows: [] as never[] }), 'linux', time)
   const cache = observe('ARP cache', { text: '' }, () => ({

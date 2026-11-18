@@ -18,6 +18,12 @@ Usability and visual regressions: `nht-005268`. Dedicated performance session:
 
 ## Reproducible visual testing
 
+In the hardware overlay, `d` opens live disk topology and `s` shows the last
+sample's electrical, experimental package-power and network-interface readings.
+The inventory displays raw battery mAh when available. In process detail,
+`g` requests Linux cgroup v2 totals for the selected PID; undefined CPU or
+charged memory stays unmeasured, and the cgroup path is not shown or logged.
+
 Run `just tui-visual` with Bun, Python 3 and `tmux`. It compiles the actual
 OpenTUI runner with a deterministic synthetic sample, opens an isolated
 tmux server/config, drives keys and resize, and checks the resulting terminal

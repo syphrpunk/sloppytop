@@ -64,7 +64,7 @@ export interface HardwareView {
   gpu_cores?: number
   memory_bytes?: number
   displays: { name: string; resolution?: string; main?: boolean }[]
-  battery?: { health?: string; maximum_capacity_percent?: number; cycle_count?: number }
+  battery?: import('../monitor/hardware.ts').HardwareBattery
   cpu_features?: string[]
   from_cache?: boolean
 }
@@ -77,6 +77,7 @@ export interface DetailState {
   files?: FileRow[]
   filesOmitted?: boolean
   message?: string
+  cgroup?: { status: 'loading' | 'ready' | 'unavailable'; cpu?: number; memory?: number }
 }
 
 export type PageKind = 'net' | 'listen' | 'hardware'
@@ -88,6 +89,8 @@ export interface PageState {
   net?: NetViewRow[]
   listen?: ListenViewRow[]
   hardware?: HardwareView
+  topology?: ReturnType<typeof import('../monitor/disk-topology.ts').diskTopology>
+  hardwareTab?: 'inventory' | 'topology' | 'readings'
 }
 
 export interface HistoryPoint {
@@ -211,6 +214,8 @@ export interface ScreenState {
   selectedPid: number | null
   scroll: number
   overlay: Overlay
+  overlayScroll?: number
+  overlayScrollMax?: number
   panelIndex: number
   columns: TuiColumn[]
   theme: string
@@ -260,6 +265,8 @@ export interface ScreenEffect {
   openListen?: boolean
   openHardware?: boolean
   refreshHardware?: boolean
+  openTopology?: boolean
+  loadCgroup?: number
   openHistory?: boolean
   openDiscovery?: boolean
   openReport?: boolean
@@ -409,7 +416,13 @@ export function wantsQuit(state: ScreenState, key: KeyPress): boolean {
 export function reduce(state: ScreenState, key: KeyPress, rows: DisplayRow[]): ReduceResult {
   if (key.ctrl && key.name === 'c') return { state }
   if (state.searching) return reduceSearch(state, key)
-  if (state.overlay !== 'none') return reduceOverlay(state, key)
+  if (state.overlay !== 'none') {
+    if (state.overlayScrollMax && (key.name === 'up' || key.name === 'down')) {
+      const overlayScroll = Math.min(state.overlayScrollMax, Math.max(0, (state.overlayScroll ?? 0) + (key.name === 'up' ? -1 : 1)))
+      return { state: { ...state, overlayScroll } }
+    }
+    return reduceOverlay(state, key)
+  }
   return reduceMain(state, key, rows)
 }
 
@@ -472,6 +485,10 @@ function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
 
 function reduceDetail(state: ScreenState, key: KeyPress): ReduceResult {
   const pid = state.detail?.pid ?? state.selectedPid
+  if (key.name === 'g' && pid) return {
+    state: { ...state, detail: { ...state.detail, pid, loaded: state.detail?.loaded ?? false, cgroup: { status: 'loading' } } },
+    effect: { loadCgroup: pid },
+  }
   if (key.name === 'e' && pid) return { state, effect: { loadEnv: pid } }
   if (key.name === 'o' && pid) return { state, effect: { loadFiles: pid } }
   if (key.name === 'escape' || key.name === 'esc' || key.name === 'q' || key.name === 'return' || key.name === 'enter') {
@@ -481,6 +498,23 @@ function reduceDetail(state: ScreenState, key: KeyPress): ReduceResult {
 }
 
 function reduceHardware(state: ScreenState, key: KeyPress): ReduceResult {
+  if (key.name === 's') {
+    const readings = state.page?.hardwareTab !== 'readings'
+    return {
+      state: { ...state, overlayScroll: 0, page: { kind: 'hardware', status: readings ? 'ready' : 'loading',
+        message: '', hardwareTab: readings ? 'readings' : 'inventory' } },
+      ...(readings ? {} : { effect: { openHardware: true } }),
+    }
+  }
+  if (key.name === 'r' && state.page?.hardwareTab === 'readings') return { state }
+  if (key.name === 'd' || key.name === 'r' && state.page?.hardwareTab === 'topology') {
+    const topology = key.name === 'r' || state.page?.hardwareTab !== 'topology'
+    return {
+      state: { ...state, overlayScroll: 0, page: { kind: 'hardware', status: 'loading', message: '',
+        hardwareTab: topology ? 'topology' : 'inventory' } },
+      effect: topology ? { openTopology: true } : { openHardware: true },
+    }
+  }
   if (key.name === 'r') {
     const page = state.page?.kind === 'hardware' ? { ...state.page, status: 'loading' as const, message: '' } : state.page
     return { state: { ...state, page }, effect: { refreshHardware: true } }

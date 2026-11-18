@@ -62,10 +62,13 @@ function calls() {
         logical_cores: 2,
         memory_bytes: 1024,
         displays: [],
+        battery: { design_capacity_mah: 5000, raw_maximum_capacity_mah: 4600 },
         from_cache: opts.refresh !== true,
       }
       return report
     },
+    diskTopology: () => [{ name: 'disk1', kind: 'partition', parent: 'disk0' }],
+    summarizeCgroup: async pid => ({ pid, cgroup: '/private', scope: 'cgroup_and_descendants', charged_memory_bytes: 0 }),
   }
   return { seen, loaders }
 }
@@ -79,6 +82,22 @@ function ctx(probes: ProbeSet = defaultProbes()) {
 }
 
 describe('on-demand pages', () => {
+  test('cgroup totals omit the path and log and preserve measured zero', async () => {
+    const { loaders, seen } = calls()
+    const result = await fulfillPage({ loadCgroup: 7 }, ctx(), loaders)
+    expect(result.detail?.cgroup).toEqual({ status: 'ready', cpu: undefined, memory: 0 })
+    expect(result.log).toEqual([])
+    expect(JSON.stringify(result)).not.toContain('/private')
+    expect(seen.detail).toBe(0)
+  })
+  test('disk topology uses its own probe-gated loader, not the inventory cache', async () => {
+    const { loaders, seen } = calls()
+    const result = await fulfillPage({ openTopology: true }, ctx(), loaders)
+    expect(result.page?.topology).toEqual([{ name: 'disk1', kind: 'partition', parent: 'disk0' }])
+    expect(result.log).toEqual([])
+    expect(seen.hardware).toBe(0)
+    expect((await fulfillPage({ openTopology: true }, ctx({ ...defaultProbes(), hardware: false }), loaders)).page?.status).toBe('off')
+  })
   test('a table tick effect calls none of the page loaders', async () => {
     const { seen, loaders } = calls()
     const patch = await fulfillPage({}, ctx(), loaders)

@@ -85,6 +85,7 @@ export interface Layout {
   bodyStart: number
   bodyRows: number
   discoveryMaxOffset?: number
+  overlayScrollMax?: number
   close?: { x: number; y: number; width: number }
 }
 
@@ -160,6 +161,7 @@ export function compose(
   let bodyStart = lines.length
   let bodyRows = 0
   let discoveryMaxOffset: number | undefined
+  let overlayScrollMax: number | undefined
   if (state.overlay === 'none') {
     for (const line of stripLines(input.system, input.history, width, height)) {
       if (!add(line)) break
@@ -189,7 +191,14 @@ export function compose(
     bodyStart = lines.length
     const discovery = state.overlay === 'discovery' ? discoveryLines(state) : undefined
     discoveryMaxOffset = discovery?.maxOffset
-    for (const line of framed(overlayTitle(state.overlay), discovery?.lines ?? overlayLines(state, input.processes), width)) {
+    let body = discovery?.lines ?? overlayLines(state, input.processes, input.system)
+    if (['hardware', 'detail', 'net', 'listen', 'report', 'log', 'help'].includes(state.overlay)) {
+      const room = Math.max(0, height - 4)
+      overlayScrollMax = Math.max(0, body.length - room)
+      const offset = Math.min(state.overlayScroll ?? 0, overlayScrollMax)
+      body = body.slice(offset, offset + room)
+    }
+    for (const line of framed(overlayTitle(state.overlay), body, width)) {
       if (!add(line)) break
     }
     while (lines.length < capacity) add('')
@@ -197,9 +206,13 @@ export function compose(
 
   const close = 'q close'
   const overlayHints = state.overlay === 'kill' ? 'y confirm   n cancel'
-    : state.overlay === 'discovery' ? '←/→ tab   ↑/↓ scroll   r refresh' : ''
+    : state.overlay === 'discovery' ? '←/→ tab   ↑/↓ scroll   r refresh'
+    : state.overlay === 'hardware' ? state.page?.hardwareTab === 'readings' ? 'd disks   s inventory'
+      : state.page?.hardwareTab === 'topology' ? 'd inventory   s readings   r refresh' : 'd disks   s readings   r refresh'
+    : state.overlay === 'detail' ? 'g cgroup   e env   o files' : ''
+  const scrollHint = overlayScrollMax ? '   ↑/↓ scroll' : ''
   const toolbar = fit(state.overlay === 'none' ? toolbarText(state, view.rows, input.processes.length, view.error)
-    : [close, overlayHints].filter(Boolean).join('   '), width)
+    : [close, overlayHints].filter(Boolean).join('   ') + scrollHint, width)
   const text = [...lines, toolbar].slice(0, height).join('\n')
   return {
     text,
@@ -210,6 +223,7 @@ export function compose(
       bodyStart,
       bodyRows,
       discoveryMaxOffset,
+      overlayScrollMax,
       ...(state.overlay === 'none' ? {} : { close: { x: 0, y: capacity, width: Math.min(width, close.length) } }),
     },
   }
@@ -226,11 +240,12 @@ export function applyPointer(
     if (pointer.kind === 'down' && close && pointer.y === close.y && pointer.x >= close.x && pointer.x < close.x + close.width) {
       return reduce(state, { name: 'q', ctrl: false, shift: false }, rows)
     }
-    if (pointer.kind === 'scroll' && pointer.scroll && ['discovery', 'columns', 'theme', 'settings'].includes(state.overlay)) {
+    if (pointer.kind === 'scroll' && pointer.scroll && (layout.overlayScrollMax || ['discovery', 'columns', 'theme', 'settings'].includes(state.overlay))) {
       const page = state.discoveryPage
       const maxOffset = layout.discoveryMaxOffset ?? 0
       const bounded = state.overlay === 'discovery' && page
-        ? { ...state, discoveryPage: { ...page, maxOffset, offset: Math.min(page.offset, maxOffset) } } : state
+        ? { ...state, discoveryPage: { ...page, maxOffset, offset: Math.min(page.offset, maxOffset) } }
+        : { ...state, overlayScrollMax: layout.overlayScrollMax }
       return reduce(bounded, { name: pointer.scroll, ctrl: false, shift: false }, rows)
     }
     return { state }
@@ -1007,13 +1022,13 @@ function emptyText(state: ScreenState, error: string): string {
   return 'no processes'
 }
 
-function overlayLines(state: ScreenState, processes: ProcessInfo[]): string[] {
+function overlayLines(state: ScreenState, processes: ProcessInfo[], system: Partial<SystemStats>): string[] {
   if (state.overlay === 'help') return helpLines()
   if (state.overlay === 'kill') return killLines(state, processes)
   if (state.overlay === 'detail') return detailLines(state, processes)
   if (state.overlay === 'columns') return columnLines(state)
   if (state.overlay === 'theme') return themeLines(state)
-  if (state.overlay === 'net' || state.overlay === 'listen' || state.overlay === 'hardware') return pageLines(state)
+  if (state.overlay === 'net' || state.overlay === 'listen' || state.overlay === 'hardware') return pageLines(state, system)
   if (state.overlay === 'history') return historyLines(state)
   if (state.overlay === 'report') return reportLines(state)
   if (state.overlay === 'log') return logLines(state)
@@ -1376,6 +1391,14 @@ function detailLines(state: ScreenState, processes: ProcessInfo[]): string[] {
     'children',
     ...(children.length === 0 ? ['  none'] : children.slice(0, 12).map((child) => `  ${child.pid} ${plain(child.name)}`)),
   ]
+  const cgroup = detail?.cgroup
+  if (cgroup) {
+    const totals = cgroup.status === 'ready' ? [
+      `  CPU: ${cgroup.cpu === undefined ? 'unmeasured' : `${cgroup.cpu}% of one core`}`,
+      `  charged memory: ${cgroup.memory === undefined ? 'unmeasured' : `${cgroup.memory} B`}`,
+    ] : [`  ${cgroup.status === 'loading' ? 'sampling…' : 'unavailable'}`]
+    lines.splice(1, 0, 'cgroup v2 (including descendants)', ...totals)
+  }
   if (detail?.env) {
     lines.push('env')
     if (detail.env.length === 0) lines.push('  none')
@@ -1397,19 +1420,41 @@ function detailLines(state: ScreenState, processes: ProcessInfo[]): string[] {
       if (detail.files.length > 8) lines.push(`  +${detail.files.length - 8} more`)
     }
   }
-  lines.push('e  env    o  files    esc  close')
   return lines
 }
 
 const PAGE_CAP = 8
 
-function pageLines(state: ScreenState): string[] {
+function pageLines(state: ScreenState, system: Partial<SystemStats>): string[] {
   const page = state.page
   if (!page || page.kind !== state.overlay) return ['esc  close']
   if (page.status === 'loading') return [`${pageTitle(page.kind)} …`, 'esc  close']
   if (page.status === 'off' || page.status === 'error') return [page.message || pageTitle(page.kind), 'esc  close']
   if (page.kind === 'net') return netLines(page.net ?? [])
   if (page.kind === 'listen') return listenLines(page.listen ?? [])
+  if (page.hardwareTab === 'readings') {
+    const units = { volts: 'V', amps: 'A', watts: 'W' }
+    const electrical = system.electrical_sensors ?? []
+    const power = system.powercap_packages ?? []
+    const interfaces = system.network_interfaces ?? []
+    return [
+      `${state.paused ? 'frozen' : 'latest'} sample readings`,
+      'hwmon electrical',
+      ...(electrical.length ? electrical.map(r => `  ${plain(r.name)}  ${r.value} ${units[r.unit]}`) : ['  not measured']),
+      'package power (experimental)',
+      ...(power.length ? power.map(r => `  ${plain(r.name)}  ${formatWatts(r.watts)}`) : ['  not measured']),
+      'network interfaces',
+      ...(interfaces.length ? interfaces.map(row =>
+        `  ${plain(row.name)}  rx ${discoveryRate(row.rx_bytes_per_s)}  tx ${discoveryRate(row.tx_bytes_per_s)}`) : ['  not measured']),
+    ]
+  }
+  if (page.hardwareTab === 'topology') {
+    const topology = page.topology ?? []
+    return ['live disk topology', ...(topology.length ? topology.flatMap(disk => [
+      `${plain(disk.name)}  ${disk.kind}${disk.parent ? `  parent ${plain(disk.parent)}` : ''}`,
+      ...(disk.backing_devices?.length ? [`  backing: ${disk.backing_devices.map(plain).join(' ')}`] : []),
+    ]) : ['disk topology unavailable'])]
+  }
   return hardwareLines(page.hardware)
 }
 
@@ -1467,11 +1512,12 @@ function hardwareLines(report: HardwareView | undefined): string[] {
       cycles === undefined ? '' : `${cycles} cycles`,
     ].filter((part) => part !== '')
     lines.push(`battery  ${health}${extra.length ? `  ${extra.join('  ')}` : ''}`)
+    if (report.battery.design_capacity_mah !== undefined) lines.push(`  design capacity: ${report.battery.design_capacity_mah} mAh`)
+    if (report.battery.raw_maximum_capacity_mah !== undefined) lines.push(`  raw maximum: ${report.battery.raw_maximum_capacity_mah} mAh`)
   }
   if (report.cpu_features && report.cpu_features.length > 0) {
     lines.push(`flags  ${report.cpu_features.map((flag) => plain(flag)).join(' ')}`)
   }
-  lines.push('r  re-read    esc  close')
   return lines
 }
 

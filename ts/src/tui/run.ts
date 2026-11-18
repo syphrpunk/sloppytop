@@ -110,6 +110,7 @@ export async function runTui(
   let stopped = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let pageToken = 0
+  let cgroupToken = 0
   let storeToken = 0
   let metricsStop: (() => void) | null = null
   const sampler = sampleTick ? undefined : createTuiSampler()
@@ -153,6 +154,8 @@ export async function runTui(
     rows = frame.rows
     layout = frame.layout
     if (state.overlay === 'none') state = { ...state, bodyRows: frame.layout.bodyRows }
+    state = { ...state, overlayScrollMax: layout.overlayScrollMax,
+      overlayScroll: Math.min(state.overlayScroll ?? 0, layout.overlayScrollMax ?? 0) }
     if (state.overlay === 'discovery' && state.discoveryPage) {
       const maxOffset = layout.discoveryMaxOffset ?? 0
       state = { ...state, discoveryPage: { ...state.discoveryPage, maxOffset, offset: Math.min(state.discoveryPage.offset, maxOffset) } }
@@ -389,14 +392,18 @@ export async function runTui(
   }
 
   const fulfillAndApply = async (effect: ScreenEffect) => {
-    const token = ++pageToken
+    const forCgroup = effect.loadCgroup != null
+    const token = forCgroup ? ++cgroupToken : ++pageToken
     try {
       const patch = await fulfillPage(effect, { probes, sampleMs, processes }, loaders)
-      if (stopped || token !== pageToken) return
+      if (stopped || token !== (forCgroup ? cgroupToken : pageToken)) return
       if (patch.detail && state.overlay === 'detail' && state.detail?.pid === patch.detail.pid) {
         state = { ...state, detail: mergeDetail(state.detail, patch.detail) }
       }
-      if (patch.page && state.overlay === patch.page.kind) state = { ...state, page: patch.page }
+      if (patch.page && state.overlay === patch.page.kind &&
+          (patch.page.kind !== 'hardware' || (state.page?.hardwareTab ?? 'inventory') === (patch.page.hardwareTab ?? 'inventory'))) {
+        state = { ...state, page: patch.page }
+      }
       if (patch.log.length > 0) {
         try {
           appendProbeLog(patch.log)
@@ -410,10 +417,21 @@ export async function runTui(
     }
   }
 
+  const accept = (next: ScreenState) => {
+    if (state.overlay !== next.overlay) {
+      pageToken++
+      cgroupToken++
+      storeToken++
+      state = { ...next, overlayScroll: 0, overlayScrollMax: 0 }
+    } else {
+      state = next
+    }
+  }
+
   text.onMouseDown = (ev) => {
     if (stopped || ev.button !== MouseButton.LEFT) return
     const result = applyPointer(state, layout, rows, { x: ev.x, y: ev.y, kind: 'down' })
-    state = result.state
+    accept(result.state)
     apply(result.effect)
     paint()
   }
@@ -480,7 +498,7 @@ export async function runTui(
         return
       }
       const result = reduce(state, key, rows)
-      state = result.state
+      accept(result.state)
       apply(result.effect)
       if (!stopped) paint()
     })
@@ -500,6 +518,7 @@ function mergeDetail(prev: DetailState | null, next: DetailState): DetailState {
     env: next.env ?? prev.env,
     files: next.files ?? prev.files,
     filesOmitted: next.filesOmitted ?? prev.filesOmitted,
+    cgroup: next.cgroup ?? prev.cgroup,
     message: next.message ?? prev.message,
     loaded: next.loaded || prev.loaded,
   }

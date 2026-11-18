@@ -135,6 +135,18 @@ def run(fixture, output):
             capture("06-return", ["sloppytop", "system", "PID", "fixture-worker", "q quit"], 56, 18)
             tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")
             capture("07-grow", ["sloppytop", "╭─ cpu", "PID", "fixture-worker"], 112, 30)
+            tmux("send-keys", "-t", "visual", "h")
+            capture("08-hardware", ["design capacity: 5000 mAh", "raw maximum: 4600 mAh", "0 cycles"], 112, 30)
+            tmux("send-keys", "-t", "visual", "d")
+            capture("09-disk-topology", ["live disk topology", "disk0s1  partition  parent disk0"], 112, 30)
+            tmux("send-keys", "-t", "visual", "s")
+            capture("09b-readings", ["fixture rail  0 V", "package power (experimental)", "eth0  rx 0 B/s  tx —"], 112, 30)
+            tmux("send-keys", "-t", "visual", "q")
+            capture("10-hardware-return", ["PID", "fixture-worker", "q quit"], 112, 30)
+            tmux("send-keys", "-t", "visual", "i", "g")
+            capture("11-cgroup", ["cgroup v2 (including descendants)", "CPU: unmeasured", "charged memory: 0 B"], 112, 30)
+            tmux("send-keys", "-t", "visual", "q")
+            capture("12-detail-return", ["PID", "fixture-worker", "q quit"], 112, 30)
             tmux("send-keys", "-t", "visual", "q")
             for _ in range(30):
                 if not tmux("list-sessions", check=False):
