@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Requested fixed-host booking for the remaining TUI performance gate; no benchmark processes started.
+
+
+## Session digest — 2026-11-18
+
 - Verified recorder destination and test teardown: 351 Bun tests passed, one Linux-only skip, 23 Python tests passed, visual comparisons and both installed/checkout smokes passed. Real recorder config and schedule untouched.
 
 
