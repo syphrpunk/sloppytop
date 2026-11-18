@@ -30,7 +30,6 @@ import type {
   ReportLeakLine,
   ReportTopLine,
   ReportView,
-  ScreenEffect,
 } from './state.ts'
 
 export const EMPTY_WINDOW =
@@ -284,17 +283,6 @@ export function bindMetricsListener(
     const message = err instanceof Error && err.message ? err.message : 'metrics bind failed'
     return { ok: false, message }
   }
-}
-
-export function hasStoreEffect(effect: ScreenEffect): boolean {
-  return (
-    effect.openHistory === true ||
-    effect.openDiscovery === true ||
-    effect.openReport === true ||
-    effect.openLog === true ||
-    effect.openSettings === true ||
-    effect.record === true
-  )
 }
 
 export async function recordWithStore(): Promise<{ recorded: boolean; message: string }> {

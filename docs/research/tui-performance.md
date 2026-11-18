@@ -222,3 +222,15 @@ compile: OpenTUI's top-level await was rejected by Bun's bytecode build.
 No valid code-signing identity was available in the current keychain,
 so a Developer ID signed/notarized artifact has not been tested.
 Nothing was installed or changed in the distribution or OS protections.
+
+### Lazy loading
+
+The TUI now loads page handlers and storage backends on demand, and each
+collector worker imports only its requested backend. The first live sample
+still starts immediately; the sampling cadence and standalone build are unchanged.
+
+On the same arm64 Mac, three interleaved fresh-copy PTY trials per build
+showed no clear first-launch improvement: before 2.45–3.86 s, after
+3.39–3.76 s to first frame. The interrupted repeat-launch series was not
+large or consistent enough to claim a warm-start gain. The cold-start
+target remains unmet.

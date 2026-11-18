@@ -52,20 +52,6 @@ export function defaultPageLoaders(): PageLoaders {
   }
 }
 
-export function hasPageEffect(effect: ScreenEffect): boolean {
-  return (
-    effect.detailPid != null ||
-    effect.loadEnv != null ||
-    effect.loadFiles != null ||
-    effect.openNet === true ||
-    effect.openListen === true ||
-    effect.openHardware === true ||
-    effect.refreshHardware === true ||
-    effect.openTopology === true ||
-    effect.loadCgroup != null
-  )
-}
-
 let pageFulfills = 0
 
 /** Overlay pages loaded. The screen tick does not add to this. */

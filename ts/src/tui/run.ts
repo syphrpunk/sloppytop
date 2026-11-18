@@ -5,19 +5,9 @@ import { createCliRenderer, MouseButton, TextRenderable, type CliRenderer } from
 import type { ProbeSet } from '../monitor/probes.ts'
 import type { ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { isProbeName, type ProbeName } from '../monitor/probes.ts'
-import { takeSample } from '../sample.ts'
 import { ensureTuiConfig, loadConfig, saveConfig, updateMetrics, updateProbes } from '../store/config.ts'
 import { appendProbeLog } from '../store/probe-log.ts'
-import { defaultPageLoaders, fulfillPage, hasPageEffect, type PageLoaders } from './pages.ts'
-import {
-  bindMetricsListener,
-  hasStoreEffect,
-  loadHistory,
-  loadLog,
-  loadReport,
-  readService,
-  recordWithStore,
-} from './store.ts'
+import type { PageLoaders } from './pages.ts'
 import {
   applyPointer,
   compose,
@@ -75,7 +65,7 @@ export function bindQuit(renderer: CliRenderer, onQuit: () => void): void {
 }
 
 export async function runTui(
-  loaders: PageLoaders = defaultPageLoaders(),
+  loaders?: PageLoaders,
   loadDiscovery?: () => Promise<Overview>,
   sampleTick?: SampleTick,
   loadDiscoveryDetail?: (section: 'connections' | 'dns') => Promise<DiscoveryDetail>,
@@ -113,6 +103,7 @@ export async function runTui(
   let cgroupToken = 0
   let storeToken = 0
   let metricsStop: (() => void) | null = null
+  let metricsStarting = false
   const sampler = sampleTick ? undefined : createTuiSampler()
   const discoveryWorker = createCollectorWorker()
   let discoveryQueue = Promise.resolve()
@@ -207,8 +198,11 @@ export async function runTui(
     if (effect.pins || effect.tui) persist(effect)
     if (effect.toggleProbe) persistProbe(effect.toggleProbe)
     if (effect.toggleMetrics) void toggleListener()
-    if (hasPageEffect(effect)) void fulfillAndApply(effect)
-    if (hasStoreEffect(effect)) void fulfillStore(effect)
+    if (effect.detailPid != null || effect.loadEnv != null || effect.loadFiles != null ||
+        effect.openNet || effect.openListen || effect.openHardware || effect.refreshHardware ||
+        effect.openTopology || effect.loadCgroup != null) void fulfillAndApply(effect)
+    if (effect.openHistory || effect.openDiscovery || effect.openReport || effect.openLog ||
+        effect.openSettings || effect.record) void fulfillStore(effect)
   }
 
   const persistProbe = (toggle: { name: ProbeName; enabled: boolean }) => {
@@ -274,12 +268,16 @@ export async function runTui(
       if (!stopped) paint()
       return
     }
+    if (metricsStarting) return
+    metricsStarting = true
     try {
+      const { bindMetricsListener } = await import('./store.ts')
+      if (stopped) return
       const saved = updateMetrics({ enabled: true })
       const bound = bindMetricsListener({
         host: saved.metrics.host,
         port: saved.metrics.port,
-        sample: () => takeSample(sampleMs).then((sample) => sample.system),
+        sample: async () => (await (await import('../sample.ts')).takeSample(sampleMs)).system,
       })
       if (!bound.ok) {
         state = {
@@ -331,6 +329,8 @@ export async function runTui(
       if (state.settingsPage) {
         state = { ...state, settingsPage: { ...state.settingsPage, listening: false, metricsMessage: message } }
       }
+    } finally {
+      metricsStarting = false
     }
     if (!stopped) paint()
   }
@@ -341,11 +341,7 @@ export async function runTui(
     await Promise.resolve()
     if (stopped || token !== storeToken) return
     try {
-      if (effect.record) {
-        const result = await recordWithStore()
-        if (stopped || token !== storeToken || state.overlay !== 'record') return
-        state = { ...state, recordPage: { message: result.message } }
-      } else if (effect.openDiscovery) {
+      if (effect.openDiscovery) {
         const enabled = state.probes.network
         const section = DISCOVERY_TABS[tab ?? 0]
         const detailTab = section === 'connections' || section === 'dns'
@@ -371,22 +367,22 @@ export async function runTui(
         state = { ...state, discoveryPage: { ...state.discoveryPage, loading: false,
           ...(detail ? { detail } : data ? { data } : { message: 'network probe is off' }),
         } }
-      } else if (effect.openHistory) {
-        const view = loadHistory()
-        if (stopped || token !== storeToken || state.overlay !== 'history') return
-        state = { ...state, historyPage: view }
-      } else if (effect.openReport) {
-        const view = loadReport()
-        if (stopped || token !== storeToken || state.overlay !== 'report') return
-        state = { ...state, reportPage: view }
-      } else if (effect.openLog) {
-        const view = loadLog()
-        if (stopped || token !== storeToken || state.overlay !== 'log') return
-        state = { ...state, logPage: { status: 'ready', message: '', lines: view.lines } }
-      } else if (effect.openSettings) {
-        const service = readService()
-        if (stopped || token !== storeToken || state.overlay !== 'settings' || !state.settingsPage) return
-        state = { ...state, settingsPage: { ...state.settingsPage, serviceLine: service.line } }
+      } else {
+        const store = await import('./store.ts')
+        if (stopped || token !== storeToken) return
+        if (effect.record && state.overlay === 'record') {
+          const result = await store.recordWithStore()
+          if (stopped || token !== storeToken || state.overlay !== 'record') return
+          state = { ...state, recordPage: { message: result.message } }
+        } else if (effect.openHistory && state.overlay === 'history') {
+          state = { ...state, historyPage: store.loadHistory() }
+        } else if (effect.openReport && state.overlay === 'report') {
+          state = { ...state, reportPage: store.loadReport() }
+        } else if (effect.openLog && state.overlay === 'log') {
+          state = { ...state, logPage: { status: 'ready', message: '', lines: store.loadLog().lines } }
+        } else if (effect.openSettings && state.overlay === 'settings' && state.settingsPage) {
+          state = { ...state, settingsPage: { ...state.settingsPage, serviceLine: store.readService().line } }
+        }
       }
     } catch (err) {
       if (stopped || token !== storeToken) return
@@ -415,7 +411,9 @@ export async function runTui(
     const forCgroup = effect.loadCgroup != null
     const token = forCgroup ? ++cgroupToken : ++pageToken
     try {
-      const patch = await fulfillPage(effect, { probes, sampleMs, processes }, loaders)
+      const { fulfillPage, defaultPageLoaders } = await import('./pages.ts')
+      if (stopped || token !== (forCgroup ? cgroupToken : pageToken)) return
+      const patch = await fulfillPage(effect, { probes, sampleMs, processes }, loaders ??= defaultPageLoaders())
       if (stopped || token !== (forCgroup ? cgroupToken : pageToken)) return
       if (patch.detail && state.overlay === 'detail' && state.detail?.pid === patch.detail.pid) {
         state = { ...state, detail: mergeDetail(state.detail, patch.detail) }
