@@ -307,3 +307,17 @@ security daemon appeared among its named main-thread wakeups. These
 are scheduler observations, not proof of what either daemon checked
 or that signing would remove the waits. Both probes exited successfully,
 and no security settings changed.
+
+After the operator reported turning off Malwarebytes real-time protection,
+repeated the five fresh/repeat PTY pairs on mbp2023 with the same binary
+(SHA-256 matched) and harness:
+
+| Launch | First frame | Populated table | Shrink |
+|---|---:|---:|---:|
+| Fresh copy | 1,282–1,470 ms | 2,503–2,774 ms | 19.7–20.2 ms |
+| Repeat | 82.0–86.0 ms | 1,294–1,367 ms | 19.5–19.6 ms |
+
+All ten live smokes passed. The first-frame range overlapped the earlier
+1,239–1,485 ms range, and neither fresh-start target passed. This retest
+did not independently verify the protection setting or capture a new
+trace, so it cannot attribute the remaining delay to a particular daemon.
