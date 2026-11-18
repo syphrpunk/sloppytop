@@ -10,6 +10,7 @@ import { appendProbeLog } from '../store/probe-log.ts'
 import type { PageLoaders } from './pages.ts'
 import { recorderMatches, type RecorderChange } from './recorder.ts'
 import { openRecordGroups, saveRecordGroupChange } from './record-groups.ts'
+import type { DestinationRequest, DestinationReply } from './recorder-destination.ts'
 import type { RecorderHealth } from './store.ts'
 import {
   applyPointer,
@@ -27,6 +28,7 @@ import {
   initialState,
   reduce,
   setArtifactPath,
+  setDestinationDraft,
   createRowSelector,
   pruneTreeFolds,
   wantsQuit,
@@ -74,7 +76,8 @@ export async function runTui(
   loadDiscovery?: () => Promise<Overview>,
   sampleTick?: SampleTick,
   loadDiscoveryDetail?: (section: 'connections' | 'dns') => Promise<DiscoveryDetail>,
-  recorder?: { read: () => RecorderHealth; change: (change: RecorderChange) => Promise<string> },
+  recorder?: { read: () => RecorderHealth; change: (change: RecorderChange) => Promise<string>;
+    destination: (request: DestinationRequest) => DestinationReply },
   loadSubtree?: (pid: number) => ReturnType<typeof import('../monitor/workload.ts').summarizeTree>,
   loadReport?: () => import('./state.ts').ReportView,
 ): Promise<void> {
@@ -219,7 +222,7 @@ export async function runTui(
         effect.openNet || effect.openListen || effect.openHardware || effect.refreshHardware ||
         effect.openTopology || effect.loadCgroup != null) void fulfillAndApply(effect)
     if (effect.openHistory || effect.openDiscovery || effect.openReport || effect.openLog ||
-        effect.openSettings || effect.changeRecorder || effect.record || effect.loadSubtree != null || effect.artifact) void fulfillStore(effect)
+        effect.openSettings || effect.destination || effect.changeRecorder || effect.record || effect.loadSubtree != null || effect.artifact) void fulfillStore(effect)
   }
 
   const persistProbe = (toggle: { name: ProbeName; enabled: boolean }) => {
@@ -384,6 +387,30 @@ export async function runTui(
         state = { ...state, discoveryPage: { ...state.discoveryPage, loading: false,
           ...(detail ? { detail } : data ? { data } : { message: 'network probe is off' }),
         } }
+      } else if (effect.destination && state.overlay === 'settings') {
+        const request = effect.destination
+        // Keep the worker (and its private backend token) alive between review and y.
+        if (request.kind === 'preview') onDemandWorker.close()
+        const reply = recorder ? { destination: recorder.destination(request) }
+          : await onDemandWorker.request({ kind: 'destination', input: request }, 15_000)
+        if (stopped || token !== storeToken || state.overlay !== 'settings' || !state.settingsPage) return
+        if (!reply || !('destination' in reply)) throw new Error('Destination worker unavailable')
+        const result = reply.destination
+        const page = state.settingsPage
+        if (result.kind === 'review' && request.kind === 'preview') {
+          state = { ...state, settingsPage: { ...page, recorderEdit: { step: 'destinationReview', reset: request.path === null, review: result } } }
+        } else if (result.kind === 'verified') {
+          const prior = page.recorder.status === 'ready' ? page.recorder.health : { schedulerError: 'not checked' }
+          const health = { ...prior, databasePath: result.location.path, last_successful_sample_at: undefined,
+            sample_age_seconds: undefined, insertError: undefined, ...result.freshness }
+          state = { ...state, settingsPage: { ...page, recorderEdit: undefined, recorder: { status: 'ready', health },
+            recorderMessage: `Destination verified: ${result.location.path}` } }
+        } else {
+          if (result.kind !== 'unverified') throw new Error('Unexpected destination reply')
+          state = { ...state, settingsPage: { ...page, recorderEdit: undefined,
+            recorder: { status: 'error', message: 'Reopen Settings to check the actual destination.' },
+            recorderMessage: `Config saved but destination readback failed: ${result.message}` } }
+        }
       } else if ((effect.openSettings || effect.changeRecorder) && state.overlay === 'settings') {
         onDemandWorker.close()
         if (effect.changeRecorder && state.settingsPage) {
@@ -462,6 +489,15 @@ export async function runTui(
       if (effect.openLog && state.overlay === 'log') {
         state = { ...state, logPage: { status: 'error', message, lines: [] } }
       }
+      if (effect.destination && state.overlay === 'settings' && state.settingsPage) {
+        const preview = effect.destination.kind === 'preview'
+        const path = effect.destination.kind === 'preview' ? effect.destination.path : null
+        state = { ...state, settingsPage: { ...state.settingsPage,
+          recorderEdit: path !== null ? { step: 'path', draft: path } : undefined,
+          recorderMessage: `${preview ? 'Preview failed' : 'Destination change failed'}: ${message}`,
+          ...(!preview && { recorder: { status: 'error' as const, message: 'Reopen Settings to check the actual destination.' } }),
+        } }
+      }
       if ((effect.openSettings || effect.changeRecorder) && state.overlay === 'settings' && state.settingsPage) {
         state = { ...state, settingsPage: { ...state.settingsPage, recorderEdit: undefined, recorder: { status: 'error', message } } }
       }
@@ -510,6 +546,12 @@ export async function runTui(
   }
 
   const accept = (next: ScreenState) => {
+    const previousStep = state.settingsPage?.recorderEdit?.step
+    if (state.overlay === 'settings' && (previousStep === 'previewing' || previousStep === 'destinationReview') &&
+        (next.overlay !== 'settings' || !next.settingsPage?.recorderEdit)) {
+      storeToken++
+      onDemandWorker.close() // cancel in-flight inspection and discard authorization
+    }
     if (next.tree && !state.tree) next = pruneTreeFolds(next, processes)
     if (state.overlay !== next.overlay) {
       pageToken++
@@ -586,6 +628,18 @@ export async function runTui(
       resolve()
     }
     renderer.keyInput.on('paste', (ev) => {
+      if (state.overlay === 'settings' && state.settingsPage?.recorderEdit?.step === 'path' && !stopped) {
+        ev.preventDefault()
+        const draft = state.settingsPage.recorderEdit.draft
+        // Reject the whole paste, never truncate an unsafe filename into another target.
+        let next: string | null = null
+        if (ev.bytes.length <= 16_384) {
+          try { next = draft + new TextDecoder('utf-8', { fatal: true }).decode(ev.bytes) } catch { /* invalid UTF-8 */ }
+        }
+        accept(setDestinationDraft(state, next).state)
+        paint()
+        return
+      }
       const form = state.artifact
       if (stopped || state.overlay !== 'artifact' || form?.status !== 'input' || ev.bytes.length > 4096) return
       ev.preventDefault()
@@ -595,7 +649,8 @@ export async function runTui(
     })
     renderer.keyInput.on('keypress', (ev) => {
       if (ev.eventType === 'release' || stopped) return
-      const key: KeyPress = { name: ev.name, ctrl: ev.ctrl, shift: ev.shift }
+      const key: KeyPress = { name: ev.name, ctrl: ev.ctrl, shift: ev.shift,
+        text: ev.meta || ev.option || ev.super || ev.hyper ? '' : [...ev.sequence].length === 1 ? ev.sequence : undefined }
       if (wantsQuit(state, key)) {
         finish()
         return

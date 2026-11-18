@@ -214,7 +214,8 @@ export function compose(
   }
 
   const applyingRecorder = state.overlay === 'settings' && state.settingsPage?.recorderEdit?.step === 'applying'
-  const close = applyingRecorder ? '' : state.overlay === 'artifact' && state.artifact?.status === 'input' ? 'Esc back' : 'q close'
+  const pathInput = state.overlay === 'settings' && state.settingsPage?.recorderEdit?.step === 'path'
+  const close = applyingRecorder || pathInput ? '' : state.overlay === 'artifact' && state.artifact?.status === 'input' ? 'Esc back' : 'q close'
   const overlayHints = state.overlay === 'kill' ? 'y confirm   n cancel'
     : state.overlay === 'discovery' ? '←/→ tab ↑/↓ scroll r refresh c diff e export'
     : state.overlay === 'hardware' ? state.page?.hardwareTab === 'readings' ? 'd disks   s inventory'
@@ -1445,12 +1446,15 @@ function settingsHints(state: ScreenState): string {
     case 'recorder': {
       const page = state.settingsPage
       switch (page.recorderEdit?.step) {
+        case 'path': return 'Enter preview   Esc cancel'
+        case 'previewing': return 'Esc cancel'
+        case 'destinationReview': return page.recorderEdit.review.preview.target.writable ? 'y confirm   n/Esc cancel' : 'n/Esc cancel'
         case 'interval': return 'Enter review   Esc cancel'
         case 'confirm': return 'y confirm   n/Esc cancel'
         case 'applying': return ''
       }
       const { enable, disable, cadence } = recorderActions(page)
-      return [enable && 'e enable', cadence && 'c cadence', disable && 'd disable', 'Esc back'].filter(Boolean).join('   ')
+      return [page.recorder.status !== 'loading' && 'p path   r default', enable && 'e enable', cadence && 'c cadence', disable && 'd disable', 'Esc back'].filter(Boolean).join('   ')
     }
     case 'metrics': return 'Esc back   m toggle listener'
     default: return '↑/↓ select   Enter open   m listener'
@@ -1491,8 +1495,21 @@ function settingsLines(state: ScreenState): string[] {
     return [summary, ...choices.map(section => `${section === SETTINGS_SECTIONS[state.panelIndex] ? '>' : ' '} ${labels[section]}${position}`)]
   }
   const edit = page.recorderEdit
-  const wrap = (lines: string[]) => lines.flatMap(line => wrapCells(plain(line), panelWidth(state.width)))
+  const wrap = (lines: string[]) => lines.flatMap(line => wrapCells(plain(line).replace(/[\p{Cc}\p{Cf}\u2028\u2029]/gu, '�'), panelWidth(state.width)))
   const message = page.recorderMessage?.split('\n') ?? []
+  if (edit?.step === 'path') return wrap(['Recorder destination path',
+    'Use an absolute .db, .sqlite or .sqlite3 filename in a private directory.', ...message, `> ${edit.draft}▏`])
+  if (edit?.step === 'previewing') return ['Inspecting recorder destinations…']
+  if (edit?.step === 'destinationReview') {
+    const { current, target } = edit.review.preview
+    const describe = (location: typeof current) => [location.path,
+      `${location.exists ? 'existing' : 'new'} · ${location.writable ? 'writable' : 'not writable'} · ${location.samples} samples`,
+      ...(location.samples ? [`first  ${location.first ?? 'unknown'}`, `last   ${location.last ?? 'unknown'}`] : []),
+    ]
+    return wrap([edit.reset ? 'Restore default destination?' : 'Review recorder destination',
+      'History stays in place. Only future writes use the target.', 'Current database', ...describe(current),
+      edit.reset ? 'Target database (default, including legacy names)' : 'Target database', ...describe(target)])
+  }
   if (edit?.step === 'applying') return ['Applying change and checking actual state…']
   if (edit?.step === 'interval') return wrap([
     edit.kind === 'enable' ? 'Enable scheduled recording' : 'Change recorder cadence',

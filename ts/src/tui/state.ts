@@ -8,6 +8,7 @@ import { processTreeIdentity, projectProcessTree, type ProjectedTreeRow } from '
 import { defaultProbes, disabledRecordProbes, PROBE_NAMES, type ProbeName, type ProbeSet } from '../monitor/probes.ts'
 import type { ProcessInfo } from '../monitor/types.ts'
 import { TUI_COLUMNS, type TuiColumn } from '../store/config.ts'
+import type { DestinationReply, DestinationRequest } from './recorder-destination.ts'
 import { validRecorderInterval, type RecorderChange } from './recorder.ts'
 import { reduceRecordGroups, type RecordGroupChange, type RecordGroupsView } from './record-groups.ts'
 import { THEME_NAMES } from './theme.ts'
@@ -231,6 +232,8 @@ export interface SettingsView {
   metricsMessage: string
   recorderEdit?: { step: 'interval'; kind: 'enable' | 'cadence'; draft: string }
     | { step: 'confirm'; change: RecorderChange } | { step: 'applying' }
+    | { step: 'path'; draft: string } | { step: 'previewing'; path: string | null }
+    | { step: 'destinationReview'; reset: boolean; review: Extract<DestinationReply, { kind: 'review' }> }
   recorderMessage?: string
   recorder: { status: 'loading' } | { status: 'error'; message: string }
     | { status: 'ready'; health: import('./store.ts').RecorderHealth }
@@ -315,6 +318,7 @@ export interface ScreenEffect {
   openReport?: boolean
   openLog?: boolean
   openSettings?: boolean
+  destination?: DestinationRequest
   changeRecorder?: RecorderChange
   toggleProbe?: { name: ProbeName; enabled: boolean }
   openRecordGroups?: boolean
@@ -336,6 +340,7 @@ export type DisplayRow =
 export interface KeyPress {
   name: string
   ctrl: boolean
+  text?: string
   shift: boolean
 }
 
@@ -747,6 +752,16 @@ export function recorderActions(page: SettingsView) {
   }
 }
 
+export function setDestinationDraft(state: ScreenState, draft: string | null): ReduceResult {
+  const page = state.settingsPage
+  if (state.overlay !== 'settings' || page?.section !== 'recorder' || page.recorderEdit?.step !== 'path') return { state }
+  const invalid = draft === null || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(draft) || draft.length > 4096
+  return { state: { ...state, overlayScroll: 0, settingsPage: { ...page,
+    recorderEdit: invalid ? page.recorderEdit : { step: 'path', draft },
+    recorderMessage: invalid ? 'Input rejected: use up to 4096 printable characters.' : undefined,
+  } } }
+}
+
 function reduceRecorder(state: ScreenState, page: SettingsView, key: KeyPress): ReduceResult | undefined {
   const edit = page.recorderEdit
   const update = (recorderEdit?: SettingsView['recorderEdit'], recorderMessage?: string): ReduceResult => ({
@@ -754,7 +769,27 @@ function reduceRecorder(state: ScreenState, page: SettingsView, key: KeyPress): 
   })
   if (edit?.step === 'applying') return { state }
   if (edit && (key.name === 'escape' || key.name === 'esc' || (edit.step === 'confirm' && key.name === 'n'))) return update()
+  const preview = (path: string | null): ReduceResult => ({ ...update({ step: 'previewing', path }),
+    effect: { destination: { kind: 'preview', path } } })
+  if (edit?.step === 'path') {
+    if (key.ctrl) return { state }
+    if (key.name === 'enter' || key.name === 'return') return preview(edit.draft)
+    if (key.name === 'backspace' || key.name === 'delete') return setDestinationDraft(state, [...edit.draft].slice(0, -1).join(''))
+    const text = key.text ?? (key.name === 'space' ? ' ' : key.shift ? key.name.toUpperCase() : key.name)
+    if ([...text].length === 1) return setDestinationDraft(state, edit.draft + text)
+    return { state }
+  }
   if (key.name === 'q') return undefined // normal Settings close, without a write
+  if (edit?.step === 'previewing') return { state }
+  if (edit?.step === 'destinationReview') {
+    if (key.name === 'n') return update()
+    if (key.name !== 'y' || key.ctrl || key.text === '' || !edit.review.preview.target.writable) return { state }
+    return { ...update({ step: 'applying' }), effect: { destination: { kind: 'confirm', id: edit.review.id } } }
+  }
+  if (!edit && page.recorder.status !== 'loading' && !key.ctrl) {
+    if (key.name === 'p') return update({ step: 'path', draft: '' })
+    if (key.name === 'r') return preview(null)
+  }
   if (edit?.step === 'confirm') {
     if (key.name !== 'y' || key.ctrl) return { state }
     return { ...update({ step: 'applying' }), effect: { changeRecorder: edit.change } }

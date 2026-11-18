@@ -1,4 +1,8 @@
 // Compiled only by the discovery smoke check, never by the release build.
+import { realpathSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { sep } from 'node:path'
+import { handleDestination, type DestinationRequest } from './src/tui/recorder-destination.ts'
 import { composeOverview } from './src/discovery/overview.ts'
 import { observe } from './src/discovery/provider.ts'
 import { runTui } from './src/tui/run.ts'
@@ -87,6 +91,23 @@ const fixtureHealth: RecorderHealth = {
 }
 const fixtureRecorder = {
   read: () => structuredClone(fixtureHealth),
+  destination: (request: DestinationRequest) => {
+    // Unlike the synthetic scheduler, test the actual destination transaction, in the fixture tree only.
+    const root = process.env.XDG_CONFIG_HOME
+    if (process.env.ST_VISUAL_HISTORY !== '1' || !root || !realpathSync(root).startsWith(realpathSync(tmpdir()) + sep)) {
+      throw new Error('Destination fixture requires a private temporary XDG_CONFIG_HOME')
+    }
+    if (request.kind === 'preview' && request.path && !request.path.startsWith(root + sep)) {
+      throw new Error('Use an absolute path inside the fixture directory')
+    }
+    const result = handleDestination(request)
+    if (result.kind === 'verified') {
+      fixtureHealth.databasePath = result.location.path
+      fixtureHealth.last_successful_sample_at = result.freshness.last_successful_sample_at
+      fixtureHealth.sample_age_seconds = result.freshness.sample_age_seconds
+    }
+    return result
+  },
   change: (change: RecorderChange) => changeRecorder(change, {
     platform: 'linux',
     record: async () => {

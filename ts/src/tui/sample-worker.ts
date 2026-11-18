@@ -5,14 +5,17 @@ import type { RecorderHealth } from './store.ts'
 import type { summarizeTree } from '../monitor/workload.ts'
 import type { ReportView } from './state.ts'
 
+import type { DestinationRequest, DestinationReply } from './recorder-destination.ts'
+
 export type WorkerRequest = { kind: 'sample'; ms: number; traceStartup?: true } | { kind: 'discovery'; section: 'overview' | 'connections' | 'dns' }
   | { kind: 'changeRecorder'; change: import('./recorder.ts').RecorderChange; command: string[] }
   | { kind: 'recorder' } | { kind: 'subtree'; pid: number; ms: number } | { kind: 'report' }
+  | { kind: 'destination'; input: DestinationRequest }
   | { kind: 'artifact'; input: import('./artifacts.ts').ArtifactRequest }
 export type WorkerPhases = Partial<Record<SamplePhase, number>>
 export type WorkerReply = { sample: Sample; phasesMs?: WorkerPhases } | { overview: Overview } | { detail: DiscoveryDetail }
   | { recorderMessage: string } | { recorder: RecorderHealth } | { subtree: ReturnType<typeof summarizeTree> } | { report: ReportView }
-  | { artifact: string[] } | { error: string }
+  | { destination: DestinationReply } | { artifact: string[] } | { error: string }
 const self = globalThis as unknown as {
   onmessage: (event: MessageEvent<WorkerRequest>) => void
   postMessage: (result: WorkerReply) => void
@@ -48,6 +51,9 @@ self.onmessage = async ({ data }) => {
     } else if (data.kind === 'report') {
       const { loadReport } = await import('./store.ts')
       self.postMessage({ report: loadReport() })
+    } else if (data.kind === 'destination') {
+      const { handleDestination } = await import('./recorder-destination.ts')
+      self.postMessage({ destination: handleDestination(data.input) })
     } else if (data.kind === 'artifact') {
       const { runArtifact } = await import('./artifacts.ts')
       self.postMessage({ artifact: await runArtifact(data.input) })

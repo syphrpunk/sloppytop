@@ -270,6 +270,16 @@ the change and press `y` to confirm, or Esc to cancel. Enabling or changing
 cadence stores a sample **before** installing the schedule, just like
 `sloppytop service install`. If installation fails, that sample stays in the
 database. Settings rechecks the scheduler and database after each attempt.
+To change where **future manual and scheduled samples** are stored, press `p`
+in Recorder details, type or paste a normalized absolute SQLite filename in
+an existing private directory, and press Enter. Or press `r` in Recorder
+details to preview the default (including a legacy `neohtop.db`). Review
+both paths, writability, sample counts and time ranges; ↑/↓ scrolls long
+previews. `n` or Esc cancels; only `y` confirms. Confirmation rechecks both
+databases and the config, then reads back the destination. If the preview
+is stale, start a fresh one. Changing destination never copies, moves or
+merges history, writes a sample, or reinstalls the scheduler.
+
 From a selected process, press `i` for details and `t` to sample its visible
 subtree with the same collector as `tree --summary-pid`. Press `t` again
 to return. Coverage is shown per metric; the subtree may omit processes,

@@ -27,4 +27,4 @@ sloppytop  Charm
 
 
 
-q close   c cadence   d disable   Esc back
+q close   p path   r default   c cadence   d disable   Esc back
