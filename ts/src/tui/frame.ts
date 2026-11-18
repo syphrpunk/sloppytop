@@ -1077,6 +1077,21 @@ function helpLines(): string[] {
 
 const SETTINGS_WINDOW = 8
 
+function discoveryCount(
+  count: number,
+  label: string,
+  providers: { source: string; status: string; issues: string[]; rows: unknown[] }[],
+  expected: string[],
+  ownerVisibilityOnly = false,
+): string {
+  const observed = providers.filter(p => expected.includes(p.source))
+  const complete = (p: (typeof observed)[number]) => p.status === 'ready' || p.status === 'empty' ||
+    (ownerVisibilityOnly && p.status === 'partial' && p.issues.every(issue => issue === 'visibility'))
+  if (expected.every(source => observed.some(p => p.source === source && complete(p)))) return `${count} ${label}`
+  if (count > 0 || observed.some(complete)) return `${count} ${label} (partial)`
+  return `${label}: unknown`
+}
+
 function discoveryLines(state: ScreenState): string[] {
   const page = state.discoveryPage
   const data = page?.data
@@ -1086,8 +1101,16 @@ function discoveryLines(state: ScreenState): string[] {
   const provider = (p: { source: string; status: string; observed_at: string; issues: string[]; rows: unknown[] }) =>
     `${p.source}: ${p.status} (${p.rows.length}) ${p.observed_at.slice(11, 19)}Z ${p.issues.join(', ')}`
   if (section === 'overview') {
-    lines.push(`${data.counts.tcp_listeners} TCP listens / ${data.counts.udp_bound} UDP bound (visible)`,
-      `${data.counts.cached_neighbors} cached peers (not online status)`)
+    const linuxSockets = data.listeners.some(p => p.platform === 'linux')
+    const linuxNeighbors = data.neighbors.some(p => p.source === 'ip neighbors')
+    lines.push(
+      discoveryCount(data.counts.tcp_listeners, 'TCP listens', data.listeners,
+        linuxSockets ? ['ss tcp4', 'ss tcp6'] : ['netstat tcp'], true),
+      discoveryCount(data.counts.udp_bound, 'UDP bound', data.listeners,
+        linuxSockets ? ['ss udp4', 'ss udp6'] : ['netstat udp'], true),
+      `${discoveryCount(data.counts.cached_neighbors, 'cached peers', data.neighbors,
+        linuxNeighbors ? ['ip neighbors'] : ['ARP cache', 'NDP cache'])} (not online status)`,
+    )
     lines.push(...data.default_routes.map((r) => `default v${r.family} ${r.interface ?? '—'} via ${r.gateway ?? 'on-link or unknown'}`))
     lines.push(...[...data.interfaces, ...data.routes, ...data.neighbors, ...data.listeners].map(provider))
   } else if (section === 'interfaces') {

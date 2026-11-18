@@ -107,7 +107,8 @@ def run(fixture, output):
             tmux("resize-window", "-t", "visual", "-x", "56", "-y", "18")
             capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0"], 56, 18)
             tmux("send-keys", "-t", "visual", "D")
-            capture("03-discovery-coverage", ["cached peers", "denied", "partial"], 56, 18)
+            capture("03-discovery-coverage", ["TCP listens: unknown", "UDP bound: unknown",
+                                              "cached peers (partial)", "denied"], 56, 18)
             for _ in range(3):
                 tmux("send-keys", "-t", "visual", "Right")
             capture("04-neighbors", ["ARP cache: partial", "fe80::1%eth0"], 56, 18)

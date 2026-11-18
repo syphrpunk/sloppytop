@@ -92,12 +92,30 @@ test('discovery navigation renders denied and partial coverage at narrow and wid
     const draw = () => compose(state, { processes: [], system: {}, history: emptyHistory() }).text
     expect(draw()).toContain('12:34:56Z')
     expect(draw()).toContain('ip address: unavailable (0) 12:34:56Z denied')
+    expect(draw()).toContain('TCP listens: unknown')
+    expect(draw()).toContain('UDP bound: unknown')
+    expect(draw()).toContain('1 cached peers (partial)')
     for (let i = 0; i < 3; i++) state = reduce(state, key('right'), []).state
     expect(draw()).toContain('ARP cache: partial')
     expect(draw()).toContain('fe80::1%eth0')
     expect(reduce(state, key('r'), []).effect?.openDiscovery).toBe(true)
     expect(reduce(state, key('escape'), []).state.overlay).toBe('none')
   }
+})
+
+test('discovery counts show observed empty and incomplete families independently', () => {
+  const at = new Date('2026-01-01T12:34:56Z')
+  const empty = (source: string) => observe(source, { text: '' }, () => ({ rows: [] as never[] }), 'linux', at)
+  const data = composeOverview([], [], [empty('ip neighbors')], [
+    empty('ss tcp4'), empty('ss tcp6'), empty('ss udp4'),
+    observe('ss udp6', { issue: 'denied' }, () => ({ rows: [] as never[] }), 'linux', at),
+  ], 'test', at)
+  const state = screen({ overlay: 'discovery', discoveryPage: { tab: 0, offset: 0, data } })
+  const { text } = compose(state, { processes: [], system: {}, history: emptyHistory() })
+  expect(text).toContain('0 TCP listens')
+  expect(text).not.toContain('0 TCP listens (partial)')
+  expect(text).toContain('0 UDP bound (partial)')
+  expect(text).toContain('0 cached peers (not online status)')
 })
 
 test('short wide and narrow screens favor process rows and primary metrics', () => {
