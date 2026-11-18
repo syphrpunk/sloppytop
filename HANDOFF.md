@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 735521a chore(handoff): append checkpoint destination-and-cleanup
+HEAD: 65505e2 chore(handoff): append checkpoint performance-host-booking
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -91,6 +91,7 @@ Installed the selected History evidence view, verified via both ./st and /opt/ho
 Confirmed and stopped four stale visual fixture processes and their surviving private tmux server. Fix timeout/termination cleanup before further timing runs (nht-080f08); do not terminate ambiguous checkout TUI sessions or unrelated runtimes by name.
 Recorder destination controls are installed: both checkout and shared st verified preview/cancel/confirm/restore on disposable config. Owned-process harness cleanup is integrated, with no matching TUI/test processes or private test servers remaining after validation. Fixed-host SLA acceptance remains outstanding.
 Only nht-bee39c remains in the audit epic. Awaiting an authorized quiet macOS/Linux host pair; no certification runs started. Proposed candidate 735521a83a39809d786da91291c6df1c808125a6.
+Booked candidate 735521a on MBARemote.local and optiplex. Mac passed; the only Linux issue was insufficient evidence for live full-soak lag p95 (retained 3600/8942, tail p95 0.34 ms, overall max 92.94 ms). Keep nht-bee39c open; count full-soak threshold exceedances before the next candidate run.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -137,9 +138,9 @@ Open tasks:
       "blockedBy": [],
       "blocking": [],
       "priority": "high",
-      "attention": "awaiting-human",
-      "attentionReason": "Need prebooked quiet macOS and Linux hosts and authorized Linux access or operator-provided report for the same clean candidate.",
-      "updatedAt": "2026-11-18T21:53:40.580Z",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-11-18T22:04:22.092Z",
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-bee39c-enforce-interactive-and-soak-budgets-on-fixed-hosts.md"
     },
     {

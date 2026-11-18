@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Completed fixed-host collection and offline replay. Mac passed; the OptiPlex result was inconclusive for one lag budget. Private reports retained, benchmark builds removed, no installations or schedule changes.
+
+
+## Session digest — 2026-11-18
+
 - Requested fixed-host booking for the remaining TUI performance gate; no benchmark processes started.
 
 
