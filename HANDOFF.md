@@ -16,20 +16,22 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 | Phase | Status | Notes |
 |---|---|---|
-| (initial scaffold) | ✓ | Created by `handoff-init` on 2026-09-25 |
+| TypeScript CLI and OpenTUI | Shipped | v0.3.0; obsolete Go tree removed after release |
 
 ---
 
 <!-- handoff:state -->
 
-HEAD: 72641af feat(ts): report command, sparklines, systemd timer, Windows monitor, self-update
+HEAD: 6102a7e chore: drop the unused Go tree and the .augment skill links
 
 <!-- handoff:state-notes -->
-Handoff was bootstrapped this session (`/handoff:init`) and this is the first checkpoint. No product code changed. HEAD is still `72641af` on `main`, level with `origin/main`.
+Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
 
-Config choices: Memento for tasks, `just test` as verification, ADRs recorded at `docs/adr/` (directory not created), no phases file, shared gitignore, secrets scan on. Package manager is `custom` because `go.mod` is under `cli/` and `bun.lock` is under `ts/`, so install, typecheck, and build are blank.
+At orientation, `main` was two commits ahead of `origin/main` and already had uncommitted work: immediate sampling on `service install`, a Linux user-timer startup change, Linux hwmon critical limits/headroom and TUI history charts, plus an Apple Silicon v0.3.0 Homebrew cask. These changes belong to the existing worktree, not this checkpoint. The cask targets the published binary, while checkout tests exercise current source.
 
-The only delta is the scaffold: `HANDOFF.md`, `DEVLOG.md`, `CHANGELOG.md`, `.handoff/`, the protocol block appended to `CLAUDE.md`, and `.handoff/.create-backup/` in `.gitignore`. Open Memento work was not touched: epic `nht-b1794f` (OpenTUI TUI replacement, low, todo).
+Verified the working tree on macOS arm64: `just test` (232 passing), `just ts-check`, `just build`, and `just ts-smoke`. Did not install the cask or exercise a live scheduler.
+
+Memento is the task source of truth. Several open items overlap existing code: the OpenTUI screen already ships, and Apple Silicon energy and Linux stall-pressure collectors already exist. Inspect remaining acceptance criteria before picking up those items; no tracker status changed.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -47,8 +49,56 @@ The only delta is the scaffold: `HANDOFF.md`, `DEVLOG.md`, `CHANGELOG.md`, `.han
 Open tasks:
 (task manager: memento)
 {
-  "count": 1,
+  "count": 5,
   "items": [
+    {
+      "id": "nht-9de7a2",
+      "uuid": "01a0d7da-f81b-7000-bb47-53203d449d63",
+      "slug": "nht-9de7a2-apple-silicon-energy-sample",
+      "title": "Apple Silicon energy sample",
+      "status": "todo",
+      "type": "feature",
+      "parent": "nht-2613eb",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "high",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-11-01T08:26:19.378Z",
+      "path": ".memento/items/nht-9de7a2-apple-silicon-energy-sample.md"
+    },
+    {
+      "id": "nht-cb0edf",
+      "uuid": "01a0d7da-f744-7000-953d-f33b5e5bdcd9",
+      "slug": "nht-cb0edf-expand-the-cli-past-process-table-parity",
+      "title": "Expand the CLI past process-table parity",
+      "status": "todo",
+      "type": "milestone",
+      "parent": null,
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "high",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-09-25T09:17:26.726Z",
+      "path": ".memento/items/nht-cb0edf-expand-the-cli-past-process-table-parity.md"
+    },
+    {
+      "id": "nht-2613eb",
+      "uuid": "01a0d7da-f7b9-7000-89cb-1567be8c3ef1",
+      "slug": "nht-2613eb-harvest-faculties-from-the-repos-monitor-corpus",
+      "title": "Harvest faculties from the _repos monitor corpus",
+      "status": "todo",
+      "type": "epic",
+      "parent": "nht-cb0edf",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "high",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-09-25T09:17:26.842Z",
+      "path": ".memento/items/nht-2613eb-harvest-faculties-from-the-repos-monitor-corpus.md"
+    },
     {
       "id": "nht-b1794f",
       "uuid": "01a00e6e-2b7e-7000-b59f-dae09b769881",
@@ -63,7 +113,23 @@ Open tasks:
       "attention": null,
       "attentionReason": null,
       "updatedAt": "2026-08-17T06:34:56.255Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-b1794f-opentui-tui-replacement.md"
+      "path": ".memento/items/nht-b1794f-opentui-tui-replacement.md"
+    },
+    {
+      "id": "nht-9bd745",
+      "uuid": "01a0d7da-f8f6-7000-99b1-e2408001ca4d",
+      "slug": "nht-9bd745-stall-pressure-thermal-headroom-and-battery",
+      "title": "Stall pressure, thermal headroom, and battery",
+      "status": "todo",
+      "type": "feature",
+      "parent": "nht-2613eb",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "high",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-10-24T17:18:45.298Z",
+      "path": ".memento/items/nht-9bd745-stall-pressure-thermal-headroom-and-battery.md"
     }
   ]
 }

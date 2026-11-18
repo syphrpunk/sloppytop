@@ -16,7 +16,7 @@ just ts-check  # tsc --noEmit
 just build     # compile ts/dist/sloppytop
 ```
 
-Commands: `system`, `processes`, `top`, `tree`, `proc`, `snapshot`, `watch`, `kill`, `record`, `history`, `report`, `config`, `service`, `net`, `listen`, `hardware`, `probe`, `log`, `metrics`, `tui`. Monitors cover macOS (`bun:ffi` libproc), Linux (`/proc`), and Windows (PowerShell CIM). State lives in `~/.config/sloppytop/` (an existing `~/.config/neohtop/` directory is reused). An existing `~/.config/sloppytop-cli/config.json` is read once to seed columns, theme, and refresh, and is not written. All commands support `--format toon|json|yaml|md|jsonl`, `--llms`, and MCP. Compiled release binaries self-update via `--update`. Native bun APIs only — no dependencies beyond incur.
+Commands: `system`, `processes`, `top`, `tree`, `proc`, `snapshot`, `watch`, `kill`, `record`, `history`, `report`, `config`, `service`, `net`, `listen`, `hardware`, `probe`, `log`, `metrics`, `tui`. Monitors cover macOS (`bun:ffi` libproc), Linux (`/proc`), and Windows (PowerShell CIM). State lives in `~/.config/sloppytop/` (an existing `~/.config/neohtop/` directory is reused). An existing `~/.config/sloppytop-cli/config.json` is read once to seed columns, theme, and refresh, and is not written. All commands support `--format toon|json|yaml|md|jsonl`, `--llms`, and MCP. Compiled release binaries self-update via `--update`. The runtime dependencies in `ts/package.json` are `incur` and `@opentui/core`; the collectors and SQLite store use Bun APIs.
 
 ## Architecture
 
