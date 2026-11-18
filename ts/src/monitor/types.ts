@@ -68,6 +68,7 @@ export interface SystemStats {
   /** bytes/s since last refresh */
   network_rx_bytes?: number
   network_tx_bytes?: number
+  network_interfaces?: NetworkInterfaceRate[]
   disk_total_bytes: number
   disk_used_bytes: number
   disk_free_bytes: number
@@ -214,6 +215,12 @@ export interface ElectricalReading {
   name: string
   unit: 'volts' | 'amps' | 'watts'
   value: number
+}
+
+export interface NetworkInterfaceRate {
+  name: string
+  rx_bytes_per_s?: number
+  tx_bytes_per_s?: number
 }
 
 export interface NvidiaDevice {

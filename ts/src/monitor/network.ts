@@ -1,4 +1,17 @@
-export type NetworkCounters = ReadonlyMap<string, { rx?: number; tx?: number }>
+import type { NetworkInterfaceRate } from './types.ts'
+
+type Counters = { rx?: number; tx?: number; name?: string }
+export type NetworkCounters = ReadonlyMap<string, Counters>
+
+function delta(old: number | undefined, now: number | undefined) {
+  if (old !== undefined && now !== undefined && now >= old) return now - old
+}
+
+function rate(bytes: number | undefined, elapsed: number) {
+  if (bytes === undefined || !Number.isFinite(elapsed) || elapsed <= 0) return
+  const value = bytes / elapsed
+  if (Number.isFinite(value)) return Math.round(value)
+}
 
 export function byteCounter(value: string | number | undefined): number | undefined {
   if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value))) return
@@ -15,19 +28,31 @@ export function networkRate(
   if (!prev || !next || !Number.isFinite(elapsed) || elapsed <= 0 || prev.size !== next.size) return
   let sum = 0
   for (const [name, counters] of next) {
-    const old = prev.get(name)?.[direction]
-    const now = counters[direction]
-    if (old === undefined || now === undefined || now < old) return
-    sum += now - old
+    const value = delta(prev.get(name)?.[direction], counters[direction])
+    if (value === undefined) return
+    sum += value
   }
-  const rate = sum / elapsed
-  if (Number.isFinite(rate)) return Math.round(rate)
+  return rate(sum, elapsed)
+}
+
+export function interfaceRates(prev: NetworkCounters | undefined, next: NetworkCounters | undefined, elapsed: number) {
+  if (!next?.size) return
+  return [...next].map(([id, current]): NetworkInterfaceRate => {
+    const prior = prev?.get(id)
+    const rx = rate(delta(prior?.rx, current.rx), elapsed)
+    const tx = rate(delta(prior?.tx, current.tx), elapsed)
+    return {
+      name: current.name ?? id,
+      ...(rx === undefined ? {} : { rx_bytes_per_s: rx }),
+      ...(tx === undefined ? {} : { tx_bytes_per_s: tx }),
+    }
+  }).sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export function parseProcNetDev(text: string): NetworkCounters | undefined {
   const [header, fields, ...rows] = text.trimEnd().split('\n')
   if (!header?.match(/\|\s*Receive\s*\|\s*Transmit/) || !fields?.match(/\|\s*bytes\b.*\|\s*bytes\b/)) return
-  const result = new Map<string, { rx?: number; tx?: number }>()
+  const result = new Map<string, Counters>()
   for (const row of rows) {
     if (!row.trim()) continue
     const match = row.match(/^\s*(\S+):\s*(.*)$/)
@@ -48,7 +73,7 @@ export function parseNetstatBytes(text: string): NetworkCounters | undefined {
   const rx = header.indexOf('Ibytes')
   const tx = header.indexOf('Obytes')
   if (address < 0 || rx <= address || tx <= address) return
-  const result = new Map<string, { rx?: number; tx?: number }>()
+  const result = new Map<string, Counters>()
   let sawLink = false
   for (const row of rows) {
     const parts = row.trim().split(/\s+/)
@@ -61,8 +86,8 @@ export function parseNetstatBytes(text: string): NetworkCounters | undefined {
     // netstat leaves Address blank on some link rows.
     const shift = header.length - parts.length
     result.set(id, shift === 0 || shift === 1
-      ? { rx: byteCounter(parts[rx - shift]), tx: byteCounter(parts[tx - shift]) }
-      : {})
+      ? { name, rx: byteCounter(parts[rx - shift]), tx: byteCounter(parts[tx - shift]) }
+      : { name })
   }
   if (sawLink) return result
 }

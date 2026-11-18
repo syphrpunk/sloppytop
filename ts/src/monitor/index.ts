@@ -6,7 +6,7 @@ import { diskRates } from './disk.ts'
 import { powerWatts } from './energy.ts'
 import { gpuTimeDeltas } from './gpu.ts'
 import { pageRates, type PageRates } from './memory.ts'
-import { networkRate, type NetworkCounters } from './network.ts'
+import { interfaceRates, networkRate, type NetworkCounters } from './network.ts'
 import { startNvidiaSample } from './nvidia.ts'
 import { summarizeTree } from './workload.ts'
 import type { CollectFlags } from './probes.ts'
@@ -61,6 +61,7 @@ export class Monitor {
   #cpuPerCore: number[] = []
   #netRxRate: number | undefined
   #netTxRate: number | undefined
+  #interfaces: SystemStats['network_interfaces']
   #power: Partial<Record<'cpu' | 'gpu' | 'ane' | 'dram', number>> = {}
   #diskDevices: DiskDevice[] = []
   #procGpuMs = new Map<number, number>()
@@ -94,6 +95,7 @@ export class Monitor {
     // Network rates (bytes/s) from cumulative counter deltas
     this.#netRxRate = networkRate(prev?.network, sample.network, 'rx', elapsed)
     this.#netTxRate = networkRate(prev?.network, sample.network, 'tx', elapsed)
+    this.#interfaces = interfaceRates(prev?.network, sample.network, elapsed)
     this.#power = powerWatts(prev?.energyNj, sample.energyNj, elapsed)
     this.#diskDevices = diskRates(prev?.disks, sample.disks ?? [], elapsed)
     this.#procGpuMs = gpuTimeDeltas(prev?.gpuTimeNs, sample.gpuTimeNs, elapsed)
@@ -217,6 +219,7 @@ export class Monitor {
       load_avg: s.loadAvg,
       ...(this.#netRxRate !== undefined ? { network_rx_bytes: this.#netRxRate } : {}),
       ...(this.#netTxRate !== undefined ? { network_tx_bytes: this.#netTxRate } : {}),
+      ...(this.#interfaces ? { network_interfaces: this.#interfaces } : {}),
       disk_total_bytes: s.diskTotal,
       disk_used_bytes: s.diskUsed,
       disk_free_bytes: s.diskFree,

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Monitor } from './index.ts'
-import { networkRate, parseNetstatBytes, parseProcNetDev, type NetworkCounters } from './network.ts'
+import { interfaceRates, networkRate, parseNetstatBytes, parseProcNetDev, type NetworkCounters } from './network.ts'
 import type { PlatformSample } from './types.ts'
 
 const counters = (rx: number | undefined, tx: number): NetworkCounters => new Map([['eth0', { rx, tx }]])
@@ -72,7 +72,20 @@ en0 1500 192.0.2 192.0.2.1 1 - 170 2 - 400 -
 utun0* 1500 <Link#3> 0 0 0 1 0 0 0
 `
   expect([...parseNetstatBytes(mac)!]).toEqual([
-    ['<Link#2>:en0', { rx: 170, tx: 400 }], ['<Link#3>:utun0', { rx: 0, tx: 0 }],
+    ['<Link#2>:en0', { name: 'en0', rx: 170, tx: 400 }], ['<Link#3>:utun0', { name: 'utun0', rx: 0, tx: 0 }],
   ])
   expect(parseNetstatBytes('')).toBeUndefined()
+})
+
+test('interface validity is independent while the host aggregate stays strict', () => {
+  const before = new Map([['a', { rx: 1, tx: 2 }], ['b', { rx: 2, tx: 2 }], ['old', { rx: 8, tx: 8 }]])
+  const after = new Map([['a', { rx: 0, tx: 2 }], ['b', { rx: 12, tx: 3 }], ['new', { rx: 8, tx: 8 }]])
+  expect(interfaceRates(undefined, before, 1)?.every((row) => Object.keys(row).length === 1)).toBe(true)
+  expect(interfaceRates(before, after, 1)).toEqual([
+    { name: 'a', tx_bytes_per_s: 0 },
+    { name: 'b', rx_bytes_per_s: 10, tx_bytes_per_s: 1 },
+    { name: 'new' },
+  ])
+  expect(networkRate(before, after, 'rx', 1)).toBeUndefined()
+  expect(networkRate(before, after, 'tx', 1)).toBeUndefined()
 })

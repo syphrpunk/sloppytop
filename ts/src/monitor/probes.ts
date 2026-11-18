@@ -57,7 +57,7 @@ const SYSTEM_KEYS: Record<ProbeName, (keyof SystemStats)[]> = {
     'decompressions_per_s',
   ],
   disk: ['disk_total_bytes', 'disk_used_bytes', 'disk_free_bytes', 'disk_devices'],
-  network: ['network_rx_bytes', 'network_tx_bytes'],
+  network: ['network_rx_bytes', 'network_tx_bytes', 'network_interfaces'],
   host: ['uptime_secs', 'load_avg', 'hostname', 'os_version', 'kernel_version', 'process_count'],
   processes: [],
   power: ['cpu_power_watts', 'gpu_power_watts', 'ane_power_watts', 'dram_power_watts'],
