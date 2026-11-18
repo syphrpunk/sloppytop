@@ -26,6 +26,8 @@ export type Overlay =
   | 'settings'
   | 'record'
 
+export const DISCOVERY_TABS = ['overview', 'interfaces', 'routes', 'neighbors', 'listeners', 'connections', 'dns'] as const
+
 export interface FileRow {
   fd: string
   type?: string
@@ -229,7 +231,16 @@ export interface ScreenState {
   metricsHost: string
   metricsPort: number
   historyPage: HistoryView | null
-  discoveryPage: { tab: number; offset: number; maxOffset?: number; refreshed?: boolean; data?: import('../discovery/overview.ts').Overview; message?: string } | null
+  discoveryPage: {
+    tab: number
+    offset: number
+    maxOffset?: number
+    refreshed?: boolean
+    loading?: boolean
+    data?: import('../discovery/overview.ts').Overview
+    detail?: import('../discovery/overview.ts').DiscoveryDetail
+    message?: string
+  } | null
   /** Null is the overview; otherwise an index into available disk metrics. */
   historyDiskIndex: number | null
   reportPage: ReportView | null
@@ -427,10 +438,17 @@ function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
   if (state.overlay === 'discovery' && state.discoveryPage) {
     const page = state.discoveryPage
     if (key.name === 'r') return {
-      state: { ...state, discoveryPage: { tab: page.tab, offset: 0, refreshed: true } }, effect: { openDiscovery: true },
+      state: { ...state, discoveryPage: { tab: page.tab, offset: 0, refreshed: true, loading: true, data: page.data } },
+      effect: { openDiscovery: true },
     }
-    if (key.name === 'left' || key.name === 'right') return {
-      state: { ...state, discoveryPage: { ...page, tab: (page.tab + (key.name === 'left' ? 4 : 1)) % 5, offset: 0, maxOffset: 0 } },
+    if (key.name === 'left' || key.name === 'right') {
+      const tab = (page.tab + (key.name === 'left' ? -1 : 1) + DISCOVERY_TABS.length) % DISCOVERY_TABS.length
+      const section = DISCOVERY_TABS[tab]
+      const needsLoad = section === 'connections' || section === 'dns' || !page.data
+      return {
+        state: { ...state, discoveryPage: { tab, data: page.data, offset: 0 } },
+        ...(needsLoad ? { effect: { openDiscovery: true } } : {}),
+      }
     }
     if (key.name === 'up' || key.name === 'down') return {
       state: { ...state, discoveryPage: { ...page, offset: Math.min(page.maxOffset ?? 0, Math.max(0, page.offset + (key.name === 'up' ? -1 : 1))) } },

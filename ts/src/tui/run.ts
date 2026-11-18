@@ -28,6 +28,7 @@ import {
   type SampleHistory,
 } from './frame.ts'
 import {
+  DISCOVERY_TABS,
   emptyHistoryPage,
   ensureSelection,
   initialState,
@@ -80,6 +81,8 @@ export async function runTui(
   loaders: PageLoaders = defaultPageLoaders(),
   loadDiscovery = async () => (await import('../discovery/overview.ts')).discoverOverview(),
   sampleTick = runSampleTick,
+  loadDiscoveryDetail = async (section: 'connections' | 'dns') =>
+    (await import('../discovery/overview.ts')).discoverDetail(section),
 ): Promise<void> {
   const config = ensureTuiConfig()
   const sampleMs = config.record.sampleMs
@@ -316,7 +319,9 @@ export async function runTui(
 
   const fulfillStore = async (effect: ScreenEffect) => {
     const token = ++storeToken
+    const tab = state.discoveryPage?.tab
     await Promise.resolve()
+    if (stopped || token !== storeToken) return
     try {
       if (effect.record) {
         const result = await recordWithStore()
@@ -324,10 +329,14 @@ export async function runTui(
         state = { ...state, recordPage: { message: result.message } }
       } else if (effect.openDiscovery) {
         const enabled = state.probes.network
-        const data = enabled ? await loadDiscovery() : undefined
+        const section = DISCOVERY_TABS[tab ?? 0]
+        const detailTab = section === 'connections' || section === 'dns'
+        const detail = enabled && detailTab ? await loadDiscoveryDetail(section) : undefined
+        const data = enabled && !detailTab ? await loadDiscovery() : undefined
         if (stopped || token !== storeToken || state.overlay !== 'discovery' || !state.discoveryPage) return
-        state = { ...state, discoveryPage: { ...state.discoveryPage,
-          ...(data ? { data } : { message: 'network probe is off' }),
+        if (tab !== state.discoveryPage.tab) return
+        state = { ...state, discoveryPage: { ...state.discoveryPage, loading: false,
+          ...(detail ? { detail } : data ? { data } : { message: 'network probe is off' }),
         } }
       } else if (effect.openHistory) {
         const view = loadHistory()
@@ -353,8 +362,8 @@ export async function runTui(
       if (effect.openHistory && state.overlay === 'history') {
         state = { ...state, historyPage: emptyHistoryPage('error', message) }
       }
-      if (effect.openDiscovery && state.overlay === 'discovery' && state.discoveryPage) {
-        state = { ...state, discoveryPage: { ...state.discoveryPage, message: 'local discovery unavailable' } }
+      if (effect.openDiscovery && state.overlay === 'discovery' && state.discoveryPage?.tab === tab && state.discoveryPage) {
+        state = { ...state, discoveryPage: { ...state.discoveryPage, loading: false, message: 'local discovery unavailable' } }
       }
       if (effect.openReport && state.overlay === 'report' && state.reportPage) {
         state = { ...state, reportPage: { ...state.reportPage, status: 'error', message } }

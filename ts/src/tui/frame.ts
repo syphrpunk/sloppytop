@@ -19,6 +19,7 @@ import {
   widthOf,
 } from './format.ts'
 import {
+  DISCOVERY_TABS,
   reduce,
   toggleSort,
   visibleRows,
@@ -29,6 +30,7 @@ import {
   type ScreenEffect,
   type ScreenState,
 } from './state.ts'
+import type { LocalSocket } from '../discovery/sockets.ts'
 import { THEME_NAMES, getTheme } from './theme.ts'
 
 const MARKER = 2
@@ -1111,12 +1113,33 @@ function discoveryCount(
 function discoveryLines(state: ScreenState): { lines: string[]; maxOffset: number } {
   const page = state.discoveryPage
   const data = page?.data
-  if (!page || !data) return { lines: [page?.message ?? 'reading local tables…'], maxOffset: 0 }
-  const section = (['overview', 'interfaces', 'routes', 'neighbors', 'listeners'] as const)[page.tab] ?? 'overview'
+  const section = DISCOVERY_TABS[page?.tab ?? 0] ?? 'overview'
+  const detail = page?.detail
+  const isDetail = section === 'connections' || section === 'dns'
+  if (!page || page.loading || page.message || (isDetail ? detail?.section !== section : !data)) {
+    return { lines: [section, page?.message ?? 'reading local tables…'], maxOffset: 0 }
+  }
   const lines: string[] = []
   const provider = (p: { source: string; status: string; observed_at: string; issues: string[]; rows: unknown[] }) =>
     `${p.source}: ${p.status} (${p.rows.length}) ${p.observed_at.slice(11, 19)}Z ${p.issues.join(', ')}`
-  if (section === 'overview') {
+  if (detail?.section === 'connections' && section === 'connections') {
+    for (const p of detail.providers) {
+      lines.push(provider(p))
+      for (const row of p.rows) {
+        lines.push(discoverySocket(row))
+        lines.push(`  ${row.state} · rx ${discoveryRate(row.rx_bytes_per_s)} · tx ${discoveryRate(row.tx_bytes_per_s)}`)
+      }
+    }
+  } else if (detail?.section === 'dns' && section === 'dns') {
+    for (const p of detail.providers) {
+      lines.push(provider(p))
+      for (const row of p.rows) {
+        lines.push(`resolver: ${row.scope}${row.interface ? ` ${row.interface}` : ''}${row.domain ? ` ${row.domain}` : ''}`)
+        for (const server of row.servers) lines.push(`  server ${server}`)
+        for (const suffix of row.search) lines.push(`  search ${suffix}`)
+      }
+    }
+  } else if (data && section === 'overview') {
     const linuxSockets = data.listeners.some(p => p.platform === 'linux')
     const linuxNeighbors = data.neighbors.some(p => p.source === 'ip neighbors')
     lines.push(
@@ -1129,7 +1152,7 @@ function discoveryLines(state: ScreenState): { lines: string[]; maxOffset: numbe
     )
     lines.push(...data.default_routes.map((r) => `default v${r.family} ${r.interface ?? '—'} via ${r.gateway ?? 'on-link or unknown'}`))
     lines.push(...[...data.interfaces, ...data.routes, ...data.neighbors, ...data.listeners].map(provider))
-  } else if (section === 'interfaces') {
+  } else if (data && section === 'interfaces') {
     for (const p of data.interfaces) {
       lines.push(provider(p))
       for (const row of p.rows) {
@@ -1137,18 +1160,29 @@ function discoveryLines(state: ScreenState): { lines: string[]; maxOffset: numbe
         for (const a of row.addresses) lines.push(`  ${a.address}${a.prefix === undefined ? '' : `/${a.prefix}`}`)
       }
     }
-  } else if (section === 'routes') {
+  } else if (data && section === 'routes') {
     for (const p of data.routes) lines.push(provider(p), ...p.rows.map((r) => `${r.destination} ${r.interface ?? '—'} ${r.gateway ?? ''}`))
-  } else if (section === 'neighbors') {
+  } else if (data && section === 'neighbors') {
     for (const p of data.neighbors) lines.push(provider(p), ...p.rows.map((r) => `${r.interface} ${r.address} ${r.state}`))
-  } else {
-    for (const p of data.listeners) lines.push(provider(p), ...p.rows.map((r) => `${r.protocol}${r.family} ${r.scope} ${r.address}:${r.port} ${r.owner_visibility}`))
+  } else if (data && section === 'listeners') {
+    for (const p of data.listeners) lines.push(provider(p), ...p.rows.map(discoverySocket))
   }
   const size = Math.max(0, state.height - 5)
   const maxOffset = Math.max(0, lines.length - size)
   const offset = Math.min(page.offset, maxOffset)
-  return { maxOffset, lines: [`${section} · ${data.collected_at.slice(11, 19)}Z${page.refreshed ? ' refreshed' : ''}`,
+  const observedAt = isDetail ? detail?.providers[0]?.observed_at : data?.collected_at
+  return { maxOffset, lines: [`${section}${observedAt ? ` · ${observedAt.slice(11, 19)}Z` : ''}${page.refreshed ? ' refreshed' : ''}`,
     ...lines.slice(offset, offset + size).map((line) => plain(line))] }
+}
+
+function discoverySocket(row: LocalSocket): string {
+  const host = row.address.includes(':') ? `[${row.address}]` : row.address
+  const owners = row.owner_visibility === 'reported' ? `PID ${row.pids.join(',')}` : 'PID unknown'
+  return `${row.protocol}${row.dual_stack ? '46' : row.family} ${host}:${row.port} ${owners} · ${row.scope}`
+}
+
+function discoveryRate(rate: number | undefined): string {
+  return rate === undefined ? '—' : `${rate} B/s`
 }
 
 function historyChart(label: string, values: readonly SparklinePoint[], width: number, max?: number, breaks: readonly number[] = []): string {

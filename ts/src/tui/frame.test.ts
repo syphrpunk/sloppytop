@@ -118,6 +118,22 @@ test('discovery counts show observed empty and incomplete families independently
   expect(text).toContain('0 cached peers (not online status)')
 })
 
+test('discovery drill-down fetches only when entered, wraps, and never labels stale content refreshed', () => {
+  const data = composeOverview([], [], [], [], 'test')
+  const overview = screen({ overlay: 'discovery', discoveryPage: { tab: 0, offset: 0, data } })
+  expect(reduce(overview, key('right'), []).effect).toBeUndefined()
+  const dns = reduce(overview, key('left'), [])
+  expect(dns.state.discoveryPage?.tab).toBe(6)
+  expect(dns.effect?.openDiscovery).toBe(true)
+  const connections = reduce(dns.state, key('left'), [])
+  expect(connections.state.discoveryPage?.tab).toBe(5)
+  expect(connections.effect?.openDiscovery).toBe(true)
+  const refresh = reduce(overview, key('r'), [])
+  const frame = compose(refresh.state, { processes: [], system: {}, history: emptyHistory() })
+  expect(frame.text).toContain('reading local tables…')
+  expect(frame.text).not.toContain('refreshed')
+})
+
 test('overlay wheel and keyboard share bounds and only the close target dismisses', () => {
   const at = new Date('2026-01-01T12:34:56Z')
   const providers = Array.from({ length: 20 }, (_, i) =>

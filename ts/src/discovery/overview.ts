@@ -52,3 +52,10 @@ export async function discoverOverview() {
   return composeOverview([await discoverInterfaces()], discoverRoutes(), discoverNeighbors(), discoverSockets(), scope)
 }
 export type Overview = Awaited<ReturnType<typeof discoverOverview>>
+
+export async function discoverDetail(section: 'connections' | 'dns') {
+  return section === 'connections'
+    ? { section, providers: await discoverConnections() } as const
+    : { section, providers: discoverDns() } as const
+}
+export type DiscoveryDetail = Awaited<ReturnType<typeof discoverDetail>>

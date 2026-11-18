@@ -36,4 +36,14 @@ await runTui(undefined, async () => {
     issues: ['visibility'],
   }), 'linux', time)
   return composeOverview([denied], [], [cache], [], 'fixture', time)
-}, async ({ paused }) => paused ? undefined : sample)
+}, async ({ paused }) => paused ? undefined : sample, async section => {
+  const time = new Date('2026-11-18T04:00:00Z')
+  return section === 'connections'
+    ? { section, providers: [observe('ss tcp6', { text: '' }, () => ({ rows: [{
+      protocol: 'tcp' as const, family: 6 as const, address: '::1', port: 8080, scope: 'loopback' as const,
+      state: 'established', owner_visibility: 'reported' as const, pids: [200], rx_bytes_per_s: 0,
+    }] }), 'linux', time)] }
+    : { section, providers: [observe('resolv.conf', { text: '' }, () => ({ rows: [{
+      scope: 'system' as const, servers: ['192.0.2.53'], search: ['fixture.test'],
+    }] }), 'linux', time)] }
+})
