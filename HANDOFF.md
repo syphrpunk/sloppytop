@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 093616b feat(linux): sample experimental powercap package watts
+HEAD: d64ca3a docs: checkpoint slices 09–13 and powercap hardware gate
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -48,7 +48,7 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 
 [Slice 09](docs/research/slices/09-linux-cgroup-totals.md) adds Linux cgroup totals (`8cb2991`); [10](docs/research/slices/10-history-coverage.md) adds CLI/TUI history coverage (`d84921b`); [11](docs/research/slices/11-interface-throughput.md) adds live interface rates (`84075f8`); [12](docs/research/slices/12-disk-topology.md) adds on-demand disk topology (`3b90ee8`). All four have local verification and individual evidence notes.
 
-[Slice 13](docs/research/slices/13-linux-powercap.md) adds experimental package watts (`093616b`). The Linux arm64 guest exposed no powercap; the goal remains blocked on an authorized real Linux host with energy counters readable without elevation (`nht-4aa2dd`). This is separate from the NVIDIA follow-up.
+[Slice 13](docs/research/slices/13-linux-powercap.md) adds experimental package watts (`093616b`). The Linux arm64 guest exposed no powercap. The OptiPlex exposes `package-0`, but its energy counter is root-only. The goal remains blocked on real Linux hardware with energy counters readable without elevation (`nht-4aa2dd`). This is separate from the NVIDIA follow-up.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->

@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## OptiPlex powercap access checked — 2026-11-18
+
+- The OptiPlex exposes RAPL `package-0`, but `energy_uj` is root-only and unreadable to UID 1000. No host settings changed; Slice 13 validation remains open.
+
+
 ## Slices 09–12 verified; Slice 13 hardware validation remains — 2026-11-18
 
 - Compared cgroup counters on Linux as UID 1000; verified CLI SQLite history and the compiled PTY on the same zero/gap fixture; checked interface rates and native disk topology on Linux and macOS.

@@ -22,8 +22,11 @@ output and the power probe log, not the SQLite history.
 Fixtures cover exact conversion, measured zero, resets/wrap ambiguity,
 domain identity, permissions, and unavailable powercap. The local Apple
 Silicon host is not Linux; its unprivileged Linux arm64 container exposes
-no `/sys/class/powercap`. No authorized real powercap host was identified.
-Real hardware validation is required before calling this supported
+no `/sys/class/powercap`. The OptiPlex (Intel Core i7-6700, Linux 6.18.43
+x86_64) exposes `intel-rapl:0` named `package-0`, but the SSH account
+(UID 1000) cannot read `energy_uj`: it is mode `0400`, owned by
+`root:root`. No elevation or permission changes were attempted.
+Real hardware validation with an unprivileged reader remains open
 (`nht-4aa2dd`).
 
 ## Real hardware verification
