@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: c557f9c perf(tui): avoid redundant row projection and paused repaint
+HEAD: 299b270 perf(tui): isolate live sampling in a retained Bun worker
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -56,7 +56,7 @@ Built the `2eb036f` checkout on macOS arm64 and installed the verified binary at
 
 The checkout installer now adds `st` only when the destination, PATH, and login shell agree it is free; `/opt/homebrew/bin/st` is installed and points to `sloppytop`. `just tui-visual` captures styled terminal frames with synthetic data. The [TUI backlog](docs/research/tui-follow-up.md) tracks usability (`nht-005268`) and a separate performance investigation (`nht-ead7a9`).
 
-The TUI goal is active. Captured and inspected narrow/wide resize frames with prioritized process metrics; tested unknown, partial and measured-zero discovery counts. `just tui-bench` and the [baseline and budgets](docs/research/tui-performance.md) show improved paused fixture CPU after eliminating redundant work, but live input and resize still miss budget. Next: instrument sampling and PTY resize separately; finish overlay focus, discovery drill-down, metric parity and reviewed visual baselines. Latest macOS checks: 283 tests passed, one Linux-only skip, type-check, build, styled captures and compiled TUI smoke.
+The TUI goal remains active. Discovery now has bounded keyboard/wheel scrolling, an explicit close target, a checked terminal-frame baseline, and on-demand connection and DNS tabs. Live sampling uses an embedded Bun worker; a same-host benchmark measured 48 ms search p95 and 45 ms worst loop lag, but startup and resize still miss budget. See the [performance evidence](docs/research/tui-performance.md). Latest macOS checks: 285 tests passed, one Linux-only skip, type-check, build, styled captures and a compiled smoke that requires a live process row.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -69,7 +69,7 @@ The TUI goal is active. Captured and inspected narrow/wide resize frames with pr
 
 <!-- handoff:next -->
 
-**TUI goal active:** Continue [visual usability work](docs/research/tui-follow-up.md) (`nht-005268`) and [performance profiling](docs/research/tui-performance.md) (`nht-ead7a9`). Instrument live collection and separate tmux PTY resize delay from application paint delay. Finish overlay focus, discovery tabs and metric coverage, and checked visual baselines.
+**TUI goal active:** Continue [visual usability work](docs/research/tui-follow-up.md) (`nht-005268`) and [performance profiling](docs/research/tui-performance.md) (`nht-ead7a9`). Separate PTY and app startup/resize latency, complete overlay and metric coverage, and expand checked visual baselines. Verify responsiveness while live discovery is loading and verify standalone builds outside macOS.
 
 **Deferred:** Linux powercap (`nht-4aa2dd`) and NVIDIA (`nht-f456db`) still require their separately documented hardware verification.
 

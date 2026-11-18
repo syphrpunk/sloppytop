@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## TUI discovery interactions and collector isolation — 2026-11-18
+
+- Added checked discovery scrolling frames, DNS/connection drill-downs, event-loop timing and a retained sampling worker. Startup and resize still need work.
+
+
 ## TUI performance baseline and first usability fixes — 2026-11-18
 
 - Added live and synthetic PTY timings, improved constrained layouts and discovery count labels, and removed redundant frame work. Both TUI trackers remain open; live input and resize still miss the measured budgets.
