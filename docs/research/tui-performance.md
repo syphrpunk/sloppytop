@@ -198,3 +198,27 @@ was 25 ms. Those are repeat-launch numbers, not fresh-file acceptance.
 The existing source launcher (`./st`) took 545 ms to first frame and
 1,592 ms to populate in a single control. It requires Bun and is not a
 drop-in replacement for the standalone distribution.
+
+### macOS packaging investigation
+
+After authorization, tested disposable copies on the same Mac with Bun
+1.4.4 and the direct PTY harness. The gate remains 500 ms to the first
+interactive frame and 2,000 ms to a populated table (both p95). These
+small series report nearest-rank p95, which is the maximum in each.
+
+| Fresh artifact | Runs | First frame p95 | Populated p95 |
+|---|---:|---:|---:|
+| APFS clone of standalone executable | 3 | 2,773 ms | 3,805 ms |
+| Bundled JS and worker using preinstalled Bun and existing OpenTUI dependency files | 12 | 809 ms | 1,898 ms |
+| Bundled JS, worker and newly copied OpenTUI native assets using preinstalled Bun | 8 | 1,094 ms | 2,151 ms |
+
+The smaller prototypes were not release candidates: the first pointed
+to the checkout's OpenTUI dependencies; the second needed the package
+directory as its working directory for the relative dylib path. The
+second test used that directory only in the disposable launcher, not
+as a production fix. Both miss the first-frame target even without
+including first launch of Bun itself. Standalone `--bytecode` did not
+compile: OpenTUI's top-level await was rejected by Bun's bytecode build.
+No valid code-signing identity was available in the current keychain,
+so a Developer ID signed/notarized artifact has not been tested.
+Nothing was installed or changed in the distribution or OS protections.

@@ -15,7 +15,9 @@ method and before/after numbers.
 | Usable performance | Latest live and 5,000-row soaks met interaction, loop lag and idle budgets and demonstrated memory reclamation. Twelve direct PTY repeats measured 25 ms shrink p95. Earlier misses are retained. Fresh macOS cold launch remains above the 500 ms first-frame target and can exceed 2 s to populate; a minimal compiled Bun control and APFS clones reproduced the delay. Do not treat repeat-launch startup as a cold-start pass. |
 | Build and verification | Latest local run: 289 pass and one Linux-only skip; type-check, build, live smoke and visual checks passed. Linux arm64 previously passed type-check, standalone build, all 288 then-current tests and the live smoke as UID 1000. Review the current diff and rerun applicable gates before closure. |
 
-The cold-start gate needs a supported runtime or distribution approach
-that actually meets the fresh-file targets, or an explicit decision to
-change those targets. No OS protections, release packaging, or targets
-were changed to obtain a pass.
+The authorized packaging investigation tested two bundled alternatives
+and a standalone bytecode build; none met the fresh-file targets. See
+the [comparative timings](tui-performance.md#macos-packaging-investigation).
+The next distinct control is a Developer ID signed/notarized candidate;
+the local keychain has no usable signing identity. No OS protections,
+release packaging, or targets were changed to obtain a pass.
