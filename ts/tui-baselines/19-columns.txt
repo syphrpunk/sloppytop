@@ -1,12 +1,12 @@
 sloppytop  Charm
 ╭─ columns ────────────────────────────────────────────╮
-columns
-> [x] pid
-  [x] name
-  [x] command
-  [x] threads
-  [x] user
-  [x] memory
-  [x] cpu
+│ columns                                              │
+│ > [x] pid                                            │
+│   [x] name                                           │
+│   [x] command                                        │
+│   [x] threads                                        │
+│   [x] user                                           │
+│   [x] memory                                         │
+│   [x] cpu                                            │
 ╰──────────────────────────────────────────────────────╯
 q close   ↑/↓ select   Space toggle

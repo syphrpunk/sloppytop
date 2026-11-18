@@ -200,7 +200,7 @@ export function compose(
       const offset = Math.min(state.overlayScroll ?? 0, overlayScrollMax)
       body = body.slice(offset, offset + room)
     }
-    for (const line of framed(overlayTitle(state.overlay), body, width)) {
+    for (const line of framed(overlayTitle(state.overlay), body.filter((line) => line !== 'esc  close'), width)) {
       if (!add(line)) break
     }
     while (lines.length < capacity) add('')
@@ -1081,8 +1081,12 @@ function overlayTitle(overlay: ScreenState['overlay']): string {
 }
 
 function framed(title: string, body: string[], width: number): string[] {
-  return [band(title, width), ...body, bandBottom(width)]
+  if (width < 5) return [band(title, width), ...body, bandBottom(width)]
+  const inner = width - 4
+  return [band(title, width), ...body.map((line) => `│ ${padRight(clip(line, inner), inner)} │`), bandBottom(width)]
 }
+
+const panelWidth = (width: number) => Math.max(1, width - 4)
 
 function footerText(state: ScreenState, system: Partial<SystemStats>, rows: DisplayRow[]): string {
   const left = [system.hostname, system.os_version, system.kernel_version]
@@ -1137,10 +1141,11 @@ function discoveryLines(state: ScreenState): { lines: string[]; maxOffset: numbe
   const page = state.discoveryPage
   const data = page?.data
   const section = DISCOVERY_TABS[page?.tab ?? 0] ?? 'overview'
+  const tab = `${section} ${1 + (page?.tab ?? 0)}/${DISCOVERY_TABS.length}`
   const detail = page?.detail
   const isDetail = section === 'connections' || section === 'dns'
   if (!page || page.loading || page.message || (isDetail ? detail?.section !== section : !data)) {
-    return { lines: [section, page?.message ?? 'reading local tables…'], maxOffset: 0 }
+    return { lines: [tab, page?.message ?? 'reading local tables…'], maxOffset: 0 }
   }
   const lines: string[] = []
   const provider = (p: { source: string; status: string; observed_at: string; issues: string[]; rows: unknown[] }) =>
@@ -1194,7 +1199,7 @@ function discoveryLines(state: ScreenState): { lines: string[]; maxOffset: numbe
   const maxOffset = Math.max(0, lines.length - size)
   const offset = Math.min(page.offset, maxOffset)
   const observedAt = isDetail ? detail?.providers[0]?.observed_at : data?.collected_at
-  return { maxOffset, lines: [`${section}${observedAt ? ` · ${observedAt.slice(11, 19)}Z` : ''}${page.refreshed ? ' refreshed' : ''}`,
+  return { maxOffset, lines: [`${tab}${observedAt ? ` · ${observedAt.slice(11, 19)}Z` : ''}${page.refreshed ? ' refreshed' : ''}`,
     ...lines.slice(offset, offset + size).map((line) => plain(line))] }
 }
 
@@ -1230,8 +1235,8 @@ function fitHistory(state: ScreenState, lines: string[], tail: string[] = []) {
 function historyLines(state: ScreenState) {
   const page = state.historyPage
   if (!page || page.status === 'loading') return fitHistory(state, ['history …'])
-  if (page.status !== 'ready') return fitHistory(state, ['history', ...wrapWords(page.message, state.width)])
-  const width = chartWidth(state.width)
+  if (page.status !== 'ready') return fitHistory(state, ['history', ...wrapWords(page.message, panelWidth(state.width))])
+  const width = chartWidth(panelWidth(state.width))
   const breaks = page.timeline?.breaks ?? []
   const coverage = page.timeline?.coverage
   const age = coverage?.latest_sample_age_seconds
@@ -1249,9 +1254,9 @@ function historyLines(state: ScreenState) {
     ]
     if (!point.anomalies?.length) lines.push('  no flags at this sample')
     for (const finding of point.anomalies ?? []) {
-      lines.push(...wrapWords(`${finding.type}: ${finding.detail}`, state.width))
+      lines.push(...wrapWords(`${finding.type}: ${finding.detail}`, panelWidth(state.width)))
       for (const item of finding.evidence) {
-        lines.push(...wrapWords(`  ${item.metric} ${item.observed} ${item.operator} ${item.threshold}`, state.width))
+        lines.push(...wrapWords(`  ${item.metric} ${item.observed} ${item.operator} ${item.threshold}`, panelWidth(state.width)))
       }
     }
     lines.push('recorded interfaces')
@@ -1294,9 +1299,9 @@ function historyLines(state: ScreenState) {
 function reportLines(state: ScreenState): string[] {
   const page = state.reportPage
   if (!page || page.status === 'loading') return ['report …', 'esc  close']
-  if (page.status !== 'ready' || !page.summary) return ['report', ...wrapWords(page.message, state.width), 'esc  close']
+  if (page.status !== 'ready' || !page.summary) return ['report', ...wrapWords(page.message, panelWidth(state.width)), 'esc  close']
   const summary = page.summary
-  const width = chartWidth(state.width)
+  const width = chartWidth(panelWidth(state.width))
   const lines = [
     'report',
     `cpu ${summary.cpu_avg.toFixed(1)} avg  ${summary.cpu_peak.toFixed(1)} peak`,
@@ -1353,7 +1358,7 @@ function settingsLines(state: ScreenState): string[] {
 }
 
 function recordLines(state: ScreenState): string[] {
-  return ['record', ...wrapWords(state.recordPage?.message ?? 'recording…', state.width), 'esc  close']
+  return ['record', ...wrapWords(state.recordPage?.message ?? 'recording…', panelWidth(state.width)), 'esc  close']
 }
 
 function wrapWords(text: string, width: number): string[] {
@@ -1587,6 +1592,7 @@ function toolbarText(state: ScreenState, rows: DisplayRow[], total: number, erro
     mode,
     search,
     `${state.refreshMs}ms`,
+    'D discover',
     'p pin',
     'k kill',
     'i process',
@@ -1599,7 +1605,8 @@ function toolbarText(state: ScreenState, rows: DisplayRow[], total: number, erro
     .filter((part) => part !== '')
     .join('   ')
   if (widthOf(full) <= state.width) return full
-  const short = [notice, `${shown}/${total}`, mode, query, 'q quit'].filter((part) => part !== '').join('  ')
+  const short = [notice, `${shown}/${total}`, mode, query, 'D discover', '? help', 'q quit'].filter((part) => part !== '').join('  ')
   if (widthOf(short) <= state.width) return short
+  if (widthOf('D discover  q quit') <= state.width) return 'D discover  q quit'
   return 'q quit'
 }

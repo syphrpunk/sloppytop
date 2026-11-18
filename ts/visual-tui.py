@@ -80,13 +80,13 @@ def svg(ansi, width, height):
     return "\n".join([*out, "</g></svg>"])
 
 
-def run(fixture, output):
+def run(fixture, output, review_only=False):
     output.mkdir(parents=True, exist_ok=True)
     style_baselines = {
-        "01-wide": "1e8a343be6d6c1fcc7f62c6411ed671befb80c12c14e7b961dc6cf1ac6a88a2b",
-        "02-narrow": "044f9ab54efbaa411891671bd39a16a1e9e45a2dd0f9722a949e834e20f65cbc",
-        "04b-neighbors-bottom": "4ad7957fc75df2cdd026e938d6af0335b0923c1df177b422641390649ffd03d0",
-        "19-columns": "8ebe5bf46ded96e57c2ab3600001f1233ca18a2d2bbc9f7a4852b224964f374d",
+        "01-wide": "1e99e3bfff23def73010d6cf7a965f8ae07394dda00a4a8a566b4ecb864695b7",
+        "02-narrow": "b9384ebaae3724131e44abf007240fc674974aef6e958490f526912ef4939475",
+        "04b-neighbors-bottom": "eb96b7a54c65ddd9f8eb1d628c521f999f3ba47032b17ccb1ea92772b347843d",
+        "19-columns": "35207b7faf7de99beaee036f1dcb3fbca371a31a3b966e27a9d93622660e5084",
     }
     with tempfile.TemporaryDirectory(prefix="st-visual-") as folder:
         command = (f"exec env ST_VISUAL_HISTORY=1 ST_FIXTURE_DISCOVERY_DELAY=350 "
@@ -109,16 +109,19 @@ def run(fixture, output):
                     if converter:
                         subprocess.run([converter, str(output / f"{label}.svg"), "-o", str(output / f"{label}.png")], check=True, timeout=10)
                     baseline = Path(__file__).with_name("tui-baselines") / f"{label}.txt"
-                    if compare:
+                    if compare and not review_only:
                         expected_frame = baseline.read_text(encoding="utf-8")
-                        actual_frame = re.sub(r"(?m)(^disk  .+ · latest )\d+[sm]( ago$)", r"\1<age>\2", plain)
+                        actual_frame = re.sub(r"(?m)(^│ disk  .+ · latest )\d+[sm]( ago) *│$",
+                                              lambda m: (m[1] + "<age>" + m[2]).ljust(width - 1) + "│", plain)
                         if label.startswith("17"):
-                            actual_frame = re.sub(r"(?m)^\d{4}-\d\d-\d\dT[\d:.]+Z$", "<sample time>", actual_frame).rstrip() + "\n"
+                            actual_frame = re.sub(r"(?m)^│ (\d{4}-\d\d-\d\dT[\d:.]+Z)( +)│$",
+                                                  lambda m: "│ " + "<sample time>".ljust(len(m[1]) + len(m[2])) + "│",
+                                                  actual_frame).rstrip() + "\n"
                         if actual_frame != expected_frame:
                             diff = difflib.unified_diff(expected_frame.splitlines(True), actual_frame.splitlines(True),
                                                         fromfile=str(baseline), tofile=str(output / f"{label}.txt"))
                             raise RuntimeError("terminal frame changed:\n" + "".join(diff))
-                    if label in style_baselines:
+                    if label in style_baselines and not review_only:
                         digest = hashlib.sha256(styled.encode()).hexdigest()
                         if digest != style_baselines[label]:
                             raise RuntimeError(f"{label}: styled frame changed ({digest}); review {output / (label + '.svg')}")
@@ -132,7 +135,7 @@ def run(fixture, output):
                            "-P", "-F", "#{pane_pid}", command))
             capture("01-wide", ["PID", "fixture-worker"], 112, 30, timeout=20)
             tmux("resize-window", "-t", "visual", "-x", "56", "-y", "18")
-            capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0",
+            capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0", "D discover",
                                   "界-fixture", "440M    97.0"], 56, 18)
             tmux("send-keys", "-t", "visual", "D")
             capture("02b-discovery-loading", ["reading local tables…", "q close"], 56, 18)
@@ -141,8 +144,9 @@ def run(fixture, output):
             tmux("send-keys", "-t", "visual", "D")
             capture("03-discovery-coverage", ["TCP listens: unknown", "UDP bound: unknown",
                                               "cached peers (partial)", "denied", "q close"], 56, 18)
-            for _ in range(3):
+            for index, tab in enumerate(("interfaces", "routes", "neighbors"), 2):
                 tmux("send-keys", "-t", "visual", "Right")
+                capture(f"03-{tab}", [f"{tab} {index}/7 ·", "q close"], 56, 18)
             capture("04-neighbors", ["ARP cache: partial", "fe80::1%eth0"], 56, 18)
             # SGR wheel down delivered to the screen's PTY, not tmux's copy mode.
             tmux("send-keys", "-t", "visual", "-l", "\x1b[<65;9;7M" * 24)
@@ -151,10 +155,12 @@ def run(fixture, output):
             capture("04c-neighbors-up", ["fe80::7%eth0", "q close"], 56, 18)
             tmux("send-keys", "-t", "visual", "r")
             capture("05-refreshed", ["refreshed", "fe80::1%eth0"], 56, 18)
-            tmux("send-keys", "-t", "visual", "Right", "Right")
-            capture("05b-connections", ["connections ·", "[::1]:8080 PID 200", "rx 0 B/s · tx —"], 56, 18)
             tmux("send-keys", "-t", "visual", "Right")
-            capture("05c-dns", ["dns ·", "server 192.0.2.53", "search fixture.test"], 56, 18)
+            capture("05a-listeners", ["listeners 5/7 ·", "q close"], 56, 18)
+            tmux("send-keys", "-t", "visual", "Right")
+            capture("05b-connections", ["connections 6/7 ·", "[::1]:8080 PID 200", "rx 0 B/s · tx —"], 56, 18)
+            tmux("send-keys", "-t", "visual", "Right")
+            capture("05c-dns", ["dns 7/7 ·", "server 192.0.2.53", "search fixture.test"], 56, 18)
             tmux("send-keys", "-t", "visual", "-l", "\x1b[<0;2;18M\x1b[<0;2;18m")
             capture("06-return", ["sloppytop", "system", "PID", "fixture-worker", "q quit"], 56, 18)
             tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")
@@ -243,6 +249,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("fixture", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--review-only", action="store_true", help="capture and check scene markers without comparing old baselines")
     args = parser.parse_args()
-    run(args.fixture.resolve(strict=True), args.output.resolve())
+    run(args.fixture.resolve(strict=True), args.output.resolve(), args.review_only)
     print(f"Captured TUI frames in {args.output}")

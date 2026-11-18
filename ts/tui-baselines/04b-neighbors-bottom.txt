@@ -1,18 +1,18 @@
 sloppytop  Charm
 ╭─ network discovery ──────────────────────────────────╮
-neighbors · 04:00:00Z
-eth0 fe80::8%eth0 stale
-eth0 fe80::9%eth0 stale
-eth0 fe80::a%eth0 stale
-eth0 fe80::b%eth0 stale
-eth0 fe80::c%eth0 stale
-eth0 fe80::d%eth0 stale
-eth0 fe80::e%eth0 stale
-eth0 fe80::f%eth0 stale
-eth0 fe80::10%eth0 stale
-eth0 fe80::11%eth0 stale
-eth0 fe80::12%eth0 stale
-eth0 fe80::13%eth0 stale
-eth0 fe80::14%eth0 stale
+│ neighbors 4/7 · 04:00:00Z                            │
+│ eth0 fe80::8%eth0 stale                              │
+│ eth0 fe80::9%eth0 stale                              │
+│ eth0 fe80::a%eth0 stale                              │
+│ eth0 fe80::b%eth0 stale                              │
+│ eth0 fe80::c%eth0 stale                              │
+│ eth0 fe80::d%eth0 stale                              │
+│ eth0 fe80::e%eth0 stale                              │
+│ eth0 fe80::f%eth0 stale                              │
+│ eth0 fe80::10%eth0 stale                             │
+│ eth0 fe80::11%eth0 stale                             │
+│ eth0 fe80::12%eth0 stale                             │
+│ eth0 fe80::13%eth0 stale                             │
+│ eth0 fe80::14%eth0 stale                             │
 ╰──────────────────────────────────────────────────────╯
 q close   ←/→ tab   ↑/↓ scroll   r refresh

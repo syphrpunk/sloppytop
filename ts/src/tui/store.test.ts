@@ -145,7 +145,7 @@ describe('history and report pages', () => {
       system: {},
       history: emptyHistory(),
     })
-    expect(frame.text.split('\n').map((line) => line.trim()).join(' ')).toContain(EMPTY_WINDOW)
+    expect(frame.text.split('\n').map((line) => line.replace(/^│|│$/g, '').trim()).join(' ')).toContain(EMPTY_WINDOW)
     expect(frame.text.split('\n').some((line) => line.startsWith('cpu'))).toBe(false)
     expect(frame.text.split('\n').some((line) => line.startsWith('CPU'))).toBe(false)
   })

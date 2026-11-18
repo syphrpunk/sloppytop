@@ -36,14 +36,17 @@ def screen(binary, env, width, fixture=False):
         try:
             tmux("new-session", "-d", "-s", "smoke", "-x", str(width), "-y", "25",
                  "exec " + shlex.join([binary, "tui"]))
-            wait_for("main screen", lambda frame: "PID" in frame and "q quit" in frame)
+            wait_for("main screen", lambda frame: all(marker in frame for marker in ("PID", "q quit", "D discover")))
             tmux("send-keys", "-t", "smoke", "D")
             wait_for("overview", lambda f: ("cached peers" in f and
                      (not fixture or ("denied" in f and "partial" in f))))
             tmux("send-keys", "-t", "smoke", "Right")
-            wait_for("interfaces", lambda f: "interfaces ·" in f)
+            wait_for("interfaces", lambda f: "interfaces 2/7 ·" in f)
             tmux("send-keys", "-t", "smoke", "r")
-            wait_for("refreshed interfaces", lambda f: "interfaces ·" in f and "refreshed" in f)
+            wait_for("refreshed interfaces", lambda f: "interfaces 2/7 ·" in f and "refreshed" in f)
+            for index, tab in enumerate(("routes", "neighbors", "listeners", "connections", "dns"), 3):
+                tmux("send-keys", "-t", "smoke", "Right")
+                wait_for(tab, lambda f: f"{tab} {index}/7" in f and "reading local tables" not in f)
             tmux("send-keys", "-t", "smoke", "q")
             wait_for("return to main", lambda frame: "q quit" in frame)
         finally:

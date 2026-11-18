@@ -1,8 +1,8 @@
 sloppytop  Charm
 ╭─ history ────────────────────────────────────────────╮
-disk  read B/s  1/4 · latest <age> ago
-1 fixture-disk             ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣿╌⠂⠀
-╌ unobserved time   ⠂ missing reading
+│ disk  read B/s  1/4 · latest <age> ago               │
+│ 1 fixture-disk           ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣿╌⠂⠀       │
+│ ╌ unobserved time   ⠂ missing reading                │
 ╰──────────────────────────────────────────────────────╯
 
 
