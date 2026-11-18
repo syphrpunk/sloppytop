@@ -19,7 +19,11 @@ Store one sample now and start the hourly recorder
 
 # sloppytop service status
 
-Show scheduled-job state and DB stats
+Show scheduled-job state, last run when reported by the scheduler, and
+DB sample freshness. An armed scheduler can be idle between runs or
+after a failed run. `sample_age_seconds` is the age of the last successful
+insert (which may be a manual recording), not the age of the last
+scheduled run. Missing or future-dated samples have no age.
 
 ---
 

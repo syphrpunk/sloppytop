@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import type { Database } from 'bun:sqlite'
 import type { ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { insertSample, openDb } from './db.ts'
-import { reportAnomalies, reportGroups, reportHourly, reportLeaks, reportTopConsumers, reportWindow } from './report.ts'
+import { compareReportWindows, reportAnomalies, reportGroups, reportHourly, reportLeaks, reportTopConsumers, reportWindow } from './report.ts'
 import { LEAK_DEFAULTS } from './footprint.ts'
 
 const baseSystem: SystemStats = {
@@ -61,6 +61,30 @@ describe('report', () => {
 
   test('reportWindow is null with no samples in range', () => {
     expect(reportWindow(db, '2026-01-01T00:00:00Z')).toBeNull()
+  })
+
+  test('compares half-open windows, labels coverage and does not invent empty-window deltas', () => {
+    const now = Date.parse('2026-08-17T12:30:00.000Z')
+    const at = (hour: number, minute = 30) => new Date(Date.UTC(2026, 7, 17, hour, minute)).toISOString()
+    expect(compareReportWindows(db, 2, now)).toMatchObject({ coverage: 'insufficient' })
+    expect(compareReportWindows(db, 2, now).sampled_delta).toBeUndefined()
+    record(db, at(8), { cpu_usage_total: 20 })
+    record(db, at(9), { cpu_usage_total: 20 })
+    record(db, at(9), { cpu_usage_total: 20 })
+    record(db, at(10), { cpu_usage_total: 0 })
+    record(db, at(11), { cpu_usage_total: 0 })
+    record(db, at(12), { cpu_usage_total: 99 })
+    record(db, at(12, 31), { cpu_usage_total: 99 })
+    expect(compareReportWindows(db, 2, now)).toMatchObject({
+      coverage: 'unequal', previous: { samples: 3, observed_slots: 2 },
+      current: { samples: 2, observed_slots: 2, hourly_slots: 2 },
+      sampled_delta: { cpu_avg_percentage_points: -20, memory_used_avg_bytes: 0, load1_avg: 0 },
+    })
+    db.run('DELETE FROM system_samples WHERE id = (SELECT MAX(id) FROM system_samples WHERE at = ?)', [at(9)])
+    expect(compareReportWindows(db, 2, now).coverage).toBe('comparable')
+    expect(compareReportWindows(db, 3, now).coverage).toBe('unequal')
+    db.run('DELETE FROM system_samples WHERE at IN (?, ?)', [at(8), at(10)])
+    expect(compareReportWindows(db, 2, now).coverage).toBe('equally_sparse')
   })
 
   test('reports only increases with an adjacent confirmed same-boot baseline', () => {

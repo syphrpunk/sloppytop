@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { LABEL, LINUX_STARTUP_SEC, UNIT, renderPlist, renderServiceUnit, renderTimerUnit } from './service.ts'
+import {
+  LABEL, LINUX_STARTUP_SEC, UNIT, launchdHealth, renderPlist, renderServiceUnit,
+  renderTimerUnit, sampleFreshness, systemdHealth,
+} from './service.ts'
 
 describe('launchd plist', () => {
   test('embeds label, absolute command, and interval', () => {
@@ -37,5 +40,48 @@ describe('systemd units', () => {
     expect(timer).not.toContain('OnBootSec')
     expect(timer).toContain('WantedBy=timers.target')
     expect(UNIT).toBe('sloppytop-record')
+  })
+})
+
+describe('recorder health', () => {
+  const ok = (output: string) => ({ ok: true, output })
+
+  test('launchd distinguishes an armed idle job from a running job and reports failed exits', () => {
+    expect(launchdHealth(ok('\tstate = not running\n\tlast exit code = 7\n'))).toEqual({
+      loaded: true, scheduler_state: 'armed', recorder_state: 'idle',
+      last_run: { outcome: 'failed', exit_code: 7 },
+    })
+    expect(launchdHealth(ok('\tstate = running\n')).recorder_state).toBe('running')
+    expect(launchdHealth(ok('\tstate = not running\n')).last_run).toBeUndefined()
+    expect(launchdHealth(ok('\tlast terminating signal = Terminated: 15\n')).last_run).toEqual({ outcome: 'failed' })
+    expect(launchdHealth({ ok: false, output: 'Could not find service', code: 113 }).scheduler_state).toBe('inactive')
+    expect(launchdHealth({ ok: false, output: 'Permission denied', code: 113 }).scheduler_state).toBe('unknown')
+  })
+
+  test('systemd separates timer activity from failed oneshot execution', () => {
+    const timer = ok('ActiveState=active\n')
+    expect(systemdHealth(timer, ok('ActiveState=failed\nResult=exit-code\nExecMainCode=1\nExecMainStatus=7\n')))
+      .toEqual({
+        loaded: true, scheduler_state: 'armed', recorder_state: 'idle',
+        last_run: { outcome: 'failed', exit_code: 7 },
+      })
+    expect(systemdHealth(timer, ok('ActiveState=activating\nResult=success\n')).recorder_state).toBe('running')
+    expect(systemdHealth(timer, ok('ActiveState=inactive\nResult=success\nExecMainStartTimestampMonotonic=0\n')).last_run)
+      .toBeUndefined()
+    expect(systemdHealth(timer, ok('ActiveState=inactive\nResult=success\nExecMainStartTimestampMonotonic=42\nExecMainCode=1\nExecMainStatus=0\n')).last_run)
+      .toEqual({ outcome: 'success', exit_code: 0 })
+    const unavailable = { ok: false, output: 'Failed to connect to bus' }
+    expect(systemdHealth(unavailable, unavailable)).toEqual({
+      loaded: false, scheduler_state: 'unknown', recorder_state: 'unknown',
+    })
+  })
+
+  test('database freshness preserves zero without inventing an age for missing or future samples', () => {
+    const last = '2026-11-18T12:00:00.000Z'
+    const now = Date.parse(last)
+    expect(sampleFreshness(last, now + 12_345)).toEqual({ last_successful_sample_at: last, sample_age_seconds: 12 })
+    expect(sampleFreshness(last, now)).toEqual({ last_successful_sample_at: last, sample_age_seconds: 0 })
+    expect(sampleFreshness(last, now - 1)).toEqual({ last_successful_sample_at: last })
+    expect(sampleFreshness(undefined, now)).toEqual({})
   })
 })

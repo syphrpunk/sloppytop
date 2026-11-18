@@ -108,12 +108,19 @@ WantedBy=timers.target
 `
 }
 
-function run(cmd: string, args: string[]): { ok: boolean; output: string } {
+interface CommandResult {
+  ok: boolean
+  output: string
+  code?: number
+}
+
+function run(cmd: string, args: string[], timeout?: number): CommandResult {
   try {
-    const output = execFileSync(cmd, args, { encoding: 'utf8', stdio: 'pipe' })
+    const output = execFileSync(cmd, args, { encoding: 'utf8', stdio: 'pipe', timeout })
     return { ok: true, output }
   } catch (err) {
-    return { ok: false, output: (err as { stderr?: string }).stderr ?? String(err) }
+    const failure = err as { stderr?: string; status?: number }
+    return { ok: false, output: failure.stderr ?? String(err), code: failure.status ?? undefined }
   }
 }
 
@@ -200,20 +207,87 @@ export interface StatusResult {
   installed: boolean
   loaded: boolean
   files: string[]
+  scheduler_state: 'armed' | 'inactive' | 'unknown'
+  recorder_state: 'running' | 'idle' | 'unknown'
+  last_run?: { outcome: 'success' | 'failed'; exit_code?: number }
+}
+
+type JobHealth = Pick<StatusResult, 'loaded' | 'scheduler_state' | 'recorder_state' | 'last_run'>
+
+export function launchdHealth(print: CommandResult): JobHealth {
+  if (!print.ok) {
+    return {
+      loaded: false,
+      scheduler_state: print.code === 113 && /Could not find service/.test(print.output) ? 'inactive' : 'unknown',
+      recorder_state: 'unknown',
+    }
+  }
+  // Only read top-level job properties (resource and event sections also contain state).
+  const state = /^\tstate = (.+)$/m.exec(print.output)?.[1]
+  const exit = /^\tlast exit code = (-?\d+)$/m.exec(print.output)?.[1]
+  const signalled = /^\tlast terminating signal = \S/m.test(print.output)
+  return {
+    loaded: true,
+    scheduler_state: 'armed',
+    recorder_state: state === 'running' ? 'running' : state ? 'idle' : 'unknown',
+    ...(exit != null
+      ? { last_run: { outcome: Number(exit) === 0 ? 'success' : 'failed', exit_code: Number(exit) } }
+      : signalled ? { last_run: { outcome: 'failed' } } : {}),
+  }
+}
+
+function properties(result: CommandResult) {
+  if (!result.ok) return new Map<string, string>()
+  return new Map(result.output.split('\n').flatMap((line) => {
+    const pos = line.indexOf('=')
+    return pos > 0 ? [[line.slice(0, pos), line.slice(pos + 1)] as const] : []
+  }))
+}
+
+export function systemdHealth(timer: CommandResult, service: CommandResult): JobHealth {
+  const timerState = properties(timer).get('ActiveState')
+  const job = properties(service)
+  const jobState = job.get('ActiveState')
+  const result = job.get('Result')
+  const exited = job.get('ExecMainCode') === '1' // CLD_EXITED, not killed or dumped
+  const exit = job.get('ExecMainStatus')
+  const hasRun = /^[1-9]\d*$/.test(job.get('ExecMainStartTimestampMonotonic') ?? '')
+  return {
+    loaded: timerState === 'active',
+    scheduler_state: timerState === 'active' ? 'armed'
+      : timerState === 'inactive' || timerState === 'failed' ? 'inactive' : 'unknown',
+    recorder_state: jobState === 'activating' || jobState === 'active' ? 'running'
+      : jobState === 'inactive' || jobState === 'failed' ? 'idle' : 'unknown',
+    ...(result && (result !== 'success' || (hasRun && exited))
+      ? { last_run: {
+          outcome: result === 'success' ? 'success' : 'failed',
+          ...(exited && exit != null && /^\d+$/.test(exit) ? { exit_code: Number(exit) } : {}),
+        } }
+      : {}),
+  }
+}
+
+/** Database freshness describes any successful insert, not only scheduled runs. */
+export function sampleFreshness(last: string | undefined, now = Date.now()) {
+  const timestamp = last && Date.parse(last)
+  return typeof timestamp === 'number' && Number.isFinite(timestamp) && timestamp <= now
+    ? { last_successful_sample_at: last, sample_age_seconds: Math.floor((now - timestamp) / 1000) }
+    : { ...(last ? { last_successful_sample_at: last } : {}) }
 }
 
 export function status(): StatusResult {
   if (process.platform === 'darwin') {
     const path = plistPath()
-    const print = launchctl(['print', `${domain()}/${LABEL}`])
-    return { scheduler: 'launchd', installed: existsSync(path), loaded: print.ok, files: [path] }
+    const print = run('launchctl', ['print', `${domain()}/${LABEL}`], 3000)
+    return { scheduler: 'launchd', installed: existsSync(path), ...launchdHealth(print), files: [path] }
   }
   if (process.platform === 'linux') {
-    const active = systemctl(['is-active', `${UNIT}.timer`])
+    const timer = run('systemctl', ['--user', 'show', '-p', 'ActiveState', `${UNIT}.timer`], 3000)
+    const job = run('systemctl', ['--user', 'show', '-p', 'ActiveState,Result,ExecMainCode,ExecMainStatus,ExecMainStartTimestampMonotonic', `${UNIT}.service`], 3000)
     return {
       scheduler: 'systemd',
       installed: existsSync(servicePath()) && existsSync(timerPath()),
-      loaded: active.ok,
+      ...systemdHealth(timer, job),
       files: [servicePath(), timerPath()],
     }
   }

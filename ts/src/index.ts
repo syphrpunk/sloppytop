@@ -41,6 +41,7 @@ import { appendProbeLog, probeLogPath, readProbeLog } from './store/probe-log.ts
 import { dbInfo, openDb, queryHistory, queryTopProcesses } from './store/db.ts'
 import { renderOpenMetrics } from './store/openmetrics.ts'
 import {
+  compareReportWindows,
   reportAnomalies,
   reportGroups,
   reportHourly,
@@ -647,6 +648,7 @@ Cli.create('sloppytop', {
       'Aggregate report over the metrics store: hourly avg/peak series, top consumers, anomaly flags, RSS leak flags, and configured process groups',
     options: z.object({
       hours: z.coerce.number().min(1).default(24).describe('Look-back window in hours'),
+      compare: z.boolean().default(false).describe('Compare with the immediately preceding equal-length window'),
       top: z.coerce.number().int().min(1).default(10).describe('Top consumers to include'),
       charts: z
         .boolean()
@@ -656,6 +658,11 @@ Cli.create('sloppytop', {
     run(c) {
       const db = openDb()
       try {
+        if (c.options.compare) {
+          const comparison = compareReportWindows(db, c.options.hours)
+          note('report', `comparison: ${comparison.coverage}`)
+          return comparison
+        }
         const since = new Date(Date.now() - c.options.hours * 3_600_000).toISOString()
         const window = reportWindow(db, since)
         if (!window) {
@@ -927,7 +934,7 @@ Cli.create('sloppytop', {
         },
       })
       .command('status', {
-        description: 'Show scheduled-job state and DB stats',
+        description: 'Show scheduler state, last run, and recorded-sample freshness',
         run(c) {
           try {
             const db = openDb()
@@ -937,6 +944,7 @@ Cli.create('sloppytop', {
               ...service.status(),
               name: service.scheduler().name,
               db: info,
+              ...service.sampleFreshness(info.last),
               db_path: dbPath(),
               event_log: eventLogPath(),
             }

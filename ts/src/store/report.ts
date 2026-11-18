@@ -94,6 +94,50 @@ const PSI_SOME_AVG10_ANOMALY = 10
 
 const round1 = (n: number) => Math.round(n * 10) / 10
 
+/** Equal adjacent windows; coverage counts occupied elapsed-hour slots, not promised recorder runs. */
+export function compareReportWindows(db: Database, hours: number, now = Date.now()) {
+  const span = Math.round(hours * 3_600_000)
+  const slots = Math.ceil(span / 3_600_000)
+  function summarize(start: number, end: number) {
+    const from = new Date(start).toISOString()
+    const to = new Date(end).toISOString()
+    const row = db.query(`
+      SELECT COUNT(*) AS samples,
+             COUNT(DISTINCT CAST((unixepoch(at, 'subsec') * 1000 - ?) / 3600000 AS INTEGER)) AS observed_slots,
+             MIN(at) AS first_sample_at, MAX(at) AS last_sample_at,
+             AVG(cpu_usage_total) AS cpu_avg_pct,
+             AVG(memory_used) AS memory_used_avg_bytes,
+             AVG(load_1) AS load1_avg
+      FROM system_samples WHERE at >= ? AND at < ?
+    `).get(start, from, to) as {
+      samples: number; observed_slots: number; first_sample_at: string | null; last_sample_at: string | null
+      cpu_avg_pct: number | null; memory_used_avg_bytes: number | null; load1_avg: number | null
+    }
+    return { from, to_exclusive: to, hourly_slots: slots, ...row }
+  }
+  const current = summarize(now - span, now)
+  const previous = summarize(now - 2 * span, now - span)
+  const coverage = !current.samples || !previous.samples ? 'insufficient'
+    : current.samples !== previous.samples || current.observed_slots !== previous.observed_slots ? 'unequal'
+    : current.observed_slots < slots ? 'equally_sparse' : 'comparable'
+  const delta = current.cpu_avg_pct != null && previous.cpu_avg_pct != null &&
+    current.memory_used_avg_bytes != null && previous.memory_used_avg_bytes != null &&
+    current.load1_avg != null && previous.load1_avg != null
+    ? {
+        cpu_avg_percentage_points: round1(current.cpu_avg_pct - previous.cpu_avg_pct),
+        memory_used_avg_bytes: Math.round(current.memory_used_avg_bytes - previous.memory_used_avg_bytes),
+        load1_avg: round1(current.load1_avg - previous.load1_avg),
+      }
+    : undefined
+  return {
+    current, previous, coverage,
+    ...(delta ? { sampled_delta: delta } : {}),
+    ...(coverage !== 'comparable'
+      ? { warning: 'Coverage is incomplete or unequal; sampled differences do not establish improvement or deterioration.' }
+      : {}),
+  }
+}
+
 export function reportWindow(db: Database, sinceIso: string): ReportWindow | null {
   const row = db
     .prepare(

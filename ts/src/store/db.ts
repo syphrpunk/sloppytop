@@ -341,6 +341,8 @@ export interface HistoryRow {
   psi_memory_some_avg10?: number
   memory_pressure_level?: string
   linux_oom_kills?: number
+  /** Different Linux boot IDs in this row and the previous returned sample. */
+  boot_changed_since_previous?: true
   cpu_power_watts?: number
   gpu_power_watts?: number
   ane_power_watts?: number
@@ -379,6 +381,7 @@ interface HistorySqlRow {
   psi_memory_some_avg10: number | null
   memory_pressure_level: string | null
   linux_oom_kills: number | null
+  linux_boot_id: string | null
   cpu_power_watts: number | null
   gpu_power_watts: number | null
   ane_power_watts: number | null
@@ -461,7 +464,7 @@ export function queryHistory(db: Database, sinceIso: string, limit: number): His
               swap_total_bytes, swap_used_bytes,
               battery_charge_percent, battery_charging,
               psi_cpu_some_avg10, psi_io_some_avg10, psi_memory_some_avg10,
-              memory_pressure_level, linux_oom_kills,
+              memory_pressure_level, linux_oom_kills, linux_boot_id,
               cpu_power_watts, gpu_power_watts, ane_power_watts, dram_power_watts,
               disk_devices, temperatures, fans, thermal_state,
               memory_wired_bytes, memory_compressed_bytes, memory_app_bytes, memory_cached_bytes,
@@ -470,7 +473,13 @@ export function queryHistory(db: Database, sinceIso: string, limit: number): His
        FROM system_samples WHERE at >= ? ORDER BY at DESC LIMIT ?`,
     )
     .all(sinceIso, limit) as HistorySqlRow[]
-  return rows.map(historyRow)
+  return rows.map((row, index) => {
+    const sample = historyRow(row)
+    const previous = rows[index + 1]
+    if (row.linux_boot_id && previous?.linux_boot_id && row.linux_boot_id !== previous.linux_boot_id &&
+        previous.at < row.at) sample.boot_changed_since_previous = true
+    return sample
+  })
 }
 
 export function queryTopProcesses(db: Database, sampleId: number): Record<string, unknown>[] {

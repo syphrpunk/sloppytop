@@ -3,16 +3,24 @@ import { UNOBSERVED } from './sparkline.ts'
 /** Descriptive threshold, not an inference about a historical timer schedule. */
 export const HISTORY_GAP_SECONDS = 90 * 60
 
-export function historyCoverage(rows: readonly { at: string }[], now = Date.now()) {
+export function historyCoverage(
+  rows: readonly { at: string; boot_changed_since_previous?: true }[],
+  now = Date.now(),
+) {
   const breaks: number[] = []
-  const unobserved_intervals: { after: string; before: string; seconds: number }[] = []
+  const unobserved_intervals: {
+    after: string; before: string; seconds: number; evidence: 'boot-change-observed' | 'unknown'
+  }[] = []
   for (let i = 1; i < rows.length; i++) {
     const after = rows[i - 1]!.at
     const before = rows[i]!.at
     const seconds = (Date.parse(before) - Date.parse(after)) / 1000
     if (seconds <= HISTORY_GAP_SECONDS || !Number.isFinite(seconds)) continue
     breaks.push(i)
-    unobserved_intervals.push({ after, before, seconds })
+    unobserved_intervals.push({
+      after, before, seconds,
+      evidence: rows[i]!.boot_changed_since_previous ? 'boot-change-observed' : 'unknown',
+    })
   }
   const last = rows.at(-1)
   const age = last ? now - Date.parse(last.at) : NaN

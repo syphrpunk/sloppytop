@@ -371,7 +371,10 @@ describe('probe log and settings', () => {
   })
 
   test('settings shows a stopped listener and leaves install as a command', () => {
-    const service = readService(() => ({ scheduler: 'launchd', installed: false, loaded: false, files: [] }))
+    const service = readService(() => ({
+      scheduler: 'launchd', installed: false, loaded: false, files: [],
+      scheduler_state: 'inactive', recorder_state: 'unknown',
+    }))
     expect(service.line).toBe('service  launchd  not installed  not loaded')
     expect(readService(() => {
       throw new Error('service status is not supported on win32')

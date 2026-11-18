@@ -15,10 +15,19 @@ test('describes hourly, bursty and mixed histories without inferring a timer fai
   const timeline = historyCoverage(overnight, Date.parse(overnight[3]!.at) + 60_000)
   expect(timeline.coverage.latest_sample_age_seconds).toBe(60)
   expect(timeline.coverage.unobserved_intervals).toEqual([{
-    after: overnight[2]!.at, before: overnight[3]!.at, seconds: 535 * 60,
+    after: overnight[2]!.at, before: overnight[3]!.at, seconds: 535 * 60, evidence: 'unknown',
   }])
   const tui = historyView([...overnight].reverse())
   expect(tui.timeline?.breaks).toEqual(timeline.breaks)
   expect(sparkline([0, null, 0, 0], { breaks: timeline.breaks })).toBe('⠀⠂⠀╌⠀')
   expect(overnight).toHaveLength(4)
+})
+
+test('reports observed boot changes without asserting the cause of missing samples', () => {
+  const after = '2026-01-01T00:00:00.000Z'
+  const before = '2026-01-01T02:00:00.000Z'
+  const timeline = historyCoverage([{ at: after }, { at: before, boot_changed_since_previous: true }])
+  expect(timeline.coverage.unobserved_intervals).toEqual([
+    { after, before, seconds: 7200, evidence: 'boot-change-observed' },
+  ])
 })

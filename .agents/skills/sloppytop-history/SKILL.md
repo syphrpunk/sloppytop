@@ -15,8 +15,10 @@ rate validation are unchanged.
 
 Coverage reports the latest sample age and intervals over 90 minutes
 between adjacent returned rows. Charts mark unobserved time with `╌`,
-separately from a missing reading (`⠂`) and measured zero. This does not
-infer whether a recorder was scheduled or failed.
+separately from a missing reading (`⠂`) and measured zero. Interval evidence
+is `boot-change-observed` when the adjacent Linux rows came from different
+boots, or `unknown` otherwise. A boot change is not necessarily the cause
+of the whole gap. Current job state is not evidence of a past failure.
 
 `--charts` compares up to four recorded disk device names by peak combined throughput. Read and write share a scale per unit; missing samples are gaps, and latency is an interval average, not a percentile. Raw samples still include all recorded devices.
 

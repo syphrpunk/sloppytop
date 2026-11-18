@@ -39,7 +39,7 @@ sloppytop history --processes       # include stored top processes per sample
 sloppytop report --hours 24         # hourly avg/peak series, top consumers, anomaly flags, charts
 sloppytop config                    # effective config + storage paths + DB stats
 sloppytop service install           # store one sample now, then run `record` hourly
-sloppytop service status            # job state + DB stats
+sloppytop service status            # scheduler state, last run and DB freshness
 sloppytop service uninstall
 ```
 
