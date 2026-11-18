@@ -8,6 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { defaultProbes, parseProbes, type ProbeName, type ProbeSet } from '../monitor/probes.ts'
 import { isThemeName } from '../tui/theme.ts'
+import { explicitDatabasePath } from './recorder-path.ts'
 import { parseRecordGroups, type OptionalRecordGroup, type RecordGroups } from './record-policy.ts'
 
 export interface MetricsConfig {
@@ -20,6 +21,8 @@ export interface MetricsConfig {
 
 export interface Config {
   record: {
+    /** Absent: keep the legacy/default filename resolver. */
+    databasePath?: string
     /** top-N processes (by CPU) stored per sample */
     processLimit: number
     /** samples older than this are pruned on each record run */
@@ -122,7 +125,10 @@ export function resolveNamedFile(
 }
 
 export const configPath = () => join(configDir(), 'config.json')
-export const dbPath = () => resolveNamedFile(configDir(), 'sloppytop.db', 'neohtop.db')
+export const defaultDbPath = () => resolveNamedFile(configDir(), 'sloppytop.db', 'neohtop.db')
+export function dbPath(config = loadConfig()): string {
+  return config.record.databasePath === undefined ? defaultDbPath() : explicitDatabasePath(config.record.databasePath)
+}
 export const logPath = () => join(configDir(), 'record.log')
 
 export function ensureConfigDir(): string {
@@ -257,7 +263,7 @@ let configCache: ConfigCache | undefined
 function configCacheKey(path: string): string {
   try {
     const stat = statSync(path)
-    return `${path}\0${stat.mtimeMs}\0${stat.size}`
+    return `${path}\0${stat.ino}\0${stat.ctimeMs}\0${stat.mtimeMs}\0${stat.size}`
   } catch {
     return `${path}\0missing`
   }

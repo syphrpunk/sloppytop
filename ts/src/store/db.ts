@@ -2,7 +2,9 @@
 // run inserts one system sample plus the top-N processes; history reads
 // the series back for reporting.
 
-import { Database } from 'bun:sqlite'
+import { constants, Database } from 'bun:sqlite'
+import { closeSync, openSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
 import type {
   CpuCoreKind,
   DiskDevice,
@@ -13,7 +15,8 @@ import type {
   TemperatureReading,
   ThermalState,
 } from '../monitor/types.ts'
-import { dbPath, ensureConfigDir } from './config.ts'
+import { dbPath, ensureConfigDir, loadConfig } from './config.ts'
+import { databaseFiles } from './recorder-path.ts'
 import { projectRecordGroups, type RecordGroups } from './record-policy.ts'
 
 const SCHEMA = `
@@ -143,14 +146,83 @@ function ensureSystemColumns(db: Database) {
   }).immediate()
 }
 
-export function openDb(path = dbPath()): Database {
-  if (path !== ':memory:') ensureConfigDir()
-  const db = new Database(path, { create: true })
-  db.run('PRAGMA journal_mode = WAL')
-  db.run('PRAGMA foreign_keys = ON')
-  db.run(SCHEMA)
-  ensureSystemColumns(db)
-  return db
+// Match the recorder's DDL rather than accepting an arbitrary SQLite file with a
+// table named system_samples. ALTER TABLE can reorder/add optional columns.
+function ddl(sql: string) {
+  return sql.toLowerCase().replace(/\s+/g, ' ').replace(/ *([(),]) */g, '$1').trim()
+}
+
+const expected = SCHEMA.trim().split(';').filter(s => s.trim()).map(s => ddl(s.replace(' IF NOT EXISTS', '')))
+const systemPrefix = 'create table system_samples('
+const columnsOf = (s: string) => s.slice(systemPrefix.length, -1).split(',')
+const systemColumns = columnsOf(expected.find(s => s.startsWith(systemPrefix))!)
+const optionalColumns = new Set(ADDED_SYSTEM_COLUMNS.map(([name, type]) => `${name} ${type.toLowerCase()}`))
+
+function checkRecorderSchema(db: Database) {
+  const required = new Set(expected)
+  const objects = db.query<{ sql: string | null }, []>('SELECT sql FROM sqlite_master').all()
+  for (const { sql } of objects) {
+    const definition = ddl(sql ?? '')
+    if (definition === 'create table sqlite_sequence(name,seq)') continue
+    if (definition.startsWith(systemPrefix) && definition.endsWith(')')) {
+      const columns = columnsOf(definition).map(column => column.replace(/^(network_[rt]x_bytes integer) not null$/, '$1'))
+      if (columns.every(c => systemColumns.includes(c)) &&
+          systemColumns.every(c => columns.includes(c) || optionalColumns.has(c))) {
+        required.delete(expected.find(s => s.startsWith(systemPrefix))!)
+        continue
+      }
+    }
+    if (!required.delete(definition)) throw new Error('Not a recognized recorder database schema')
+  }
+  if (required.size) throw new Error('Incomplete recorder database schema')
+}
+
+/** Caller checks for sidecars first: immutable mode must not ignore pending WAL data. */
+function openImmutable(path: string) {
+  const uri = pathToFileURL(path).href + '?immutable=1'
+  return new Database(uri, constants.SQLITE_OPEN_READONLY | constants.SQLITE_OPEN_URI)
+}
+
+export function inspectRecorderDb(path: string) {
+  using db = openImmutable(path)
+  checkRecorderSchema(db)
+  if (db.query<{ quick_check: string }, []>('PRAGMA quick_check').get()?.quick_check !== 'ok') {
+    throw new Error('Recorder database failed SQLite consistency check')
+  }
+  return dbInfo(db)
+}
+
+export function openDb(path?: string): Database {
+  let explicit = false
+  if (path === undefined) {
+    const config = loadConfig()
+    explicit = config.record.databasePath !== undefined
+    path = dbPath(config)
+  }
+  let existing = false
+  if (explicit) {
+    const files = databaseFiles(path, false)
+    if (!files.writable) throw new Error(`Recorder database is not writable: ${path}`)
+    existing = files.exists
+    if (!existing) closeSync(openSync(path, 'wx', 0o600))
+    else {
+      // Validate before a normal WAL connection can write any sidecars.
+      using db = openImmutable(path)
+      checkRecorderSchema(db)
+    }
+  } else if (path !== ':memory:') ensureConfigDir()
+  const db = new Database(path, explicit ? { readwrite: true } : { create: true })
+  try {
+    if (existing) checkRecorderSchema(db)
+    db.run('PRAGMA journal_mode = WAL')
+    db.run('PRAGMA foreign_keys = ON')
+    db.run(SCHEMA)
+    ensureSystemColumns(db)
+    return db
+  } catch (err) {
+    db.close()
+    throw err
+  }
 }
 
 export interface RecordResult {
@@ -168,7 +240,9 @@ export function insertSample(
   linuxBootId?: string,
 ): RecordResult {
   const { system, processes } = projectRecordGroups(sampledSystem, sampledProcesses, opts.optionalGroups)
-  const insertSystem = db.prepare(`
+  // Cached statements are finalized by close(), so even a one-shot TUI insert
+  // releases the WAL without waiting for a later garbage collection.
+  const insertSystem = db.query(`
     INSERT INTO system_samples (
       at, hostname, cpu_usage_total, cpu_usage_per_core,
       memory_total, memory_used, memory_free,
@@ -194,7 +268,7 @@ export function insertSample(
       ?, ?, ?, ?, ?
     )
   `)
-  const insertProcess = db.prepare(`
+  const insertProcess = db.query(`
     INSERT INTO process_samples (
       sample_id, pid, ppid, name, cpu_usage, memory_bytes,
       status, user, command, threads, runtime_secs,
@@ -318,11 +392,11 @@ export function insertSample(
     const cutoff = new Date(Date.parse(at) - opts.retentionDays * 86_400_000).toISOString()
     // .changes would include FK-cascaded process rows — count samples explicitly
     const pruned = (
-      db.prepare('SELECT COUNT(*) AS n FROM system_samples WHERE at < ?').get(cutoff) as {
+      db.query('SELECT COUNT(*) AS n FROM system_samples WHERE at < ?').get(cutoff) as {
         n: number
       }
     ).n
-    db.prepare('DELETE FROM system_samples WHERE at < ?').run(cutoff)
+    db.query('DELETE FROM system_samples WHERE at < ?').run(cutoff)
     return { sampleId, processesStored: top.length, pruned }
   })
   return run()

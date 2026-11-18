@@ -3,7 +3,7 @@
 
 import { disabledRecordProbes } from '../monitor/probes.ts'
 import { takeSample, type RecordableSample } from '../sample.ts'
-import { dbPath, initConfig } from './config.ts'
+import { initConfig } from './config.ts'
 import { insertSample, openDb } from './db.ts'
 
 export class RecordBlocked extends Error {
@@ -43,9 +43,9 @@ export async function recordSample(take: Sampler = takeSample): Promise<StoredSa
       at,
       processes_stored: result.processesStored,
       pruned: result.pruned,
-      db_path: dbPath(),
+      db_path: db.filename,
     }
   } finally {
-    db.close()
+    db.close(true)
   }
 }

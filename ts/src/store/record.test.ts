@@ -1,14 +1,16 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, test } from 'bun:test'
 import type { ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { loadConfig, updateProbes, updateRecordGroup } from './config.ts'
+import { confirmRecorderDestination, previewRecorderDestination } from './destination.ts'
 import { openDb, queryHistory, queryTopProcesses } from './db.ts'
 import { renderSystemMetrics } from './openmetrics.ts'
 import { readProbeLog } from './probe-log.ts'
 import { OPTIONAL_RECORD_GROUPS } from './record-policy.ts'
+import { reportWindow } from './report.ts'
 import { RecordBlocked, recordSample } from './record.ts'
 
 const system: SystemStats = {
@@ -48,7 +50,7 @@ const proc: ProcessInfo = {
 
 async function withConfigHome(run: (home: string) => Promise<void>) {
   const previous = process.env.XDG_CONFIG_HOME
-  const home = mkdtempSync(join(tmpdir(), 'sloppytop-record-'))
+  const home = realpathSync(mkdtempSync(join(tmpdir(), 'sloppytop-record-')))
   process.env.XDG_CONFIG_HOME = home
   try {
     await run(home)
@@ -133,7 +135,14 @@ describe('recordSample', () => {
   })
 
   test('the scheduled record command honors storage config but still logs collected processes', async () => {
-    await withConfigHome(async () => {
+    await withConfigHome(async home => {
+      const sample = async () => ({ system, processes: [proc] })
+      const original = await recordSample(sample)
+      const path = join(home, 'selected.sqlite')
+      const preview = previewRecorderDestination(path)
+      expect(preview.current).toMatchObject({ samples: 1, first: original.at, last: original.at })
+      confirmRecorderDestination(preview)
+      expect((await recordSample(sample)).db_path).toBe(path)
       updateRecordGroup('processes', false)
       // Execute the dev-mode scheduler command directly; do not install or start a job.
       const result = spawnSync(process.execPath, [join(import.meta.dir, '../index.ts'), 'record'], {
@@ -142,8 +151,11 @@ describe('recordSample', () => {
       expect(result.status, result.stderr).toBe(0)
       const db = openDb()
       try {
-        const rows = queryHistory(db, '', 1)
-        expect(rows).toHaveLength(1)
+        const rows = queryHistory(db, '', 3)
+        expect(rows).toHaveLength(2)
+        expect(db.filename).toBe(path)
+        expect(reportWindow(db, '')?.samples).toBe(2)
+        expect(previewRecorderDestination(null).target.samples).toBe(1)
         expect(queryTopProcesses(db, rows[0]!.id)).toHaveLength(0)
         expect(readProbeLog({ probe: 'processes', limit: 1 })[0]?.count).toBeGreaterThan(0)
       } finally {
