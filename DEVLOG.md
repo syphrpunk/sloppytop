@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Second-Mac startup retest — 2026-11-18
+
+- Repeated five launch pairs after a reported change to real-time protection; the cold-start miss persisted.
+
+
 ## Second-Mac startup trace — 2026-11-18
 
 - Compared fresh and repeat scheduling traces on mbp2023 and documented the two security-daemon wakeups before the first target syscall.
