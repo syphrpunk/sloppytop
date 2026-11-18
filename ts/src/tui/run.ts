@@ -523,7 +523,8 @@ export async function runTui(
       if (!stopped) paint()
     })
     paint()
-    renderer.start()
+    // This screen has no animations; input, resize and changed data request frames.
+    renderer.requestRender()
     trace?.since('firstFrameSubmitted', started)
     void tick()
   })

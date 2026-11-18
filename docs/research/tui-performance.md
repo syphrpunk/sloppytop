@@ -112,3 +112,20 @@ requests are skipped and late results cannot replace a newer tab. In a short
 `just tui-bench --trace --trials 2 --starts 1 --idle 1` run, closing the visible
 loading screen and entering search took 40 ms live and 29–45 ms across fixture
 sizes. The visual smoke separately dismisses a deliberately delayed fixture.
+
+## Demand-driven rendering and startup control
+
+The screen has no animations, so it no longer starts OpenTUI's continuous
+render loop. In `just tui-bench --trace --trials 12 --starts 3 --idle 5`, paused
+CPU was 0.2% live and 0.8% at 5,000 rows. Live search and scroll p95 were
+19 and 43 ms; live loop lag peaked at 25 ms. The 5,000-row fixture had a
+paused RSS of 83 MiB. The tmux resize and startup timings still missed the
+direct PTY budgets and are reported separately, not counted as passes.
+
+Immediately after rebuilding on macOS, direct PTY first frame was 1,334 ms,
+of which `runTui` took 16 ms to submit the first frame. A separate fresh build
+showed the same delay on `sloppytop --version` (1.22 s real, 0.08 s user+system),
+then 0.04 s on the second invocation and 79 ms to the TUI first frame. The
+fresh executable is a 96 MiB ad-hoc-signed Mach-O. The control reproduces the
+delay without a renderer, sample or terminal; it does not establish which
+outside-TUI launch step is responsible. Cold startup is not yet accepted.
