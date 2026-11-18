@@ -4,9 +4,9 @@ sloppytop  Charm
 │ <sample time>                                        │
 │ cpu 32.0%  mem 7.0G  load 1.20                       │
 │ sample recorded · no gap flagged                     │
-│ anomaly evidence                                     │
-│ io_pressure: I/O stall some avg10 12%                │
-│ psi_io_some_avg10 12 >= 10                           │
-│ recorded interfaces                                  │
 ╰──────────────────────────────────────────────────────╯
-q close   i overview   ←/→ sample   ↑/↓ scroll
+
+
+
+
+q close   Enter evidence   ←/→ sample   i overview

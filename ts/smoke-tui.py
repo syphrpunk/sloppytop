@@ -83,7 +83,9 @@ def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
         tmux("send-keys", "-t", "smoke", "v")
         wait_frame("i inspect")
         tmux("send-keys", "-t", "smoke", "i")
-        wait_frame("history sample 1/1", "recorded interfaces")
+        wait_frame("history sample 1/1", "Enter evidence")
+        tmux("send-keys", "-t", "smoke", "Enter")
+        wait_frame("sample evidence 1/1", "Esc back to sample")
         for _ in range(120):
             if "recorded top processes" in tmux("capture-pane", "-pt", "smoke").stdout:
                 break
@@ -91,6 +93,8 @@ def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
             time.sleep(0.04)
         else:
             raise RuntimeError("could not scroll to stored processes")
+        tmux("send-keys", "-t", "smoke", "Escape")
+        wait_frame("history sample 1/1", "Enter evidence")
         tmux("send-keys", "-t", "smoke", "q")
         wait_frame("q quit")
         tmux("send-keys", "-t", "smoke", "w")

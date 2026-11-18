@@ -17,6 +17,7 @@ import { readProbeLog } from '../store/probe-log.ts'
 import {
   compareReportWindows,
   reportAnomalies,
+  reportSampleAnomalies,
   reportGroups,
   reportHourly,
   reportLeaks,
@@ -120,7 +121,7 @@ function readingValue(list: TemperatureReading[] | undefined, name: string, fiel
 
 export function historyView(
   rows: HistoryInput[],
-  findings: ReturnType<typeof reportAnomalies> = [],
+  findings?: ReturnType<typeof reportSampleAnomalies>,
   readProcesses?: (id: number) => ReturnType<typeof queryTopProcesses>,
 ): HistoryView {
   if (rows.length === 0) {
@@ -179,6 +180,7 @@ export function historyView(
     )
   }
   const timeline = historyCoverage(chrono)
+  const precedingGaps = new Map(timeline.breaks.map((index, i) => [index, timeline.coverage.unobserved_intervals[i]!.seconds]))
   return {
     status: 'ready',
     timeline,
@@ -189,13 +191,13 @@ export function historyView(
     series,
     diskMetrics: diskHistory(chrono).metrics,
     notes,
-    recent: rows.slice(0, 5).map((row) => ({
+    recent: rows.slice(0, 5).map((row, index) => ({
       at: row.at.slice(11, 19),
       timestamp: row.at,
       bootChange: row.boot_changed_since_previous,
-      gapSeconds: timeline.coverage.unobserved_intervals.find((gap) => gap.before === row.at)?.seconds,
+      gapSeconds: precedingGaps.get(rows.length - 1 - index),
       interfaces: row.network_interfaces,
-      anomalies: findings.filter((finding) => finding.at === row.at),
+      anomalies: row.id === undefined ? undefined : findings?.get(row.id),
       processes: row.id === undefined ? undefined : readProcesses?.(row.id).map(({ command: _, ...process }) => process),
       cpu: row.cpu_usage_total,
       memory: row.memory_used,
@@ -350,7 +352,7 @@ export function loadHistory(): HistoryView {
   return withDb((db) => {
     const since = new Date(Date.now() - HISTORY_HOURS * 3_600_000).toISOString()
     const rows = queryHistory(db, since, HISTORY_LIMIT)
-    return historyView(rows, rows.length ? reportAnomalies(db, rows.at(-1)!.at) : [], id => queryTopProcesses(db, id))
+    return historyView(rows, rows.length ? reportSampleAnomalies(db, rows.at(-1)!.at) : undefined, id => queryTopProcesses(db, id))
   })
 }
 

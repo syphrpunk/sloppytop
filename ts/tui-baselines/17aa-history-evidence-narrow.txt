@@ -1,12 +1,12 @@
 sloppytop  Charm
 ╭─ history ────────────────────────────────────────────╮
-│ history sample 1/3                                   │
-│ cpu 32.0%  mem 7.0G  load 1.20                       │
-│ sample recorded · no gap flagged                     │
+│ sample evidence 1/3                                  │
+│ <sample time>                                        │
 │ anomaly evidence                                     │
 │ io_pressure: I/O stall some avg10 12%                │
 │ psi_io_some_avg10 12 >= 10                           │
-│ recorded interfaces                                  │
-│   fixture-eth  rx 0 B/s  tx —                        │
+│ recorded interfaces (— not measured)                 │
+│ fixture-eth  rx 0 B/s  tx —                          │
+│ recorded top processes (by CPU)                      │
 ╰──────────────────────────────────────────────────────╯
-q close   i overview   ←/→ sample   ↑/↓ scroll
+q close   Esc back to sample   ↑/↓ scroll

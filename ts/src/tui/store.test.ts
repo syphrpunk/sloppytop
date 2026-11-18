@@ -22,7 +22,8 @@ test('history renders age and an unobserved interval as a distinct cell', () => 
 import { defaultProbes } from '../monitor/probes.ts'
 import type { SystemStats } from '../monitor/types.ts'
 import { DEFAULT_TUI } from '../store/config.ts'
-import { openDb, insertSample } from '../store/db.ts'
+import { reportSampleAnomalies } from '../store/report.ts'
+import { openDb, insertSample, queryHistory, queryTopProcesses } from '../store/db.ts'
 import { compose, emptyHistory } from './frame.ts'
 import { EMPTY_WINDOW, attemptRecord, bindMetricsListener, historyView, logView, readReport, readService, reportView } from './store.ts'
 import { initialState, reduce, wantsQuit, type KeyPress, type ScreenState } from './state.ts'
@@ -50,17 +51,18 @@ function mtime(path: string): number | null {
   }
 }
 
+const storedSystem = {
+  cpu_usage_total: 0, core_count: 1, cpu_usage_per_core: [0], memory_used: 0, memory_total: 1024 ** 3,
+  load_avg: [0, 0, 0], process_count: 2, disk_total_bytes: 0, disk_used_bytes: 0, disk_free_bytes: 0,
+  memory_free: 1024 ** 3, network_rx_bytes: 0, network_tx_bytes: 0,
+  hostname: 'fixture', os_version: 'fixture', kernel_version: 'fixture', uptime_secs: 0, cpu_brand: 'fixture',
+} satisfies SystemStats
+
 test('report renders sampled deltas, workload coverage, and full stored RSS evidence', () => {
   using db = openDb(':memory:')
   const now = Date.parse('2026-11-18T12:00:00Z')
-  const system = {
-    cpu_usage_total: 0, core_count: 1, cpu_usage_per_core: [0], memory_used: 0, memory_total: 1024 ** 3,
-    load_avg: [0, 0, 0], process_count: 2, disk_total_bytes: 0, disk_used_bytes: 0, disk_free_bytes: 0,
-    memory_free: 1024 ** 3, network_rx_bytes: 0, network_tx_bytes: 0,
-    hostname: 'fixture', os_version: 'fixture', kernel_version: 'fixture', uptime_secs: 0, cpu_brand: 'fixture',
-  } satisfies SystemStats
   const insert = (offset: number, cpu: number, rss: number) => insertSample(
-    db, new Date(now - offset).toISOString(), { ...system, cpu_usage_total: cpu },
+    db, new Date(now - offset).toISOString(), { ...storedSystem, cpu_usage_total: cpu },
     [{ pid: 7, ppid: 1, name: 'growth-fixture', cpu_usage: 0, memory_bytes: rss, disk_read_bytes: 0,
       disk_write_bytes: 0, runtime_secs: 0, user: '', command: 'not shown', status: 'Running' }],
     { processLimit: 1, retentionDays: 36500 },
@@ -131,6 +133,56 @@ describe('record gate', () => {
 })
 
 describe('history and report pages', () => {
+  test.each([[56, 12], [112, 30]])('inspect drills into one stored sample and returns at %ix%i', (width, height) => {
+    using db = openDb(':memory:')
+    const at = new Date().toISOString()
+    const options = { processLimit: 1, retentionDays: 30 }
+    // Same instant, different rows: timestamps alone cannot identify this evidence.
+    const flagged = insertSample(db, at, { ...storedSystem, psi_io_some_avg10: 17,
+      network_interfaces: [{ name: 'selected-link', tx_bytes_per_s: 0 }] },
+      [{ name: 'selected-worker', pid: 42, ppid: 1, cpu_usage: 0, memory_bytes: 0,
+        command: 'SECRET-ARG', user: '', status: 'Running', runtime_secs: 0, disk_read_bytes: 0, disk_write_bytes: 0 }], options)
+    insertSample(db, at, storedSystem, [], options)
+    const rows = queryHistory(db, at, 5).sort((a, b) => b.id - a.id)
+    expect(rows[1]!.id).toBe(flagged.sampleId)
+    const view = historyView(rows, reportSampleAnomalies(db, at), id => queryTopProcesses(db, id))
+    let state = screen({ overlay: 'history', historyPage: view, width, height })
+    const draw = () => compose(state, { system: {}, processes: [], history: emptyHistory() })
+    const press = (name: string) => { state = reduce(state, key(name), []).state }
+    press('i')
+    press('enter')
+    expect(draw().text).toContain('sample evidence 1/2')
+    expect(draw().text).toContain('No flags, interface readings or stored process rows')
+    expect(draw().text).not.toMatch(/selected-|io_pressure/)
+    press('esc')
+    press('left')
+    const selected = draw().text
+    expect(selected).toContain('history sample 2/2')
+    expect(selected).toContain('Enter evidence')
+    expect(selected).not.toContain('selected-worker')
+    press('return')
+    expect(draw().text).toContain('sample evidence 2/2')
+    expect(draw().text).toContain('Esc back to sample')
+    expect(draw().text).toContain(at)
+    let evidence = draw().text
+    const max = draw().layout.overlayScrollMax ?? 0
+    if (height === 12) expect(max).toBeGreaterThan(0)
+    state = { ...state, overlayScrollMax: max }
+    for (let i = 0; i < max; i++) {
+      press('down')
+      evidence += '\n' + draw().text
+    }
+    expect(evidence).toContain('psi_io_some_avg10 17 >= 10')
+    expect(evidence).toContain('selected-link  rx —  tx 0 B/s')
+    expect(evidence).toContain('selected-worker')
+    expect(evidence).not.toContain('SECRET-ARG')
+    press('right') // Don't change the selection under the drill-down.
+    press('escape')
+    expect(draw().text).toBe(selected)
+    press('i')
+    expect(draw().text).toContain('i inspect')
+  })
+
   test('disk comparison has aligned charts and lets short screens switch metrics', () => {
     const base = { cpu_usage_total: 1, memory_used: 1, load_1: 0 }
     const disk = (name: string, read: number, latency?: number) => ({

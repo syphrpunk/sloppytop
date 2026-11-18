@@ -278,9 +278,14 @@ the `g` cgroup view. `e` and `o` independently show or hide environment
 **names only** and open files. Both start hidden for each process inspection;
 hide a section and reopen it to retry an unavailable reading. Neither list
 is written to the probe log.
-Press `v`, then `i`, to scroll through anomaly evidence, interfaces, and
-stored top processes for each of the five newest History samples. Process
-arguments are not shown. In Report (`w` from the main screen), `c` compares
+Press `v`, then `i`, to inspect the five newest History samples. Use `←` for
+an older sample or `→` for a newer one. `Enter` opens the selected sample’s
+anomaly evidence, recorded interfaces and stored top processes. A rate of
+`0 B/s` was measured; `—` means no reading. Process arguments are not shown.
+Scroll with `↑`/`↓` or the wheel. `Esc` returns to the same sample, `i` to
+the overview, and `q` closes History.
+
+In Report (`w` from the main screen), `c` compares
 the last 24 hours with the preceding 24 hours, `w` shows per-sample CPU/RSS
 for configured groups, and `l` shows RSS-growth evidence and thresholds.
 Press the same key again for the overview. Scroll with arrows or the mouse

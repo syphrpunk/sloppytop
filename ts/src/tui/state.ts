@@ -286,6 +286,7 @@ export interface ScreenState {
   } | null
   /** Null is the overview; otherwise an index into available disk metrics. */
   historyDiskIndex: number | null
+  historyEvidence: boolean
   historyPointIndex: number | null
   reportPage: ReportView | null
   reportTab: ReportTab
@@ -397,6 +398,7 @@ export function initialState(
     discoveryPage: null,
     historyDiskIndex: null,
     historyPointIndex: null,
+    historyEvidence: false,
     reportPage: null,
     reportTab: 'overview',
     logPage: null,
@@ -596,6 +598,16 @@ function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
     }
   }
   if (state.overlay === 'history' && state.historyPage?.status === 'ready') {
+    if (state.historyEvidence) {
+      if (key.name === 'escape' || key.name === 'esc') {
+        return { state: { ...state, historyEvidence: false, overlayScroll: 0 } }
+      }
+      // Only q closes History; sample navigation belongs to the selector.
+      if (key.name !== 'q') return { state }
+    }
+    if (state.historyPointIndex !== null && (key.name === 'return' || key.name === 'enter')) {
+      return { state: { ...state, historyEvidence: true, overlayScroll: 0 } }
+    }
     const points = state.historyPage.recent.length
     if (key.name === 'i' && points) return {
       state: { ...state, overlayScroll: 0, historyDiskIndex: null, historyPointIndex: state.historyPointIndex === null ? 0 : null },
@@ -1009,6 +1021,7 @@ function openHistory(state: ScreenState): ReduceResult {
       historyPage: emptyHistoryPage('loading', 'loading…'),
       historyDiskIndex: null,
       historyPointIndex: null,
+      historyEvidence: false,
     },
     effect: { openHistory: true },
   }

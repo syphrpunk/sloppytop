@@ -89,6 +89,7 @@ export interface Anomaly {
 }
 
 interface SampleRow {
+  id: number
   at: string
   cpu_usage_total: number
   cpu_usage_per_core: string
@@ -408,17 +409,23 @@ export function reportGroups(db: Database, sinceIso: string, groups: ProcessGrou
 }
 
 export function reportAnomalies(db: Database, sinceIso: string): Anomaly[] {
+  return [...reportSampleAnomalies(db, sinceIso).values()].flat()
+}
+
+/** Keep row identity for sample inspection, even when timestamps coincide. */
+export function reportSampleAnomalies(db: Database, sinceIso: string): Map<number, Anomaly[]> {
   const rows = db
     .prepare(
-      `SELECT at, cpu_usage_total, cpu_usage_per_core, memory_used, memory_total, load_1,
+      `SELECT id, at, cpu_usage_total, cpu_usage_per_core, memory_used, memory_total, load_1,
               psi_io_some_avg10, psi_memory_some_avg10, memory_pressure_level,
               linux_oom_kills, linux_boot_id
        FROM system_samples WHERE at >= ? ORDER BY at, id`,
     )
     .all(sinceIso) as SampleRow[]
 
-  const anomalies: Anomaly[] = []
+  const bySample = new Map<number, Anomaly[]>()
   for (const [i, r] of rows.entries()) {
+    const anomalies: Anomaly[] = []
     let cores = 0
     try {
       cores = (JSON.parse(r.cpu_usage_per_core) as unknown[]).length
@@ -505,6 +512,7 @@ export function reportAnomalies(db: Database, sinceIso: string): Anomaly[] {
         evidence: [{ metric: 'memory_used_pct', observed: memPct, operator: '>', threshold: MEMORY_USED_THRESHOLD }],
       })
     }
+    if (anomalies.length) bySample.set(r.id, anomalies)
   }
-  return anomalies
+  return bySample
 }

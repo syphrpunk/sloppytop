@@ -227,7 +227,8 @@ export function compose(
     : state.overlay === 'artifact' && state.artifact?.status === 'input' ? 'Tab field   Enter submit'
     : state.overlay === 'artifact' && state.artifact?.kind === 'compare' && state.artifact.status === 'ready' ? '←/→ pan'
     : state.overlay === 'history' && state.historyPage?.status === 'ready'
-      ? state.historyPointIndex !== null ? 'i overview   ←/→ sample'
+      ? state.historyEvidence ? 'Esc back to sample'
+        : state.historyPointIndex !== null ? 'Enter evidence   ←/→ sample   i overview'
         : state.historyDiskIndex === null ? (state.historyPage.diskMetrics.length ? 'd disks   i inspect' : 'i inspect')
           : 'd overview   ←/→ metric' : ''
   const scrollHint = overlayScrollMax ? '   ↑/↓ scroll' : ''
@@ -1281,13 +1282,17 @@ function historyLines(state: ScreenState) {
   if (state.historyPointIndex !== null) {
     const point = page.recent[state.historyPointIndex]
     if (!point) return fitHistory(state, ['history sample', 'no recorded sample'])
-    const lines = [
-      `history sample ${state.historyPointIndex + 1}/${page.recent.length}`,
-      plain(point.timestamp),
+    const position = `${state.historyPointIndex + 1}/${page.recent.length}`
+    if (!state.historyEvidence) return fitHistory(state, [
+      `history sample ${position}`, plain(point.timestamp),
       `cpu ${point.cpu.toFixed(1)}%  mem ${formatBytesCompact(point.memory)}  load ${point.load.toFixed(2)}`,
       point.gapSeconds ? `preceding gap ${point.gapSeconds}s · ${point.bootChange ? 'boot change observed' : 'cause unknown'}` : 'sample recorded · no gap flagged',
-      'anomaly evidence',
-    ]
+    ])
+    const lines = [`sample evidence ${position}`, plain(point.timestamp)]
+    if (!point.anomalies?.length && !point.interfaces?.length && !point.processes?.length) {
+      return fitHistory(state, [...lines, ...wrapWords('No flags, interface readings or stored process rows for this sample.', panelWidth(state.width))])
+    }
+    lines.push('anomaly evidence')
     if (!point.anomalies?.length) lines.push('  no flags at this sample')
     for (const finding of point.anomalies ?? []) {
       lines.push(...wrapWords(`${finding.type}: ${finding.detail}`, panelWidth(state.width)))
@@ -1295,10 +1300,10 @@ function historyLines(state: ScreenState) {
         lines.push(...wrapWords(`  ${item.metric} ${item.observed} ${item.operator} ${item.threshold}`, panelWidth(state.width)))
       }
     }
-    lines.push('recorded interfaces')
+    lines.push('recorded interfaces (— not measured)')
     if (!point.interfaces?.length) lines.push('  no recorded interface readings')
     for (const link of point.interfaces ?? []) {
-      lines.push(`  ${plain(link.name)}  rx ${discoveryRate(link.rx_bytes_per_s)}  tx ${discoveryRate(link.tx_bytes_per_s)}`)
+      lines.push(...wrapWords(`  ${plain(link.name)}  rx ${discoveryRate(link.rx_bytes_per_s)}  tx ${discoveryRate(link.tx_bytes_per_s)}`, panelWidth(state.width)))
     }
     lines.push('recorded top processes (by CPU)')
     if (!point.processes?.length) lines.push('  no process rows stored')
