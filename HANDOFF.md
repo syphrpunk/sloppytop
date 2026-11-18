@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: cd9f83e Show read-only recorder status and scoped controls in Settings
+HEAD: 5eddc53 Launch compiled diagnosis pane without user shell startup hooks
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -83,6 +83,7 @@ The [CLI-to-TUI parity audit](docs/research/tui-parity.md) now maps the delivere
 The [TUI controls audit](docs/research/tui-controls-audit.md) covers tree readability, recorder UX, visual CI and current performance measurements. Repeat population exceeded 2 s twice on macOS; investigate before adding hot-path work. No scheduler state was changed.
 Audit dispatch is tracked under Memento epic nht-f4dce9: one completed evidence record and nine follow-ups. Parallelize sampler tracing, benchmark harness development and the isolated picker prototype; reserve exclusive measurement slots and a single production-screen integrator.
 First wave integrated locally through cd9f83e. The 12-repeat macOS baseline/candidate PTY comparison after warmup measured populated-table p95 2443/1988 ms, with 3/0 misses. Recorder Settings is read-only; focused picker remains prototype-only. Fixed-host macOS/Linux release-gate reports are still pending (nht-bee39c).
+Integrated confirmed recorder schedule changes and readback (c4e0103), plus tree projection only (b97c133). Wire tree keys, focus and hidden counts next. The diagnosis smoke initially failed before the first tmux frame; launching the binary directly instead of through shell startup hooks fixed it (5eddc53). No real scheduler was changed.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -100,7 +101,7 @@ First wave integrated locally through cd9f83e. The 12-repeat macOS baseline/cand
 Open tasks:
 (task manager: memento)
 {
-  "count": 14,
+  "count": 13,
   "items": [
     {
       "id": "nht-9de7a2",
@@ -117,24 +118,6 @@ Open tasks:
       "attentionReason": null,
       "updatedAt": "2026-11-01T08:26:19.378Z",
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-9de7a2-apple-silicon-energy-sample.md"
-    },
-    {
-      "id": "nht-63dc92",
-      "uuid": "01a1efcf-a45d-7000-b1bd-032e3ff761b7",
-      "slug": "nht-63dc92-confirm-recorder-enable-disable-and-cadence-edits",
-      "title": "Confirm recorder enable, disable and cadence edits",
-      "status": "todo",
-      "type": "task",
-      "parent": "nht-f4dce9",
-      "blockedBy": [
-        "nht-7afd94"
-      ],
-      "blocking": [],
-      "priority": "medium",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-11-18T17:58:45.085Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-63dc92-confirm-recorder-enable-disable-and-cadence-edits.md"
     },
     {
       "id": "nht-18068d",
@@ -173,7 +156,7 @@ Open tasks:
       "uuid": "01a1efcf-a8b5-7000-8bdb-42a43d3c3866",
       "slug": "nht-7bd44a-expand-and-collapse-process-branches-without-losing-focus",
       "title": "Expand and collapse process branches without losing focus",
-      "status": "todo",
+      "status": "in-progress",
       "type": "task",
       "parent": "nht-f4dce9",
       "blockedBy": [],
@@ -181,7 +164,7 @@ Open tasks:
       "priority": "medium",
       "attention": null,
       "attentionReason": null,
-      "updatedAt": "2026-11-18T17:58:46.197Z",
+      "updatedAt": "2026-11-18T18:41:50.061Z",
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-7bd44a-expand-and-collapse-process-branches-without-losing-focus.md"
     },
     {
@@ -199,6 +182,24 @@ Open tasks:
       "attentionReason": null,
       "updatedAt": "2026-09-25T09:17:26.726Z",
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-cb0edf-expand-the-cli-past-process-table-parity.md"
+    },
+    {
+      "id": "nht-2613eb",
+      "uuid": "01a0d7da-f7b9-7000-89cb-1567be8c3ef1",
+      "slug": "nht-2613eb-harvest-faculties-from-the-repos-monitor-corpus",
+      "title": "Harvest faculties from the _repos monitor corpus",
+      "status": "todo",
+      "type": "epic",
+      "parent": "nht-cb0edf",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "high",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-09-25T09:17:26.842Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-2613eb-harvest-faculties-from-the-repos-monitor-corpus.md"
+    },
+    {
 
 <!-- /handoff:next -->
 

@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Verified 321 tests, one Linux-only skip, type-check, build, visual comparisons and compiled smokes. Recorder scheduling is complete; tree interaction and fixed-host SLA acceptance remain open.
+
+
+## Session digest — 2026-11-18
+
 - Integrated all four TUI audit lanes. 311 Bun tests passed (one Linux-only skip), 10 Python gate tests passed, and type-check, compiled diagnosis and visual comparisons passed. Fixed-host soak certification remains open.
 
 
