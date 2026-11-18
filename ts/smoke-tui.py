@@ -18,7 +18,9 @@ import tempfile
 import termios
 import time
 
-LIVE_ROW = re.compile(rb"PID \d+")
+# Differential rendering can leave the footer's PID and its value in separate
+# writes. The selected row itself starts with a marker and a numeric PID.
+LIVE_ROW = re.compile(rb"> +\d+\b")
 
 
 def main() -> int:
@@ -80,9 +82,9 @@ def smoke(binary: str, config: str, timings: bool) -> int:
                     resize_started = time.monotonic()
                     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", height, width, 0, 0))
                 if timings and resize_started is not None and resized is None:
-                    # A full compact redraw includes the title, system band and selected PID.
+                    # The compact redraw includes the system band and selected row.
                     frame = captured[resize_offset:]
-                    if all(marker in frame for marker in (b"sloppytop", b"system")) and LIVE_ROW.search(frame):
+                    if b"system" in frame and LIVE_ROW.search(frame):
                         resized = time.monotonic()
                 if not timings or resized is not None:
                     try:

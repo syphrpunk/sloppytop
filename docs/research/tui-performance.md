@@ -97,8 +97,8 @@ the work; they are not a final performance certification.
 
 Run `python3 ts/smoke-tui.py ts/dist/sloppytop --timings` to bypass tmux's
 resize scheduling. This measures a 112×30 → 56×18 kernel PTY resize to
-the first compact redraw containing the title, system band and selected
-PID. `just tui-visual` still checks the emulator's settled cells.
+the first compact redraw containing the system band and selected process
+row. `just tui-visual` separately checks the title and settled cells.
 
 Six runs with the default 100 ms debounce took 102–103 ms to redraw.
 With a 16 ms debounce, six runs took 33–34 ms. The first start after
@@ -145,3 +145,9 @@ Paused CPU was 0.6%; worst loop lag was 43 ms. Live RSS grew from 94 to
 127 MiB during that run. It stayed below the size budget but did not yet
 show a plateau over this interval. Soak output contains one CPU aggregate
 and a timestamped RSS series per workload for longer follow-up runs.
+
+Linux arm64 Apple Container (Bun 1.4.4) also passed type-check, standalone
+build and all 288 tests; the compiled TUI passed both direct PTY smokes as
+UID 1000. One timed run observed 148 ms to the first frame, 682 ms to a
+populated table and 23 ms to shrink. The raw PTY check matches the selected
+row, not the footer PID, which Linux can emit as separate updates.
