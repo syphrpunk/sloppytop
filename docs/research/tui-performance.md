@@ -129,3 +129,19 @@ then 0.04 s on the second invocation and 79 ms to the TUI first frame. The
 fresh executable is a 96 MiB ad-hoc-signed Mach-O. The control reproduces the
 delay without a renderer, sample or terminal; it does not establish which
 outside-TUI launch step is responsible. Cold startup is not yet accepted.
+
+## Sustained workloads
+
+`just tui-bench --workload 5000 --trace --trials 20 --starts 1 --idle 5 --soak 40`
+observed 67–76 MiB RSS during 40 seconds of live fixture ticks, including a
+drop from 76 to 67 MiB; subsequent interactive trials peaked at 103 MiB.
+Paused CPU/RSS were 0.6%/110 MiB. Live search, scroll and tree-on p95 were
+45, 47 and 34 ms. Escape dismissal narrowly missed the 100 ms p95 budget
+(102 ms p95, 160 ms maximum). Worst loop lag was 39 ms.
+
+With `--workload live --soak 35` and otherwise the same options, operation
+p95 was 36 ms for search, 56 ms for Escape dismissal and 22 ms for scroll.
+Paused CPU was 0.6%; worst loop lag was 43 ms. Live RSS grew from 94 to
+127 MiB during that run. It stayed below the size budget but did not yet
+show a plateau over this interval. Soak output contains one CPU aggregate
+and a timestamped RSS series per workload for longer follow-up runs.

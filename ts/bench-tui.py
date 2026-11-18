@@ -27,7 +27,7 @@ def process_usage(pid):
     return seconds, int(rss) / 1024
 
 
-def bench(binary, rows, trials, idle, starts, trace):
+def bench(binary, rows, trials, idle, starts, trace, soak):
     with tempfile.TemporaryDirectory(prefix="st-bench-") as folder:
         trace_path = Path(folder) / "trace.json"
         command = shlex.join(["env", f"SLOPPYTOP_TUI_TRACE={trace_path if trace else ''}", "ST_FIXTURE_DISCOVERY_DELAY=350",
@@ -96,6 +96,16 @@ def bench(binary, rows, trials, idle, starts, trace):
         try:
             start()
             live_memory = []
+            soak_memory = []
+            if soak:
+                cpu_before, rss = process_usage(str(pid))
+                began = time.monotonic()
+                soak_memory.append([0, round(rss, 1)])
+                for second in range(1, soak + 1):
+                    time.sleep(max(0, began + second - time.monotonic()))
+                    cpu, rss = process_usage(str(pid))
+                    soak_memory.append([round(time.monotonic() - began, 2), round(rss, 1)])
+                soak_cpu = round(100 * (cpu - cpu_before) / (time.monotonic() - began), 2)
             for mode in ("live", "frozen"):
                 for trial in range(trials):
                     # Vary phase relative to the 1 s refresh rather than hitting the
@@ -109,6 +119,10 @@ def bench(binary, rows, trials, idle, starts, trace):
                     measure(f"{mode}_scroll_ms", lambda: keys("Down"),
                             lambda f: main(f) and f.splitlines()[-2] != selected)
                     keys("Home")
+                    if rows:
+                        tree_visible = lambda f: main(f) and "├─" in f
+                        measure(f"{mode}_tree_on_ms", lambda: keys("T"), tree_visible)
+                        measure(f"{mode}_tree_off_ms", lambda: keys("T"), lambda f: main(f) and not tree_visible(f))
                     if mode == "live":
                         live_memory.append(round(process_usage(str(pid))[1], 1))
                 if mode == "live":
@@ -135,7 +149,9 @@ def bench(binary, rows, trials, idle, starts, trace):
                 start()
                 stop()
             return {"paused_cpu_pct": round(cpu_pct, 2), "paused_rss_mib": round(rss, 1),
-                    "live_rss_mib": live_memory, **phases, **{key: summary(values) for key, values in samples.items()}}
+                    "live_rss_mib": live_memory, **phases,
+                    **({"soak_cpu_pct": soak_cpu, "soak_rss_mib": soak_memory} if soak else {}),
+                    **{key: summary(values) for key, values in samples.items()}}
         finally:
             try:
                 stop()
@@ -151,10 +167,15 @@ if __name__ == "__main__":
     parser.add_argument("--idle", type=float, default=5)
     parser.add_argument("--starts", type=int, default=8)
     parser.add_argument("--trace", action="store_true", help="include application phase timings")
+    parser.add_argument("--soak", type=int, default=0, help="seconds of live CPU/RSS observation per workload")
+    parser.add_argument("--workload", choices=("all", "live", "100", "1000", "5000"), default="all")
     args = parser.parse_args()
-    if args.trials < 1 or args.idle <= 0 or args.starts < 1:
-        parser.error("trials, idle and starts must be positive")
+    if args.trials < 1 or args.idle <= 0 or args.starts < 1 or args.soak < 0:
+        parser.error("trials, idle and starts must be positive; soak cannot be negative")
     for rows in (None, 100, 1_000, 5_000):
+        if args.workload not in ("all", str(rows) if rows else "live"):
+            continue
         binary = args.fixture if rows else args.live
         print(json.dumps({"mode": "fixture" if rows else "live", "rows": rows,
-                          **bench(binary.resolve(strict=True), rows, args.trials, args.idle, args.starts, args.trace)}), flush=True)
+                          **bench(binary.resolve(strict=True), rows, args.trials, args.idle, args.starts,
+                                  args.trace, args.soak)}), flush=True)
