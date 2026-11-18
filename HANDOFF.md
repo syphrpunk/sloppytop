@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: fa9fb62 docs(tui): record startup comparison on a second Mac
+HEAD: b8b39eb docs(tui): attribute pre-start waits on mbp2023
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -71,6 +71,7 @@ After lazy loading, five fresh/repeat launch pairs attributed the bulk of the fi
 OpenTUI 0.9.2 is pinned in the manifest and Bun lockfile. On Apple Silicon, type-check, standalone build, live PTY smoke, all existing visual baselines and 289 tests (one Linux-only skip) passed. Three paired fresh-copy trials showed no clear first-frame improvement; the cold-start goal remains blocked.
 Instruments System Trace identified a 537 ms pre-start wait in one fresh executable launch, ending when Malwarebytes' RTProtectionDaemon made the target main thread runnable. The repeat trace showed no such wakeup. No tools were installed or security settings changed. Local captures and limitations are documented in the TUI performance notes.
 Ran five fresh/repeat PTY pairs with the identical ARM64 artifact on mbp2023 (macOS 27.0.1). All ten live smokes passed; fresh first frame took 1.24–1.49 s versus 82.5–84.8 ms on repeat. The fresh-start gate still fails on the second Mac. No global install or services changed, and temporary files were removed.
+Instruments on mbp2023 observed fresh main-thread blocks of 265 and 864 ms ending in Malwarebytes and syspolicyd wakeups respectively, before the first target syscall. The same-file repeat showed neither wakeup. The measured fresh-start gates are still unmet; no security settings changed.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->

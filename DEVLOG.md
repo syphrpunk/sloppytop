@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Second-Mac startup trace — 2026-11-18
+
+- Compared fresh and repeat scheduling traces on mbp2023 and documented the two security-daemon wakeups before the first target syscall.
+
+
 ## Second-Mac startup comparison — 2026-11-18
 
 - Reproduced the fresh-file startup penalty on mbp2023 using five fresh/repeat pairs of the traced ARM64 artifact.
