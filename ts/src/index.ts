@@ -48,6 +48,7 @@ import {
   reportLeaks,
   reportTopConsumers,
   reportWindow,
+  reportWorkloadHistory,
 } from './store/report.ts'
 import { takeSample } from './sample.ts'
 import { RecordBlocked, recordSample } from './store/record.ts'
@@ -649,6 +650,7 @@ Cli.create('sloppytop', {
     options: z.object({
       hours: z.coerce.number().min(1).default(24).describe('Look-back window in hours'),
       compare: z.boolean().default(false).describe('Compare with the immediately preceding equal-length window'),
+      workloads: z.boolean().default(false).describe('Include per-sample history for configured process groups'),
       top: z.coerce.number().int().min(1).default(10).describe('Top consumers to include'),
       charts: z
         .boolean()
@@ -677,7 +679,8 @@ Cli.create('sloppytop', {
         const topConsumers = reportTopConsumers(db, since, c.options.top)
         const anomalies = reportAnomalies(db, since)
         const leaks = reportLeaks(db, since)
-        const groups = reportGroups(db, since, loadConfig().groups)
+        const configuredGroups = loadConfig().groups
+        const groups = reportGroups(db, since, configuredGroups)
 
         const n = hourly.reduce((a, h) => a + h.samples, 0)
         const wavg = (f: (h: (typeof hourly)[number]) => number) =>
@@ -712,6 +715,7 @@ Cli.create('sloppytop', {
             anomalies,
             leaks,
             groups,
+            ...(c.options.workloads ? { workload_history: reportWorkloadHistory(db, since, configuredGroups) } : {}),
           },
           {
             cta: {

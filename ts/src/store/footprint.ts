@@ -36,6 +36,9 @@ export const LEAK_DEFAULTS: LeakConfig = {
 }
 
 export interface LeakFinding {
+  first: SeriesPoint
+  last: SeriesPoint
+  recentSlopeBytesPerSecond: number
   slopeBytesPerSecond: number
   rSquared: number
   durationSecs: number
@@ -109,6 +112,9 @@ export function detectLeak(series: SeriesPoint[], config: LeakConfig = LEAK_DEFA
   if (totalGrowth < first.bytes * config.minimumRelativeGrowth) return null
 
   return {
+    first,
+    last,
+    recentSlopeBytesPerSecond: recentFit.slope,
     slopeBytesPerSecond: fit.slope,
     rSquared: fit.rSquared,
     durationSecs: durationMs / 1000,

@@ -6,7 +6,7 @@ import type { Database } from 'bun:sqlite'
 import { availableParallelism } from 'node:os'
 import { compileFilter } from '../filter/index.ts'
 import type { ProcessGroup } from './config.ts'
-import { detectLeak, scoreGroup, type SeriesPoint } from './footprint.ts'
+import { detectLeak, LEAK_DEFAULTS, scoreGroup, type SeriesPoint } from './footprint.ts'
 
 export interface ReportWindow {
   hours: number
@@ -46,6 +46,14 @@ export interface LeakFlag {
   duration_secs: number
   total_growth_bytes: number
   samples: number
+  evidence: {
+    from: string
+    to: string
+    first_rss_bytes: number
+    last_rss_bytes: number
+    recent_slope_bytes_per_s: number
+    thresholds: typeof LEAK_DEFAULTS
+  }
 }
 
 export interface GroupMemberReport {
@@ -70,6 +78,13 @@ export interface Anomaly {
   cpu_usage_total: number
   load_1: number
   memory_used_pct: number
+  evidence: {
+    metric: string
+    observed: number | string
+    operator: '<' | '>' | '>=' | 'in'
+    threshold: number | readonly string[]
+  }[]
+  previous_sample_at?: string
 }
 
 interface SampleRow {
@@ -91,6 +106,11 @@ interface SampleRow {
  * one task was stalled. 10% is the anomaly line; below that we stay quiet.
  */
 const PSI_SOME_AVG10_ANOMALY = 10
+const IO_PROXY_LOAD_PER_CORE = 2
+const IO_PROXY_CPU_CEILING = 60
+const CPU_SATURATION = 90
+const MEMORY_USED_THRESHOLD = 92
+const MEMORY_PRESSURE_LEVELS = ['warning', 'critical']
 
 const round1 = (n: number) => Math.round(n * 10) / 10
 
@@ -249,6 +269,14 @@ export function reportLeaks(db: Database, sinceIso: string): LeakFlag[] {
       duration_secs: Math.round(found.durationSecs),
       total_growth_bytes: found.totalGrowthBytes,
       samples: found.samples,
+      evidence: {
+        from: new Date(found.first.at).toISOString(),
+        to: new Date(found.last.at).toISOString(),
+        first_rss_bytes: found.first.bytes,
+        last_rss_bytes: found.last.bytes,
+        recent_slope_bytes_per_s: found.recentSlopeBytesPerSecond,
+        thresholds: LEAK_DEFAULTS,
+      },
     })
   }
   leaks.sort((a, b) => b.slope_bytes_per_s - a.slope_bytes_per_s || a.name.localeCompare(b.name))
@@ -263,6 +291,52 @@ interface GroupRow {
   cpu_usage_per_core: string
   cpu_usage: number
   memory_bytes: number
+}
+
+function groupMatches(group: ProcessGroup) {
+  const matchers = group.patterns.map((pattern) => compileFilter(pattern))
+  return (name: string, command: string) => matchers.some((re) => re.test(name) || re.test(command))
+}
+
+/** Per-sample reports over stored rows only. A zero in a partial sample is not proof of absence. */
+export function reportWorkloadHistory(db: Database, sinceIso: string, groups: ProcessGroup[]) {
+  if (!groups.length) return []
+  const samples = db.query(`
+    SELECT s.id, s.at, s.process_count, p.name, p.command, p.cpu_usage, p.memory_bytes
+    FROM system_samples s LEFT JOIN process_samples p ON p.sample_id = s.id
+    WHERE s.at >= ? ORDER BY s.at, s.id
+  `).iterate(sinceIso) as Iterable<{
+    id: number; at: string; process_count: number; name: string | null; command: string
+    cpu_usage: number; memory_bytes: number
+  }>
+  const matchers = groups.map(groupMatches)
+  const output: {
+    sample_id: number; at: string; stored_processes: number; sampled_processes: number
+    coverage: 'complete' | 'incomplete'
+    groups: { name: string; cpu_pct: number; rss_bytes: number; matched_processes: number }[]
+  }[] = []
+  for (const row of samples) {
+    let entry = output.at(-1)
+    if (entry?.sample_id !== row.id) {
+      entry = {
+        sample_id: row.id, at: row.at, stored_processes: 0, sampled_processes: row.process_count,
+        coverage: row.process_count === 0 ? 'complete' : 'incomplete',
+        groups: groups.map(({ name }) => ({ name, cpu_pct: 0, rss_bytes: 0, matched_processes: 0 })),
+      }
+      output.push(entry)
+    }
+    if (row.name == null) continue
+    entry.stored_processes++
+    entry.coverage = entry.stored_processes === entry.sampled_processes ? 'complete' : 'incomplete'
+    for (const [i, matches] of matchers.entries()) {
+      if (!matches(row.name, row.command)) continue
+      const total = entry.groups[i]!
+      total.cpu_pct += row.cpu_usage
+      total.rss_bytes += row.memory_bytes
+      total.matched_processes++
+    }
+  }
+  return output
 }
 
 /** Latest-sample device size, and average CPU/RSS of names matching each configured group. */
@@ -290,11 +364,10 @@ export function reportGroups(db: Database, sinceIso: string, groups: ProcessGrou
   const device = { cores, totalBytes: latest.memory_total }
 
   return groups.map((group) => {
-    const matchers = group.patterns.map((pattern) => compileFilter(pattern))
+    const matches = groupMatches(group)
     const totals = new Map<string, { cpu: number; memory: number; samples: Set<number> }>()
     for (const row of rows) {
-      const hit = matchers.some((re) => re.test(row.name) || re.test(row.command))
-      if (!hit) continue
+      if (!matches(row.name, row.command)) continue
       const acc = totals.get(row.name) ?? { cpu: 0, memory: 0, samples: new Set<number>() }
       acc.cpu += row.cpu_usage
       acc.memory += row.memory_bytes
@@ -361,6 +434,8 @@ export function reportAnomalies(db: Database, sinceIso: string): Anomaly[] {
         ...base,
         type: 'kernel_oom_kill',
         detail: `${count} Linux kernel OOM ${count === 1 ? 'kill' : 'kills'} since the previous sample`,
+        evidence: [{ metric: 'linux_oom_kills', observed: r.linux_oom_kills, operator: '>', threshold: previous.linux_oom_kills }],
+        previous_sample_at: previous.at,
       })
     }
     if (r.psi_io_some_avg10 != null) {
@@ -369,29 +444,36 @@ export function reportAnomalies(db: Database, sinceIso: string): Anomaly[] {
           ...base,
           type: 'io_pressure',
           detail: `I/O stall some avg10 ${round1(r.psi_io_some_avg10)}%`,
+          evidence: [{ metric: 'psi_io_some_avg10', observed: r.psi_io_some_avg10, operator: '>=', threshold: PSI_SOME_AVG10_ANOMALY }],
         })
       }
-    } else if (r.load_1 > cores * 2 && r.cpu_usage_total < 60) {
+    } else if (r.load_1 > cores * IO_PROXY_LOAD_PER_CORE && r.cpu_usage_total < IO_PROXY_CPU_CEILING) {
       anomalies.push({
         ...base,
         type: 'io_pressure',
-        detail: `load1 ${round1(r.load_1)} is ${round1(r.load_1 / cores)}x core count (${cores}) at only ${round1(r.cpu_usage_total)}% CPU — likely I/O wait`,
+        detail: `load1 ${round1(r.load_1)} is ${round1(r.load_1 / cores)}x core count (${cores}) at ${round1(r.cpu_usage_total)}% CPU — possible I/O pressure (proxy)`,
+        evidence: [
+          { metric: 'load_1', observed: r.load_1, operator: '>', threshold: cores * IO_PROXY_LOAD_PER_CORE },
+          { metric: 'cpu_usage_total', observed: r.cpu_usage_total, operator: '<', threshold: IO_PROXY_CPU_CEILING },
+        ],
       })
     }
-    if (r.cpu_usage_total > 90) {
+    if (r.cpu_usage_total > CPU_SATURATION) {
       anomalies.push({
         ...base,
         type: 'cpu_saturation',
         detail: `total CPU ${round1(r.cpu_usage_total)}%`,
+        evidence: [{ metric: 'cpu_usage_total', observed: r.cpu_usage_total, operator: '>', threshold: CPU_SATURATION }],
       })
     }
     const level = r.memory_pressure_level
     if (level != null) {
-      if (level === 'warning' || level === 'critical') {
+      if (MEMORY_PRESSURE_LEVELS.includes(level)) {
         anomalies.push({
           ...base,
           type: 'memory_pressure',
           detail: `memory pressure ${level}`,
+          evidence: [{ metric: 'memory_pressure_level', observed: level, operator: 'in', threshold: MEMORY_PRESSURE_LEVELS }],
         })
       }
     } else if (r.psi_memory_some_avg10 != null) {
@@ -400,13 +482,15 @@ export function reportAnomalies(db: Database, sinceIso: string): Anomaly[] {
           ...base,
           type: 'memory_pressure',
           detail: `memory stall some avg10 ${round1(r.psi_memory_some_avg10)}%`,
+          evidence: [{ metric: 'psi_memory_some_avg10', observed: r.psi_memory_some_avg10, operator: '>=', threshold: PSI_SOME_AVG10_ANOMALY }],
         })
       }
-    } else if (memPct > 92) {
+    } else if (memPct > MEMORY_USED_THRESHOLD) {
       anomalies.push({
         ...base,
         type: 'memory_pressure',
         detail: `memory ${round1(memPct)}% used (${r.memory_used} of ${r.memory_total} bytes)`,
+        evidence: [{ metric: 'memory_used_pct', observed: memPct, operator: '>', threshold: MEMORY_USED_THRESHOLD }],
       })
     }
   }

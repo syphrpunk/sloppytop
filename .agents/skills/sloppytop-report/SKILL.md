@@ -15,6 +15,7 @@ Aggregate report over the metrics store: hourly avg/peak series, top consumers, 
 |------|------|---------|-------------|
 | `--hours` | `number` | `24` | Look-back window in hours |
 | `--compare` | `boolean` | `false` | Compare the look-back window with the immediately preceding equal-length window |
+| `--workloads` | `boolean` | `false` | Include per-sample CPU and RSS totals for configured workload groups |
 | `--top` | `number` | `10` | Top consumers to include |
 | `--charts` | `boolean` | `true` | Include braille sparkline trend charts (oldest → newest hour) |
 
@@ -22,3 +23,14 @@ Comparison uses half-open windows and reports sample counts and occupied
 hourly slots from each window's start. Deltas are current minus previous
 sample averages, not time-weighted rates. Incomplete or unequal coverage
 gets a warning; a window with no samples yields no delta.
+
+Anomaly evidence includes the observed value, comparison operator and threshold.
+OOM counts are compared with the previous same-boot sample; the reported span
+does not identify the exact event time. RSS growth is evidence of a trend in
+stored process rows, not proof of a leak. Load-based I/O pressure is a proxy.
+
+Workload history uses existing configured process group matching. `complete`
+means every process in that sample was stored, not that every host process
+was visible to the collector. An incomplete zero does not prove the workload
+was absent. The report does not add collection or persistence of process
+arguments or environment values.

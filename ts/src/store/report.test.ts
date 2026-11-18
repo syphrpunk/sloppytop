@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import type { Database } from 'bun:sqlite'
 import type { ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { insertSample, openDb } from './db.ts'
-import { compareReportWindows, reportAnomalies, reportGroups, reportHourly, reportLeaks, reportTopConsumers, reportWindow } from './report.ts'
+import {
+  compareReportWindows, reportAnomalies, reportGroups, reportHourly, reportLeaks,
+  reportTopConsumers, reportWindow, reportWorkloadHistory,
+} from './report.ts'
 import { LEAK_DEFAULTS } from './footprint.ts'
 
 const baseSystem: SystemStats = {
@@ -101,6 +104,10 @@ describe('report', () => {
       [at(10), '1 Linux kernel OOM kill since the previous sample'],
     ])
     expect(kills(at(10))).toEqual([])
+    expect(reportAnomalies(db, at(0))[0]).toMatchObject({
+      type: 'kernel_oom_kill', previous_sample_at: at(1),
+      evidence: [{ metric: 'linux_oom_kills', observed: 7, operator: '>', threshold: 5 }],
+    })
     expect(reportAnomalies(db, at(0)).some((entry) => entry.type === 'memory_pressure')).toBe(false)
   })
 
@@ -134,7 +141,12 @@ describe('report', () => {
     record(db, '2026-08-17T04:00:00.000Z') // healthy
     const anomalies = reportAnomalies(db, '2026-08-17T00:00:00Z')
     expect(anomalies).toHaveLength(1)
-    expect(anomalies[0]).toMatchObject({ type: 'io_pressure', load_1: 12 })
+    expect(anomalies[0]).toMatchObject({
+      type: 'io_pressure', load_1: 12, evidence: [
+        { metric: 'load_1', observed: 12, operator: '>', threshold: 8 },
+        { metric: 'cpu_usage_total', observed: 45, operator: '<', threshold: 60 },
+      ],
+    })
   })
 
   test('cpu_saturation and memory_pressure flag independently', () => {
@@ -143,10 +155,10 @@ describe('report', () => {
       memory_used: 15_000,
       memory_free: 1_000,
     })
-    const types = reportAnomalies(db, '2026-08-17T00:00:00Z').map((a) => a.type)
-    expect(types).toContain('cpu_saturation')
-    expect(types).toContain('memory_pressure')
-    expect(types).not.toContain('io_pressure')
+    expect(reportAnomalies(db, '2026-08-17T00:00:00Z')).toMatchObject([
+      { type: 'cpu_saturation', evidence: [{ observed: 95, operator: '>', threshold: 90 }] },
+      { type: 'memory_pressure', evidence: [{ observed: 93.75, operator: '>', threshold: 92 }] },
+    ])
   })
 
   test('a normal macOS pressure level replaces the 92% guess', () => {
@@ -160,8 +172,12 @@ describe('report', () => {
   test('warning and critical levels flag even when usage looks fine', () => {
     record(db, '2026-08-17T06:00:00.000Z', { memory_pressure_level: 'warning' })
     record(db, '2026-08-17T07:00:00.000Z', { memory_pressure_level: 'critical' })
-    const details = reportAnomalies(db, '2026-08-17T00:00:00Z').map((a) => a.detail)
-    expect(details).toEqual(['memory pressure warning', 'memory pressure critical'])
+    const rows = reportAnomalies(db, '2026-08-17T00:00:00Z')
+    expect(rows.map((a) => a.detail)).toEqual(['memory pressure warning', 'memory pressure critical'])
+    expect(rows.map((a) => a.evidence[0])).toMatchObject([
+      { observed: 'warning', operator: 'in', threshold: ['warning', 'critical'] },
+      { observed: 'critical', operator: 'in', threshold: ['warning', 'critical'] },
+    ])
   })
 
   test('PSI replaces the load proxy and the memory-percent guess', () => {
@@ -183,6 +199,10 @@ describe('report', () => {
     expect(anomalies.map((a) => a.type)).toEqual(['io_pressure', 'memory_pressure'])
     expect(anomalies[0]!.detail).toBe('I/O stall some avg10 22.5%')
     expect(anomalies[1]!.detail).toBe('memory stall some avg10 11%')
+    expect(anomalies.map((a) => a.evidence[0])).toMatchObject([
+      { metric: 'psi_io_some_avg10', observed: 22.5, operator: '>=', threshold: 10 },
+      { metric: 'psi_memory_some_avg10', observed: 11, operator: '>=', threshold: 10 },
+    ])
   })
 
   test('reportLeaks flags a named RSS climb and ignores a flat name', () => {
@@ -198,6 +218,12 @@ describe('report', () => {
     expect(leaks.map((leak) => leak.name)).toEqual(['climber'])
     expect(leaks[0]).toMatchObject({ metric: 'rss', samples: 12 })
     expect(leaks[0]!.slope_bytes_per_s).toBeCloseTo(LEAK_DEFAULTS.minimumSlope, 0)
+    expect(leaks[0]!.evidence).toMatchObject({
+      from: '2026-08-17T00:00:00.000Z', to: '2026-08-17T11:00:00.000Z',
+      first_rss_bytes: 100 * 1024 * 1024, last_rss_bytes: 100 * 1024 * 1024 + 11 * step,
+      thresholds: LEAK_DEFAULTS,
+    })
+    expect(leaks[0]!.evidence.recent_slope_bytes_per_s).toBeCloseTo(LEAK_DEFAULTS.minimumSlope)
   })
 
   test('reportGroups scores matching names against the machine', () => {
@@ -216,5 +242,26 @@ describe('report', () => {
     // cpu share 0.25, memory share 0.5 → score 37.5
     expect(groups[0]!.score).toBe(37.5)
     expect(groups[0]!.members[0]!.share).toBe(1)
+  })
+
+  test('workload history aggregates recorded rows and marks truncated and entirely missing process lists', () => {
+    const start = '2026-08-16T00:00:00.000Z'
+    const secret = 'private-command-sentinel'
+    const group = { name: 'builds', patterns: ['worker', secret] }
+    record(db, '2026-08-17T00:00:00.000Z', { process_count: 2 }, [
+      proc('worker', 40, 10), { ...proc('child', 30, 20), pid: 2, command: secret },
+    ])
+    record(db, '2026-08-17T01:00:00.000Z', { process_count: 31 }, Array.from({ length: 31 }, (_, i) => ({
+      ...proc(i === 30 ? 'worker' : 'other', i === 30 ? 0 : 1), pid: i + 1,
+    })))
+    record(db, '2026-08-17T02:00:00.000Z', { process_count: 1 })
+    const rows = reportWorkloadHistory(db, start, [group])
+    expect(rows).toMatchObject([
+      { coverage: 'complete', stored_processes: 2, groups: [{ name: 'builds', cpu_pct: 70, rss_bytes: 30, matched_processes: 2 }] },
+      { coverage: 'incomplete', stored_processes: 30, sampled_processes: 31, groups: [{ cpu_pct: 0, rss_bytes: 0, matched_processes: 0 }] },
+      { coverage: 'incomplete', stored_processes: 0, sampled_processes: 1 },
+    ])
+    expect(JSON.stringify(rows)).not.toContain(secret)
+    expect(reportWorkloadHistory(db, start, [])).toEqual([])
   })
 })
