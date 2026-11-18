@@ -13,7 +13,6 @@ import os
 import pty
 import re
 import select
-import shlex
 import struct
 import subprocess
 import sys
@@ -76,8 +75,10 @@ def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
         raise RuntimeError(f"missing terminal markers: {markers}\n{frame}")
 
     try:
-        command = f"exec env XDG_CONFIG_HOME={shlex.quote(config)} {shlex.quote(binary)} tui"
-        tmux("new-session", "-d", "-x", "112", "-y", "30", "-s", "smoke", command)
+        # Multiple command arguments make tmux exec the binary directly,
+        # without running user shell startup hooks in this disposable pane.
+        tmux("new-session", "-d", "-x", "112", "-y", "30", "-s", "smoke",
+             "env", f"XDG_CONFIG_HOME={config}", binary, "tui")
         wait_frame("q quit", "PID")
         tmux("send-keys", "-t", "smoke", "v")
         wait_frame("i inspect")
