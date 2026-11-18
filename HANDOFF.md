@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: bc5ca20 chore: update references for the Sloppytop repository rename
+HEAD: c4f8def docs: vet the Sloppytop reference corpus
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -35,6 +35,8 @@ Memento is the task source of truth. Several open items overlap existing code: t
 The GitHub repository is now `syphrpunk/sloppytop`, and this checkout’s `origin` points there. The local directory and legacy config paths retain their old names.
 
 Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/research/new-repo-corpus.md) for the inventory and shortlist. No reference code was imported.
+
+[Deep dive 01](docs/research/slices/01-sampling-gaps.md) reproduced a history bug: the in-progress TUI differences stored network rates and drops missing sample positions. Fix tracked as `nht-62c980`; next research slice is Linux pressure and OOM outcomes.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->

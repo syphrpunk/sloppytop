@@ -13,6 +13,10 @@ Reviewed 2026-11-18 against `bc5ca20` and the in-progress working tree. Two Luna
 
 Keep active scanning, packet capture, remote administration, fan control, cleanup, and profilers out of this first pass. Treat unknown, restrictive, or mixed licensing as a stop for code reuse until verified. `netwatch-alt.zip` and `NetWatch-main.zip` are distinct projects; so are `vitals-gpui.zip` and `Vitals-main.zip`. The two Thermo archives share an archive root but are different snapshots; their ordering and terms were not verified.
 
+## Deep dives
+
+- [01 — Sampling gaps, idle rates, and counter resets](slices/01-sampling-gaps.md): three source snapshots compared; reproduced incorrect RX history and dropped chart slots.
+
 ## Archive inventory
 
 | Archive | Purpose / platform | Observed license | Disposition |

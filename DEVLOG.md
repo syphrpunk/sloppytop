@@ -4,6 +4,10 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Sampling deep dive — 2026-11-18
+
+- Compared GPUI Metrics Monitor, iodyne, and nanomon source. Reproduced the TUI history unit mismatch and dropped samples; documented the test cases and filed `nht-62c980`. No product code changed.
+
 ## Reference corpus vetting — 2026-11-18
 
 - Two Luna and two Terra agents reviewed all 77 archives. Ranked the candidates in [the corpus review](docs/research/new-repo-corpus.md); no archive was extracted or run.
