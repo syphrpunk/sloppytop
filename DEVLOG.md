@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Final TUI acceptance audit — 2026-11-18
+
+- Rechecked the retained TUI acceptance criteria and reran the full local validation suite after resuming the goal.
+
+
 ## Revised TUI acceptance — 2026-11-18
 
 - Removed the operator-waived fresh-launch gate, verified the retained budgets and fixed the discovery smoke to inspect rendered terminal cells.

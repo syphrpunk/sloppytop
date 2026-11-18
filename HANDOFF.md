@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 37c7ccd test(tui): verify remaining acceptance and fix discovery smoke
+HEAD: cd472ac docs(tui): finalize the revised acceptance audit
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -74,6 +74,7 @@ Ran five fresh/repeat PTY pairs with the identical ARM64 artifact on mbp2023 (ma
 Instruments on mbp2023 observed fresh main-thread blocks of 265 and 864 ms ending in Malwarebytes and syspolicyd wakeups respectively, before the first target syscall. The same-file repeat showed neither wakeup. The measured fresh-start gates are still unmet; no security settings changed.
 After the operator reported disabling Malwarebytes real-time protection, the same binary on mbp2023 still took 1.28–1.47 s fresh and 82–86 ms on repeat across five pairs. All ten live smokes passed. No new trace or independent verification of the protection setting was performed.
 The operator removed macOS fresh-file startup and signing/packaging from the goal; the failed measurements remain in the performance notes. The retained checks passed, including repeat-launch startup, resize, interaction, idle and memory budgets, visual baselines and compiled discovery. Both TUI Memento items are complete. The Pi goal still requires an explicit resume before closing.
+After resuming, reran type-check, build, live and discovery PTY smokes, visual baselines, and all 290 tests on macOS (289 pass, one Linux-only skip). The retained TUI acceptance checks and both Memento items are verified; fresh-file startup was removed by the operator, not passed.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -86,7 +87,7 @@ The operator removed macOS fresh-file startup and signing/packaging from the goa
 
 <!-- handoff:next -->
 
-**TUI:** Retained work verified; both Memento items are complete. See the [acceptance checklist](docs/research/tui-acceptance.md). Resume the blocked Pi goal explicitly to close it under the operator's revised scope. Fresh-file macOS startup was removed, not passed.
+**TUI:** The retained [acceptance checks](docs/research/tui-acceptance.md) passed and both Memento items are complete. Fresh-file macOS startup was explicitly removed from scope, not passed.
 
 **Deferred hardware work:** Linux powercap (`nht-4aa2dd`) and NVIDIA (`nht-f456db`) still require their separately documented hardware verification.
 
