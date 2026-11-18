@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 76e9fc9 docs(tui): trace macOS first-launch scheduler wait
+HEAD: fa9fb62 docs(tui): record startup comparison on a second Mac
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -70,6 +70,7 @@ The TUI now lazy-loads optional page and store handlers; each worker imports onl
 After lazy loading, five fresh/repeat launch pairs attributed the bulk of the first-launch penalty to the time before the first dyld diagnostic (1.12–1.29 s fresh versus 3–6 ms on repeat). Version output followed about 50 ms later in both cases. The host component responsible is not identified; the cold-start gate remains unmet.
 OpenTUI 0.9.2 is pinned in the manifest and Bun lockfile. On Apple Silicon, type-check, standalone build, live PTY smoke, all existing visual baselines and 289 tests (one Linux-only skip) passed. Three paired fresh-copy trials showed no clear first-frame improvement; the cold-start goal remains blocked.
 Instruments System Trace identified a 537 ms pre-start wait in one fresh executable launch, ending when Malwarebytes' RTProtectionDaemon made the target main thread runnable. The repeat trace showed no such wakeup. No tools were installed or security settings changed. Local captures and limitations are documented in the TUI performance notes.
+Ran five fresh/repeat PTY pairs with the identical ARM64 artifact on mbp2023 (macOS 27.0.1). All ten live smokes passed; fresh first frame took 1.24–1.49 s versus 82.5–84.8 ms on repeat. The fresh-start gate still fails on the second Mac. No global install or services changed, and temporary files were removed.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -82,7 +83,7 @@ Instruments System Trace identified a 537 ms pre-start wait in one fresh executa
 
 <!-- handoff:next -->
 
-**TUI goal:** Follow the [acceptance checklist](docs/research/tui-acceptance.md) and [packaging timings](docs/research/tui-performance.md#macos-packaging-investigation) (`nht-005268`, `nht-ead7a9`). Authorized local packaging prototypes missed the fresh-file startup target. Obtain a trusted signed/notarized test artifact, another supported candidate, or an explicit target decision before resuming.
+**TUI goal:** See the [acceptance checklist](docs/research/tui-acceptance.md) and [performance notes](docs/research/tui-performance.md#second-mac-mbp2023) (`nht-005268`, `nht-ead7a9`). A second Mac reproduced the fresh-file startup miss. Next distinct controls include a trusted signed/notarized artifact or another supported distribution candidate.
 
 **Deferred:** Linux powercap (`nht-4aa2dd`) and NVIDIA (`nht-f456db`) still require their separately documented hardware verification.
 

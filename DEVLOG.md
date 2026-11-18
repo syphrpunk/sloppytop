@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Second-Mac startup comparison — 2026-11-18
+
+- Reproduced the fresh-file startup penalty on mbp2023 using five fresh/repeat pairs of the traced ARM64 artifact.
+
+
 ## Instruments first-launch trace — 2026-11-18
 
 - Identified a 537 ms wait ending in an endpoint protection daemon wakeup in the fresh trace, absent on repeat.
