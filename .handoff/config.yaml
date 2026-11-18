@@ -52,9 +52,9 @@ handoffs:
   active: HANDOFF.md
   archiveDir: .handoff/archive
   lockfile: .handoff/lock.json
-  lastCreated: "2026-11-18T16:11:44Z"
+  lastCreated: "2026-11-18T16:40:08Z"
   lastFullCreated: "2026-11-18T08:33:06Z"
-  lastParentRev: "b9d2f7a"
+  lastParentRev: "cc247de"
   verificationCache:
     command: null
     result: null

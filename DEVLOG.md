@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Exposed the six identified CLI-to-TUI feature gaps, added visual and live checks, and documented the remaining NVIDIA hardware verification gate.
+
+
+## Session digest — 2026-11-18
+
 - Audited diagnosis goal status and compared CLI features with TUI loaders and renderers. No runtime or product behavior changed.
 
 
