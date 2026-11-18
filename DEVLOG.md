@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Filed the TUI audit in Memento with ownership boundaries, acceptance checks and recorder dependencies. No agents launched or runtime changes made.
+
+
+## Session digest — 2026-11-18
+
 - Folded deep tree prefixes, clarified required recording probes, added visual CI and repaired the search benchmark. Local tests (303 passed), type-check, build and visual comparison passed; repeat population still needs investigation.
 
 

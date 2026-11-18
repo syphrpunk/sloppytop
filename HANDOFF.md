@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: cde359e Improve deep tree readability and gate terminal visuals in CI
+HEAD: f641143 chore(handoff): append checkpoint tui-controls-audit
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -81,6 +81,7 @@ The [Homebrew and TUI audit](docs/research/homebrew-tui-audit.md) reproduced the
 CLI-to-TUI coverage review: recorder health detail, report window comparisons, recorded workload trends, and visible subtree totals are implemented but lack equivalent TUI views. History inspection shows interface rows and sample anomaly evidence for the five newest points; it does not show stored top processes or RSS-growth evidence. Live discovery covers seven tabs; offline snapshot comparison and explicit redacted exports remain CLI workflows. Per-device NVIDIA telemetry is experimental and not rendered. Slice 34 remains the recorded goal blocker; the batch's scheduler evidence is split between native failed-job observations and parser tests, not a same-job lifecycle through the CLI.
 The [CLI-to-TUI parity audit](docs/research/tui-parity.md) now maps the delivered recorder health, subtree summary, History and Report evidence, local JSON workflows, and experimental NVIDIA rendering to their checks. macOS arm64 validation passed: 302 tests, one Linux-only skip, type-check, build, visual checks and both compiled smokes. Real NVIDIA acceptance still requires an authorized Linux host with a working NVIDIA driver (`nht-f456db`); no live GPU support is claimed. Nothing installed or pushed.
 The [TUI controls audit](docs/research/tui-controls-audit.md) covers tree readability, recorder UX, visual CI and current performance measurements. Repeat population exceeded 2 s twice on macOS; investigate before adding hot-path work. No scheduler state was changed.
+Audit dispatch is tracked under Memento epic nht-f4dce9: one completed evidence record and nine follow-ups. Parallelize sampler tracing, benchmark harness development and the isolated picker prototype; reserve exclusive measurement slots and a single production-screen integrator.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -98,7 +99,7 @@ The [TUI controls audit](docs/research/tui-controls-audit.md) covers tree readab
 Open tasks:
 (task manager: memento)
 {
-  "count": 7,
+  "count": 17,
   "items": [
     {
       "id": "nht-9de7a2",
@@ -117,86 +118,86 @@ Open tasks:
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-9de7a2-apple-silicon-energy-sample.md"
     },
     {
-      "id": "nht-cb0edf",
-      "uuid": "01a0d7da-f744-7000-953d-f33b5e5bdcd9",
-      "slug": "nht-cb0edf-expand-the-cli-past-process-table-parity",
-      "title": "Expand the CLI past process-table parity",
-      "status": "todo",
-      "type": "milestone",
-      "parent": null,
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "high",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-09-25T09:17:26.726Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-cb0edf-expand-the-cli-past-process-table-parity.md"
-    },
-    {
-      "id": "nht-2613eb",
-      "uuid": "01a0d7da-f7b9-7000-89cb-1567be8c3ef1",
-      "slug": "nht-2613eb-harvest-faculties-from-the-repos-monitor-corpus",
-      "title": "Harvest faculties from the _repos monitor corpus",
-      "status": "todo",
-      "type": "epic",
-      "parent": "nht-cb0edf",
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "high",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-09-25T09:17:26.842Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-2613eb-harvest-faculties-from-the-repos-monitor-corpus.md"
-    },
-    {
-      "id": "nht-b1794f",
-      "uuid": "01a00e6e-2b7e-7000-b59f-dae09b769881",
-      "slug": "nht-b1794f-opentui-tui-replacement",
-      "title": "OpenTUI TUI replacement",
-      "status": "todo",
-      "type": "epic",
-      "parent": null,
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "low",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-08-17T06:34:56.255Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-b1794f-opentui-tui-replacement.md"
-    },
-    {
-      "id": "nht-9bd745",
-      "uuid": "01a0d7da-f8f6-7000-99b1-e2408001ca4d",
-      "slug": "nht-9bd745-stall-pressure-thermal-headroom-and-battery",
-      "title": "Stall pressure, thermal headroom, and battery",
-      "status": "todo",
-      "type": "feature",
-      "parent": "nht-2613eb",
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "high",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-10-24T17:18:45.298Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-9bd745-stall-pressure-thermal-headroom-and-battery.md"
-    },
-    {
-      "id": "nht-f456db",
-      "uuid": "01a1eca1-0d8a-7000-8379-96b786102420",
-      "slug": "nht-f456db-validate-experimental-nvidia-telemetry-on-a-real-cloud-gpu",
-      "title": "Validate experimental NVIDIA telemetry on a real cloud GPU",
+      "id": "nht-63dc92",
+      "uuid": "01a1efcf-a45d-7000-b1bd-032e3ff761b7",
+      "slug": "nht-63dc92-confirm-recorder-enable-disable-and-cadence-edits",
+      "title": "Confirm recorder enable, disable and cadence edits",
       "status": "todo",
       "type": "task",
-      "parent": "nht-2613eb",
-      "blockedBy": [],
+      "parent": "nht-f4dce9",
+      "blockedBy": [
+        "nht-7afd94"
+      ],
       "blocking": [],
-      "priority": null,
+      "priority": "medium",
       "attention": null,
       "attentionReason": null,
-      "updatedAt": "2026-11-18T03:09:00.170Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-f456db-validate-experimental-nvidia-telemetry-on-a-real-cloud-gpu.md"
+      "updatedAt": "2026-11-18T17:58:45.085Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-63dc92-confirm-recorder-enable-disable-and-cadence-edits.md"
     },
     {
+      "id": "nht-18068d",
+      "uuid": "01a1efcf-a9cc-7000-8811-4ef2311eeccb",
+      "slug": "nht-18068d-drill-from-a-selected-history-point-into-its-evidence",
+      "title": "Drill from a selected history point into its evidence",
+      "status": "todo",
+      "type": "task",
+      "parent": "nht-f4dce9",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "medium",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-11-18T17:58:46.477Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-18068d-drill-from-a-selected-history-point-into-its-evidence.md"
+    },
+    {
+      "id": "nht-bee39c",
+      "uuid": "01a1efcf-a170-7000-8077-31f34c6b54cf",
+      "slug": "nht-bee39c-enforce-interactive-and-soak-budgets-on-fixed-hosts",
+      "title": "Enforce interactive and soak budgets on fixed hosts",
+      "status": "todo",
+      "type": "task",
+      "parent": "nht-f4dce9",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "high",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-11-18T17:58:44.336Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-bee39c-enforce-interactive-and-soak-budgets-on-fixed-hosts.md"
+    },
+    {
+      "id": "nht-1a1d21",
+      "uuid": "01a1efcf-a23c-7000-9965-2834cc27fedc",
+      "slug": "nht-1a1d21-evaluate-a-focused-opentui-picker-off-the-production-path",
+      "title": "Evaluate a focused OpenTUI picker off the production path",
+      "status": "todo",
+      "type": "task",
+      "parent": "nht-f4dce9",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "medium",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-11-18T17:58:44.540Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-1a1d21-evaluate-a-focused-opentui-picker-off-the-production-path.md"
+    },
+    {
+      "id": "nht-7bd44a",
+      "uuid": "01a1efcf-a8b5-7000-8bdb-42a43d3c3866",
+      "slug": "nht-7bd44a-expand-and-collapse-process-branches-without-losing-focus",
+      "title": "Expand and collapse process branches without losing focus",
+      "status": "todo",
+      "type": "task",
+      "parent": "nht-f4dce9",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "medium",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-11-18T17:58:46.197Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-7bd44a-expand-and-collapse-process-branches-without-losing-focus.md"
 
 <!-- /handoff:next -->
 
