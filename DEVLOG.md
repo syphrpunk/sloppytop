@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Folded deep tree prefixes, clarified required recording probes, added visual CI and repaired the search benchmark. Local tests (303 passed), type-check, build and visual comparison passed; repeat population still needs investigation.
+
+
+## Session digest — 2026-11-18
+
 - Exposed the six identified CLI-to-TUI feature gaps, added visual and live checks, and documented the remaining NVIDIA hardware verification gate.
 
 

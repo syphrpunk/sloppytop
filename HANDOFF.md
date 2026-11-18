@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: cc247de fix(cli): retain executable source entrypoint
+HEAD: cde359e Improve deep tree readability and gate terminal visuals in CI
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -80,6 +80,7 @@ Rebuilt the current macOS arm64 checkout and installed it at `/opt/homebrew/bin/
 The [Homebrew and TUI audit](docs/research/homebrew-tui-audit.md) reproduced the missing public cask and exercised install, upgrade and uninstall in a disposable prefix. The fixture omitted recorder hooks to protect the active legacy agent; exact published lifecycle verification remains open. The locally installed `st` now advertises discovery in the footer, opens seven numbered tabs, and uses aligned overlay frames. Full tests, type-check, visual check, and installed-binary smokes passed. Nothing pushed or published.
 CLI-to-TUI coverage review: recorder health detail, report window comparisons, recorded workload trends, and visible subtree totals are implemented but lack equivalent TUI views. History inspection shows interface rows and sample anomaly evidence for the five newest points; it does not show stored top processes or RSS-growth evidence. Live discovery covers seven tabs; offline snapshot comparison and explicit redacted exports remain CLI workflows. Per-device NVIDIA telemetry is experimental and not rendered. Slice 34 remains the recorded goal blocker; the batch's scheduler evidence is split between native failed-job observations and parser tests, not a same-job lifecycle through the CLI.
 The [CLI-to-TUI parity audit](docs/research/tui-parity.md) now maps the delivered recorder health, subtree summary, History and Report evidence, local JSON workflows, and experimental NVIDIA rendering to their checks. macOS arm64 validation passed: 302 tests, one Linux-only skip, type-check, build, visual checks and both compiled smokes. Real NVIDIA acceptance still requires an authorized Linux host with a working NVIDIA driver (`nht-f456db`); no live GPU support is claimed. Nothing installed or pushed.
+The [TUI controls audit](docs/research/tui-controls-audit.md) covers tree readability, recorder UX, visual CI and current performance measurements. Repeat population exceeded 2 s twice on macOS; investigate before adding hot-path work. No scheduler state was changed.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
