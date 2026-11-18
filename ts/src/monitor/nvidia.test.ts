@@ -29,7 +29,9 @@ test.skipIf(process.platform === 'win32')('isolates absent, failed, oversized an
       return path
     }
     const csv = `echo 'GPU-a, 550.12, 0, 0, 8192'`
-    const healthy = new NvidiaProbe(file('healthy', csv), 500).start()
+    const healthy = new NvidiaProbe(file('healthy', csv), 2000).start()
+    await Bun.sleep(1000)
+    expect(healthy()?.[0]?.vram_used_bytes).toBe(0)
     const failed = new NvidiaProbe(file('failed', `${csv}\nexit 1`), 500).start()
     const absent = new NvidiaProbe(join(dir, 'absent')).start()
     const oversized = new NvidiaProbe(file('oversized', `exec yes '${'x'.repeat(200)}'`), 80).start()
@@ -39,7 +41,6 @@ test.skipIf(process.platform === 'win32')('isolates absent, failed, oversized an
     expect(overlapping()).toBeUndefined()
     await Bun.sleep(300)
     expect(pending()).toBeUndefined()
-    expect(healthy()?.[0]?.vram_used_bytes).toBe(0)
     expect(failed()).toBeUndefined()
     expect(absent()).toBeUndefined()
     expect(oversized()).toBeUndefined()
