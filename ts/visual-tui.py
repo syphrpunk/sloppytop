@@ -87,7 +87,8 @@ def run(fixture, output, review_only=False):
         "02-narrow": "b9384ebaae3724131e44abf007240fc674974aef6e958490f526912ef4939475",
         "04b-neighbors-bottom": "b6de05e3450d43b04b9d806ba463b518622174194dd83af0830e9ca351d621ab",
         "19-settings": "09130eedc89d077a20473368537d1b9824c2abb79cef754cf73ac809886ff422",
-        "19-settings-recorder-wide": "f198ce0f5c3a1751b43e71ca925b91e4c5992bf8a6d8a304975144275efc56b0",
+        "19-settings-recorder-wide": "a3b0eb1dd93c946cf2b83d32b25a786839ed83458a14c2525aca2e25d34889f1",
+        "19-recorder-enable-review": "856751ac742d812d57b5e43cba7d3fc7f8b8466fb13d13522d79505268389f22",
         "19-columns": "35207b7faf7de99beaee036f1dcb3fbca371a31a3b966e27a9d93622660e5084",
     }
     with tempfile.TemporaryDirectory(prefix="st-visual-") as folder:
@@ -249,7 +250,15 @@ def run(fixture, output, review_only=False):
                     capture("19-settings-recorder", ["failed (exit 7)", "latest insert  2026-11-18", "0 s (any insert)"], 56, 12)
                     tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")
                     capture("19-settings-recorder-wide", ["database  /fixture/neohtop/neohtop.db", "required probes off: cpu",
-                                                          "schedule: sloppytop service --help"], 112, 30, compare=True)
+                                                          "c cadence   d disable", "─" * 90], 112, 30, compare=True)
+                    tmux("send-keys", "-t", "visual", "c")
+                    capture("19-recorder-blocked", ["Cannot record: required probes off: cpu"], 112, 30)
+                    tmux("send-keys", "-t", "visual", "d")
+                    capture("19-recorder-disable", ["Disable scheduled recording?", "Stored history is kept.", "n/Esc cancel"], 112, 30)
+                    tmux("send-keys", "-t", "visual", "n")
+                    capture("19-recorder-cancel", ["Recorder: on · cadence 30min", "c cadence"], 112, 30)
+                    tmux("send-keys", "-t", "visual", "d", "y")
+                    capture("19-recorder-off", ["Recorder: off", "Requested recorder removal.", "e enable"], 112, 30)
                     tmux("send-keys", "-t", "visual", "Escape")
                     capture("19-settings-overview-wide", ["> Recorder details", "Global probe switches", "Metrics listener (stopped)"], 112, 30)
                     tmux("send-keys", "-t", "visual", "Down", "Enter", "Down")
@@ -258,6 +267,29 @@ def run(fixture, output, review_only=False):
                     capture("19-settings-probes", ["> [x] memory", "Esc back", "Space toggle"], 56, 12)
                     tmux("send-keys", "-t", "visual", "Escape")
                     capture("19-settings-back", ["> Global probe switches"], 56, 12)
+                    # Turn on the required fixture probe, then review and confirm with no real scheduler.
+                    tmux("send-keys", "-t", "visual", "Enter", "Up", "Space", "Escape")
+                    capture("19-recorder-probe-on", ["> Global probe switches"], 56, 12)
+                    tmux("send-keys", "-t", "visual", "Up", "Enter", "e", "Enter")
+                    capture("19-recorder-enable-review", ["Enable scheduled recording?", "Store one sample now", "3600s.",
+                                                         "y confirm"], 56, 12, compare=True)
+                    tmux("send-keys", "-t", "visual", "y")
+                    capture("19-recorder-enabled", ["Recorder: on · cadence 3600s", "Sample 4 stored"], 56, 12)
+                    tmux("send-keys", "-t", "visual", "c", "5", "Enter")
+                    capture("19-recorder-invalid", ["minimum 60): 5", "Enter whole seconds"], 56, 12)
+                    tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")
+                    tmux("send-keys", "-t", "visual", "BSpace", "9", "0", "Enter")
+                    capture("19-recorder-cadence-review", ["Change recorder cadence?", "Store one sample now", "90s."], 112, 30)
+                    tmux("send-keys", "-t", "visual", "y")
+                    capture("19-recorder-updated", ["Recorder: on · cadence 90s", "Requested cadence: 90s."], 112, 30)
+                    tmux("send-keys", "-t", "visual", "c", "1", "2", "0", "Enter", "y")
+                    capture("19-recorder-partial", ["Recorder: on · cadence 90s", "Sample 4 stored", "fixture write denied",
+                                                    "not confirmed by readback.", "latest insert  2026-11-18T05"], 112, 30)
+                    tmux("send-keys", "-t", "visual", "Escape")
+                    capture("19-recorder-overview", ["> Recorder details", "cadence 90s"], 112, 30)
+                    tmux("send-keys", "-t", "visual", "Down", "Enter", "Space", "Escape")
+                    tmux("resize-window", "-t", "visual", "-x", "56", "-y", "12")
+                    capture("19-settings-restored", ["> Global probe switches"], 56, 12)
                 if key == "w":
                     tmux("send-keys", "-t", "visual", "c")
                     capture("19-report-compare", ["24h window comparison", "coverage  insufficient"], 56, 12)

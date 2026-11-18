@@ -8,7 +8,8 @@ import type { Sample } from './src/sample.ts'
 import { insertSample, openDb } from './src/store/db.ts'
 import { loadConfig, saveConfig, updateProbes } from './src/store/config.ts'
 import { summarizeTree } from './src/monitor/workload.ts'
-import { loadReport } from './src/tui/store.ts'
+import { changeRecorder, type RecorderChange } from './src/tui/recorder.ts'
+import { loadReport, type RecorderHealth } from './src/tui/store.ts'
 
 const rows = Number(process.env.ST_FIXTURE_ROWS ?? 24)
 if (!Number.isInteger(rows) || rows < 1 || rows > 5_000) throw new Error('fixture rows must be 1–5000')
@@ -73,6 +74,34 @@ const loaders = {
   ],
 }
 
+// Both halves are synthetic: visual input can never dispatch a real service change.
+const fixtureHealth: RecorderHealth = {
+  service: { scheduler: 'systemd', installed: true, loaded: true, scheduler_state: 'armed', recorder_state: 'idle',
+    cadence: '30min', last_run: { outcome: 'failed', exit_code: 7 } },
+  databasePath: '/fixture/neohtop/neohtop.db', last_successful_sample_at: '2026-11-18T04:00:00.000Z',
+  sample_age_seconds: 0,
+}
+const fixtureRecorder = {
+  read: () => structuredClone(fixtureHealth),
+  change: (change: RecorderChange) => changeRecorder(change, {
+    platform: 'linux',
+    record: async () => {
+      fixtureHealth.last_successful_sample_at = '2026-11-18T05:00:00.000Z'
+      return { sample_id: 4, db_path: fixtureHealth.databasePath }
+    },
+    install: seconds => {
+      // The 120s scene exercises a partial failure with the prior 90s cadence still armed.
+      if (seconds === 120) throw Error('fixture write denied')
+      fixtureHealth.service = { scheduler: 'systemd', installed: true, loaded: true,
+        scheduler_state: 'armed', recorder_state: 'idle', cadence: `${seconds}s` }
+    },
+    uninstall: () => {
+      fixtureHealth.service = { scheduler: 'systemd', installed: false, loaded: false,
+        scheduler_state: 'inactive', recorder_state: 'idle' }
+    },
+  }),
+}
+
 let visualSamplePresented = false
 
 await runTui(loaders, async () => {
@@ -100,9 +129,4 @@ await runTui(loaders, async () => {
     : { section, providers: [observe('resolv.conf', { text: '' }, () => ({ rows: [{
       scope: 'system' as const, servers: ['192.0.2.53'], search: ['fixture.test'],
     }] }), 'linux', time)] }
-}, () => ({
-  service: { scheduler: 'systemd', installed: true, loaded: true, scheduler_state: 'armed', recorder_state: 'idle',
-    cadence: '30min', last_run: { outcome: 'failed', exit_code: 7 } },
-  databasePath: '/fixture/neohtop/neohtop.db', last_successful_sample_at: '2026-11-18T04:00:00.000Z',
-  sample_age_seconds: 0,
-}), pid => summarizeTree([{ pid: 200, ppid: 1, cpu: 0, rss: 0 }, { pid: 201, ppid: 200, rss: 0 }], pid), loadReport)
+}, fixtureRecorder, pid => summarizeTree([{ pid: 200, ppid: 1, cpu: 0, rss: 0 }, { pid: 201, ppid: 200, rss: 0 }], pid), loadReport)

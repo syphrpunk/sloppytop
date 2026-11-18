@@ -4,9 +4,10 @@
 import { FilterQueryError, filterProcesses, sortProcesses, type SortKey } from '../filter/index.ts'
 import { splitPinned } from '../filter/pins.ts'
 import { buildProcessTree } from '../filter/tree.ts'
-import { defaultProbes, PROBE_NAMES, type ProbeName, type ProbeSet } from '../monitor/probes.ts'
+import { defaultProbes, disabledRecordProbes, PROBE_NAMES, type ProbeName, type ProbeSet } from '../monitor/probes.ts'
 import type { ProcessInfo } from '../monitor/types.ts'
 import { TUI_COLUMNS, type TuiColumn } from '../store/config.ts'
+import { validRecorderInterval, type RecorderChange } from './recorder.ts'
 import { THEME_NAMES } from './theme.ts'
 
 export type Overlay =
@@ -224,6 +225,9 @@ export interface SettingsView {
   port: number
   listening: boolean
   metricsMessage: string
+  recorderEdit?: { step: 'interval'; kind: 'enable' | 'cadence'; draft: string }
+    | { step: 'confirm'; change: RecorderChange } | { step: 'applying' }
+  recorderMessage?: string
   recorder: { status: 'loading' } | { status: 'error'; message: string }
     | { status: 'ready'; health: import('./store.ts').RecorderHealth }
 }
@@ -303,6 +307,7 @@ export interface ScreenEffect {
   openReport?: boolean
   openLog?: boolean
   openSettings?: boolean
+  changeRecorder?: RecorderChange
   toggleProbe?: { name: ProbeName; enabled: boolean }
   toggleMetrics?: boolean
   record?: boolean
@@ -633,10 +638,56 @@ function reduceHardware(state: ScreenState, key: KeyPress): ReduceResult {
   return { state }
 }
 
+export function recorderActions(page: SettingsView) {
+  const service = page.recorder.status === 'ready' && page.recorder.health.service
+  const active = service && service.scheduler_state === 'armed'
+  return {
+    enable: service && service.scheduler_state === 'inactive',
+    disable: service && (service.installed || active),
+    cadence: active,
+  }
+}
+
+function reduceRecorder(state: ScreenState, page: SettingsView, key: KeyPress): ReduceResult | undefined {
+  const edit = page.recorderEdit
+  const update = (recorderEdit?: SettingsView['recorderEdit'], recorderMessage?: string): ReduceResult => ({
+    state: { ...state, overlayScroll: 0, overlayScrollMax: 0, settingsPage: { ...page, recorderEdit, recorderMessage } },
+  })
+  if (edit?.step === 'applying') return { state }
+  if (edit && (key.name === 'escape' || key.name === 'esc' || (edit.step === 'confirm' && key.name === 'n'))) return update()
+  if (key.name === 'q') return undefined // normal Settings close, without a write
+  if (edit?.step === 'confirm') {
+    if (key.name !== 'y' || key.ctrl) return { state }
+    return { ...update({ step: 'applying' }), effect: { changeRecorder: edit.change } }
+  }
+  if (edit?.step === 'interval') {
+    if (key.name === 'enter' || key.name === 'return') {
+      const seconds = Number(edit.draft)
+      return /^\d+$/.test(edit.draft) && validRecorderInterval(seconds)
+        ? update({ step: 'confirm', change: { kind: edit.kind, seconds } })
+        : update(edit, 'Enter whole seconds (at least 60).')
+    }
+    if (key.name === 'backspace' || key.name === 'delete') return update({ ...edit, draft: edit.draft.slice(0, -1) })
+    if (!key.ctrl && key.name.length === 1 && edit.draft.length < 20) return update({ ...edit, draft: edit.draft + key.name })
+    return { state }
+  }
+  const actions = recorderActions(page)
+  if (key.name === 'd' && actions.disable) return update({ step: 'confirm', change: { kind: 'disable' } })
+  if ((key.name === 'e' && actions.enable) || (key.name === 'c' && actions.cadence)) {
+    const blocked = disabledRecordProbes(page.probes)
+    if (blocked.length) return update(undefined, `Cannot record: required probes off: ${blocked.join(', ')}`)
+    return update({ step: 'interval', kind: key.name === 'e' ? 'enable' : 'cadence', draft: key.name === 'e' ? '3600' : '' })
+  }
+}
+
 function reduceSettings(state: ScreenState, key: KeyPress): ReduceResult {
   const page = state.settingsPage
   if (!page) return { state: { ...state, overlay: 'none' } }
   const section = page.section
+  if (section === 'recorder') {
+    const result = reduceRecorder(state, page, key)
+    if (result) return result
+  }
   if (key.name === 'q') return { state: { ...state, overlay: 'none' } }
   if (key.name === 'escape' || key.name === 'esc') {
     return section === 'overview' ? { state: { ...state, overlay: 'none' } }

@@ -451,7 +451,7 @@ describe('probe log and settings', () => {
     const health = readService(inactive, () => { throw new Error('read denied') }, 0, '/fixture/db')
     const details = compose(press(settings(health), 'enter'), input).text
     for (const token of ['Recorder: off · cadence unknown', 'not installed', 'last run  unknown', 'latest insert  unavailable',
-      'database error: read denied', 'database  /fixture/db', 'schedule: sloppytop service --help']) expect(details).toContain(token)
+      'database error: read denied', 'database  /fixture/db', 'e enable']) expect(details).toContain(token)
   })
 
   test('compact status, read-only evidence and probe disclosure retain keyboard focus across resize', () => {
@@ -493,6 +493,40 @@ describe('probe log and settings', () => {
     expect(compose(press(back, 'enter'), input).text).toContain('> [x] power')
     expect(press(back, 'q').selectedPid).toBe(42)
     expect(press(back, 'q').overlay).toBe('none')
+  })
+
+  test('recorder actions require explicit confirmation; invalid drafts and cancel never dispatch', () => {
+    const off = press(settings(readService(inactive, () => undefined)), 'enter')
+    const enable = press(off, 'e')
+    expect(compose(enable, input).text).toContain('minimum 60): 3600')
+    const review = reduce(enable, key('enter'), [])
+    expect(review.effect).toBeUndefined()
+    expect(compose(review.state, input).text).toContain('Store one sample now, then schedule every 3600s.')
+    for (const cancel of ['esc', 'n', 'q']) {
+      const result = reduce(review.state, key(cancel), [])
+      expect(result.effect).toBeUndefined()
+      expect(reduce(result.state, key('y'), []).effect).toBeUndefined()
+    }
+    const applied = reduce(review.state, key('y'), [])
+    expect(applied.effect).toEqual({ changeRecorder: { kind: 'enable', seconds: 3600 } })
+    for (const duplicate of ['y', 'enter', 'esc', 'q']) expect(reduce(applied.state, key(duplicate), [])).toEqual({ state: applied.state })
+    const armed = readService(() => ({ ...inactive(), installed: true, loaded: true, scheduler_state: 'armed' }), () => undefined)
+    const on = press(settings(armed), 'enter')
+    const editor = press(on, 'c')
+    for (const invalid of ['', '59', '-60', '60.5', '600s', '9007199254740992']) {
+      const result = reduce([...invalid].reduce(press, editor), key('return'), [])
+      expect(result.effect).toBeUndefined()
+      expect(compose(result.state, input).text).toContain('Enter whole seconds')
+      expect(press(result.state, 'esc').settingsPage?.recorderEdit).toBeUndefined()
+    }
+    const resumed = { ...press(editor, '6'), width: 36, height: 9 }
+    const confirm = press(press(resumed, '0'), 'return')
+    expect(reduce(confirm, key('y'), []).effect).toEqual({ changeRecorder: { kind: 'cadence', seconds: 60 } })
+    const blocked = press(settings(armed, { probes: { ...defaultProbes(), network: false } }), 'enter')
+    expect(compose(press(blocked, 'c'), input).text).toContain('Cannot record: required probes off: network')
+    expect(reduce(press(blocked, 'd'), key('y'), []).effect).toEqual({ changeRecorder: { kind: 'disable' } })
+    const unsupported = press(settings(readService(() => { throw Error('unsupported platform') }, () => undefined)), 'enter')
+    for (const shortcut of ['e', 'd', 'c', 'y']) expect(reduce(unsupported, key(shortcut), [])).toEqual({ state: unsupported })
   })
 
   test('store keys open pages, and q on a page does not quit', () => {

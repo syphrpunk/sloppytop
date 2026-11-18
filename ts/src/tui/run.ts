@@ -8,6 +8,7 @@ import { isProbeName, type ProbeName } from '../monitor/probes.ts'
 import { ensureTuiConfig, loadConfig, saveConfig, updateMetrics, updateProbes } from '../store/config.ts'
 import { appendProbeLog } from '../store/probe-log.ts'
 import type { PageLoaders } from './pages.ts'
+import { recorderMatches, type RecorderChange } from './recorder.ts'
 import type { RecorderHealth } from './store.ts'
 import {
   applyPointer,
@@ -71,7 +72,7 @@ export async function runTui(
   loadDiscovery?: () => Promise<Overview>,
   sampleTick?: SampleTick,
   loadDiscoveryDetail?: (section: 'connections' | 'dns') => Promise<DiscoveryDetail>,
-  loadRecorder?: () => RecorderHealth,
+  recorder?: { read: () => RecorderHealth; change: (change: RecorderChange) => Promise<string> },
   loadSubtree?: (pid: number) => ReturnType<typeof import('../monitor/workload.ts').summarizeTree>,
   loadReport?: () => import('./state.ts').ReportView,
 ): Promise<void> {
@@ -209,7 +210,7 @@ export async function runTui(
         effect.openNet || effect.openListen || effect.openHardware || effect.refreshHardware ||
         effect.openTopology || effect.loadCgroup != null) void fulfillAndApply(effect)
     if (effect.openHistory || effect.openDiscovery || effect.openReport || effect.openLog ||
-        effect.openSettings || effect.record || effect.loadSubtree != null || effect.artifact) void fulfillStore(effect)
+        effect.openSettings || effect.changeRecorder || effect.record || effect.loadSubtree != null || effect.artifact) void fulfillStore(effect)
   }
 
   const persistProbe = (toggle: { name: ProbeName; enabled: boolean }) => {
@@ -374,12 +375,35 @@ export async function runTui(
         state = { ...state, discoveryPage: { ...state.discoveryPage, loading: false,
           ...(detail ? { detail } : data ? { data } : { message: 'network probe is off' }),
         } }
-      } else if (effect.openSettings && state.overlay === 'settings') {
+      } else if ((effect.openSettings || effect.changeRecorder) && state.overlay === 'settings') {
         onDemandWorker.close()
-        const reply = loadRecorder ? { recorder: loadRecorder() } : await onDemandWorker.request({ kind: 'recorder' }, 8_000)
+        if (effect.changeRecorder && state.settingsPage) {
+          let recorderMessage: string
+          try {
+            if (recorder) recorderMessage = await recorder.change(effect.changeRecorder)
+            else {
+              // The worker's argv points to the worker, not to the CLI entrypoint.
+              const { recordCommand } = await import('../store/service.ts')
+              const result = await onDemandWorker.request({ kind: 'changeRecorder', change: effect.changeRecorder,
+                command: recordCommand() }, sampleMs + 60_000)
+              if (!result || !('recorderMessage' in result)) throw new Error('worker unavailable')
+              recorderMessage = result.recorderMessage
+            }
+          } catch (err) {
+            recorderMessage = `Change outcome unknown: ${err instanceof Error ? err.message : String(err)}`
+          }
+          if (stopped || token !== storeToken) return
+          state = { ...state, settingsPage: { ...state.settingsPage, recorderMessage } }
+        }
+        // Read both the scheduler and the destination even after a failed write.
+        const reply = recorder ? { recorder: recorder.read() } : await onDemandWorker.request({ kind: 'recorder' }, 8_000)
         if (stopped || token !== storeToken || state.overlay !== 'settings' || !state.settingsPage) return
         if (!reply || !('recorder' in reply)) throw new Error('recorder health unavailable')
-        state = { ...state, settingsPage: { ...state.settingsPage, recorder: { status: 'ready', health: reply.recorder } } }
+        const unverified = effect.changeRecorder && !recorderMatches(effect.changeRecorder, reply.recorder.service)
+        state = { ...state, settingsPage: { ...state.settingsPage, recorderEdit: undefined,
+          recorder: { status: 'ready', health: reply.recorder },
+          ...(unverified ? { recorderMessage: `${state.settingsPage.recorderMessage}\nRequested schedule not confirmed by readback.` } : {}),
+        } }
       } else if (effect.loadSubtree != null && state.overlay === 'detail') {
         const pid = effect.loadSubtree
         onDemandWorker.close()
@@ -429,8 +453,8 @@ export async function runTui(
       if (effect.openLog && state.overlay === 'log') {
         state = { ...state, logPage: { status: 'error', message, lines: [] } }
       }
-      if (effect.openSettings && state.overlay === 'settings' && state.settingsPage) {
-        state = { ...state, settingsPage: { ...state.settingsPage, recorder: { status: 'error', message } } }
+      if ((effect.openSettings || effect.changeRecorder) && state.overlay === 'settings' && state.settingsPage) {
+        state = { ...state, settingsPage: { ...state.settingsPage, recorderEdit: undefined, recorder: { status: 'error', message } } }
       }
       if (effect.loadSubtree != null && state.overlay === 'detail' && state.detail?.pid === effect.loadSubtree && state.detail.subtree) {
         state = { ...state, detail: { ...state.detail, subtree: { status: 'unavailable' } } }

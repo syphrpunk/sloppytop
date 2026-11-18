@@ -8,7 +8,6 @@ sloppytop  Charm
 │ sample age  0 s (any insert)                                                                                 │
 │ database  /fixture/neohtop/neohtop.db                                                                        │
 │ recording blocked: required probes off: cpu                                                                  │
-│ schedule: sloppytop service --help                                                                           │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 
@@ -27,4 +26,5 @@ sloppytop  Charm
 
 
 
-q close   Esc back
+
+q close   c cadence   d disable   Esc back

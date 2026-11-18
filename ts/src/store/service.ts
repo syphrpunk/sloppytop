@@ -151,8 +151,7 @@ function removeLegacySystemd(): boolean {
   return existed
 }
 
-export function install(intervalSecs: number): InstallResult {
-  const command = recordCommand()
+export function install(intervalSecs: number, command = recordCommand()): InstallResult {
   if (process.platform === 'darwin') {
     removeLegacyLaunchd()
     const path = plistPath()

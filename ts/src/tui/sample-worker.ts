@@ -6,11 +6,12 @@ import type { summarizeTree } from '../monitor/workload.ts'
 import type { ReportView } from './state.ts'
 
 export type WorkerRequest = { kind: 'sample'; ms: number; traceStartup?: true } | { kind: 'discovery'; section: 'overview' | 'connections' | 'dns' }
+  | { kind: 'changeRecorder'; change: import('./recorder.ts').RecorderChange; command: string[] }
   | { kind: 'recorder' } | { kind: 'subtree'; pid: number; ms: number } | { kind: 'report' }
   | { kind: 'artifact'; input: import('./artifacts.ts').ArtifactRequest }
 export type WorkerPhases = Partial<Record<SamplePhase, number>>
 export type WorkerReply = { sample: Sample; phasesMs?: WorkerPhases } | { overview: Overview } | { detail: DiscoveryDetail }
-  | { recorder: RecorderHealth } | { subtree: ReturnType<typeof summarizeTree> } | { report: ReportView }
+  | { recorderMessage: string } | { recorder: RecorderHealth } | { subtree: ReturnType<typeof summarizeTree> } | { report: ReportView }
   | { artifact: string[] } | { error: string }
 const self = globalThis as unknown as {
   onmessage: (event: MessageEvent<WorkerRequest>) => void
@@ -31,6 +32,13 @@ self.onmessage = async ({ data }) => {
       const sample = await takeSample(data.ms, undefined, checkpoint)
       checkpoint?.('projectAndLog')
       self.postMessage({ sample, ...(phasesMs && { phasesMs }) })
+    } else if (data.kind === 'changeRecorder') {
+      const { changeRecorder } = await import('./recorder.ts')
+      const { recordSample } = await import('../store/record.ts')
+      const { install, uninstall } = await import('../store/service.ts')
+      self.postMessage({ recorderMessage: await changeRecorder(data.change, {
+        platform: process.platform, record: recordSample, install: seconds => install(seconds, data.command), uninstall,
+      }) })
     } else if (data.kind === 'recorder') {
       const { readService } = await import('./store.ts')
       self.postMessage({ recorder: readService() })

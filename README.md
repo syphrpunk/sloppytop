@@ -263,7 +263,12 @@ reported. Press Enter on **Recorder details** for the resolved database path,
 last scheduled run outcome and latest successful insert (including manual
 recordings). Esc returns to Settings; ↑/↓ selects the global probe switches
 or metrics listener. Close and reopen Settings to refresh recorder health.
-Scheduling remains a CLI operation (`sloppytop service --help`).
+In Recorder details, `e` enables scheduling, `c` changes the interval (whole
+seconds, at least 60), and `d` disables it without deleting history. Review
+the change and press `y` to confirm, or Esc to cancel. Enabling or changing
+cadence stores a sample **before** installing the schedule, just like
+`sloppytop service install`. If installation fails, that sample stays in the
+database. Settings rechecks the scheduler and database after each attempt.
 From a selected process, press `i` for details and `t` to sample its visible
 subtree with the same collector as `tree --summary-pid`. Press `t` again
 to return. Coverage is shown per metric; the subtree may omit processes,

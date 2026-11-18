@@ -1,0 +1,12 @@
+sloppytop  Charm
+╭─ settings ───────────────────────────────────────────╮
+│ Enable scheduled recording?                          │
+│ Store one sample now, then schedule every 3600s.     │
+│ Database: /fixture/neohtop/neohtop.db                │
+╰──────────────────────────────────────────────────────╯
+
+
+
+
+
+q close   y confirm   n/Esc cancel

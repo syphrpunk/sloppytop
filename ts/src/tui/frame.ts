@@ -23,6 +23,7 @@ import {
 import {
   DISCOVERY_TABS,
   SETTINGS_SECTIONS,
+  recorderActions,
   reduce,
   toggleSort,
   visibleRows,
@@ -210,7 +211,8 @@ export function compose(
     while (lines.length < capacity) add('')
   }
 
-  const close = state.overlay === 'artifact' && state.artifact?.status === 'input' ? 'Esc back' : 'q close'
+  const applyingRecorder = state.overlay === 'settings' && state.settingsPage?.recorderEdit?.step === 'applying'
+  const close = applyingRecorder ? '' : state.overlay === 'artifact' && state.artifact?.status === 'input' ? 'Esc back' : 'q close'
   const overlayHints = state.overlay === 'kill' ? 'y confirm   n cancel'
     : state.overlay === 'discovery' ? '←/→ tab ↑/↓ scroll r refresh c diff e export'
     : state.overlay === 'hardware' ? state.page?.hardwareTab === 'readings' ? 'd disks   s inventory'
@@ -1427,7 +1429,16 @@ function logLines(state: ScreenState): string[] {
 function settingsHints(state: ScreenState): string {
   switch (state.settingsPage?.section) {
     case 'probes': return 'Esc back   ↑/↓ select   Space toggle'
-    case 'recorder': return 'Esc back'
+    case 'recorder': {
+      const page = state.settingsPage
+      switch (page.recorderEdit?.step) {
+        case 'interval': return 'Enter review   Esc cancel'
+        case 'confirm': return 'y confirm   n/Esc cancel'
+        case 'applying': return ''
+      }
+      const { enable, disable, cadence } = recorderActions(page)
+      return [enable && 'e enable', cadence && 'c cadence', disable && 'd disable', 'Esc back'].filter(Boolean).join('   ')
+    }
     case 'metrics': return 'Esc back   m toggle listener'
     default: return '↑/↓ select   Enter open   m listener'
   }
@@ -1464,12 +1475,26 @@ function settingsLines(state: ScreenState): string[] {
     const position = compact ? ` (${state.panelIndex + 1}/${SETTINGS_SECTIONS.length})` : ''
     return [summary, ...choices.map(section => `${section === SETTINGS_SECTIONS[state.panelIndex] ? '>' : ' '} ${labels[section]}${position}`)]
   }
-  if (!health) return [summary, ...(recorder.status === 'error' ? wrapCells(plain(recorder.message), panelWidth(state.width)) : [])]
+  const edit = page.recorderEdit
+  const wrap = (lines: string[]) => lines.flatMap(line => wrapCells(plain(line), panelWidth(state.width)))
+  const message = page.recorderMessage?.split('\n') ?? []
+  if (edit?.step === 'applying') return ['Applying change and checking actual state…']
+  if (edit?.step === 'interval') return wrap([
+    edit.kind === 'enable' ? 'Enable scheduled recording' : 'Change recorder cadence',
+    `Interval in seconds (minimum 60): ${edit.draft}▏`, ...message,
+  ])
+  if (edit?.step === 'confirm') {
+    const change = edit.change
+    return wrap(change.kind === 'disable' ? ['Disable scheduled recording?', 'Remove the scheduled job. Stored history is kept.']
+      : [change.kind === 'enable' ? 'Enable scheduled recording?' : 'Change recorder cadence?',
+        `Store one sample now, then schedule every ${change.seconds}s.`, `Database: ${health?.databasePath ?? 'unknown'}`])
+  }
+  if (!health) return [...wrap(message), summary, ...(recorder.status === 'error' ? wrapCells(plain(recorder.message), panelWidth(state.width)) : [])]
   const run = service?.last_run
   const exit = run?.exit_code === undefined ? '' : ` (exit ${run.exit_code})`
   const disabled = RECORD_PROBES.filter(name => !page.probes[name])
   const details = [
-    summary,
+    summary, ...message,
     service ? `service  ${service.scheduler}  ${service.installed ? 'installed' : 'not installed'}` : `scheduler: ${health.schedulerError ?? 'unavailable'}`,
     `scheduler  ${service?.scheduler_state ?? 'unknown'}   recorder  ${service?.recorder_state ?? 'unknown'}`,
     `last run  ${run ? run.outcome + exit : 'unknown'}`,
@@ -1478,9 +1503,8 @@ function settingsLines(state: ScreenState): string[] {
     `sample age  ${health.sample_age_seconds === undefined ? 'unavailable' : `${health.sample_age_seconds} s`} (any insert)`,
     `database  ${health.databasePath}`,
     disabled.length ? `recording blocked: required probes off: ${disabled.join(', ')}` : 'required probes: all enabled',
-    'schedule: sloppytop service --help',
   ]
-  return details.flatMap(line => wrapCells(plain(line), panelWidth(state.width)))
+  return wrap(details)
 }
 
 function recordLines(state: ScreenState): string[] {
