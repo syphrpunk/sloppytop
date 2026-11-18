@@ -8,8 +8,8 @@ import { parseDiskstats } from './disk.ts'
 import { memoryFromMeminfo, pagingFromVmstat } from './memory.ts'
 import { parseProcNetDev } from './network.ts'
 import { flagOn, type CollectFlags } from './probes.ts'
-import { parseGpuBusyPercent, parseGpuMemoryBytes, parseHwmonInput } from './sensors.ts'
-import type { CoreTicks, FanReading, GpuActivity, PlatformSample, ProcessDetail, RawProc, TemperatureReading } from './types.ts'
+import { parseGpuBusyPercent, parseGpuMemoryBytes, parseHwmonElectrical, parseHwmonInput } from './sensors.ts'
+import type { CoreTicks, ElectricalReading, FanReading, GpuActivity, PlatformSample, ProcessDetail, RawProc, TemperatureReading } from './types.ts'
 
 const CLK_TCK = 100 // USER_HZ — 100 on every mainstream Linux
 const PAGE_SIZE = 4096
@@ -179,11 +179,11 @@ function readText(path: string): string | undefined {
 }
 
 /** `/sys/class/hwmon` temperatures are millidegrees. Fan inputs are rpm. `tempN_crit` is the critical limit for that same sensor. `tempN_max` is not. */
-function collectHwmon(): { temperatures?: TemperatureReading[]; fans?: FanReading[] } {
-  const root = '/sys/class/hwmon'
+export function collectHwmon(root = '/sys/class/hwmon'): Pick<PlatformSample, 'temperatures' | 'fans' | 'electrical_sensors'> {
   if (!existsSync(root)) return {}
   const temperatures: TemperatureReading[] = []
   const fans: FanReading[] = []
+  const electrical: ElectricalReading[] = []
   let dirs: string[]
   try {
     dirs = readdirSync(root)
@@ -200,19 +200,23 @@ function collectHwmon(): { temperatures?: TemperatureReading[]; fans?: FanReadin
     } catch {
       continue
     }
-    for (const file of files) {
-      if (!/^(?:temp|fan)\d+_input$/.test(file)) continue
+    for (const file of files.sort()) {
+      const kind = file.match(/^(temp|fan|in|curr|power)\d+_input$/)?.[1]
+      if (!kind) continue
       const input = readText(`${base}/${file}`)
       if (input === undefined) continue
       const label = readText(`${base}/${file.replace(/_input$/, '_label')}`)
+      const row = { chip, key: file, input, ...(label !== undefined ? { label } : {}) }
+      if (kind !== 'temp' && kind !== 'fan') {
+        const reading = parseHwmonElectrical(dir, row)
+        if (reading) electrical.push(reading)
+        continue
+      }
       const critical = file.startsWith('temp')
         ? readText(`${base}/${file.replace(/_input$/, '_crit')}`)
         : undefined
       const parsed = parseHwmonInput({
-        chip,
-        key: file,
-        input,
-        ...(label !== undefined ? { label } : {}),
+        ...row,
         ...(critical !== undefined ? { critical } : {}),
       })
       if (!parsed) continue
@@ -223,6 +227,7 @@ function collectHwmon(): { temperatures?: TemperatureReading[]; fans?: FanReadin
   return {
     ...(temperatures.length > 0 ? { temperatures } : {}),
     ...(fans.length > 0 ? { fans } : {}),
+    ...(electrical.length > 0 ? { electrical_sensors: electrical } : {}),
   }
 }
 
@@ -390,8 +395,7 @@ export function collect(flags?: CollectFlags): PlatformSample {
       ? { linuxBootId: bootId.toLowerCase() }
       : {}),
     ...(disks ? { disks } : {}),
-    ...(sensors.temperatures ? { temperatures: sensors.temperatures } : {}),
-    ...(sensors.fans ? { fans: sensors.fans } : {}),
+    ...sensors,
     ...(gpuActivity ? { gpuActivity } : {}),
   }
 }

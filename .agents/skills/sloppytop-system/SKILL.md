@@ -11,6 +11,11 @@ System-wide stats: CPU, memory, disk, per-device throughput and latency, network
 
 ## Options
 
+On Linux, `electrical_sensors` lists kernel-reported hwmon voltage, current,
+and instantaneous power when available. The `sensors` probe controls these
+readings. Unlabeled voltage channels are omitted; no board corrections
+are inferred.
+
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
 | `--sampleMs` | `number` | `500` | Delta-sampling window in ms for CPU/network rates |

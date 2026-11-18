@@ -135,6 +135,7 @@ export interface SystemStats {
    * TS-only until the Go monitor grows the same fields.
    */
   temperatures?: TemperatureReading[]
+  electrical_sensors?: ElectricalReading[]
   fans?: FanReading[]
   /**
    * macOS `NSProcessInfo.thermalState`. Nominal is also what the API returns
@@ -204,6 +205,14 @@ export interface TemperatureReading {
    * Positive is margin under the limit. A measured 0 is at the limit.
    */
   headroom_celsius?: number
+}
+
+export interface ElectricalReading {
+  /** Sample-local hwmon directory and channel, not a persistent device ID. */
+  channel: string
+  name: string
+  unit: 'volts' | 'amps' | 'watts'
+  value: number
 }
 
 export interface FanReading {
@@ -306,6 +315,7 @@ export interface PlatformSample {
   /** Same length as `cpuPerCoreTicks`, or absent. */
   cpuCoreKinds?: CpuCoreKind[]
   temperatures?: TemperatureReading[]
+  electrical_sensors?: ElectricalReading[]
   fans?: FanReading[]
   thermalState?: ThermalState
 }

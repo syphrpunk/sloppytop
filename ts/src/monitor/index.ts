@@ -270,6 +270,7 @@ export function optionalSystemStats(s: PlatformSample): Partial<SystemStats> {
   if (s.memoryApp !== undefined) out.memory_app_bytes = Math.round(s.memoryApp)
   if (s.memoryCached !== undefined) out.memory_cached_bytes = Math.round(s.memoryCached)
   if (s.temperatures && s.temperatures.length > 0) out.temperatures = s.temperatures
+  if (s.electrical_sensors?.length) out.electrical_sensors = s.electrical_sensors
   if (s.fans && s.fans.length > 0) out.fans = s.fans
   if (s.thermalState) out.thermal_state = s.thermalState
   const gpu = s.gpuActivity

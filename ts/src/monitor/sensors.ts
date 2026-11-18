@@ -2,7 +2,7 @@
 // the platform collectors. A value outside the accepted range is omitted
 // rather than relabeled.
 
-import type { CpuCoreKind, FanReading, TemperatureReading, ThermalState } from './types.ts'
+import type { CpuCoreKind, ElectricalReading, FanReading, TemperatureReading, ThermalState } from './types.ts'
 
 /** Public HID usage tables. Consumer-page fan speed is a linear control, not a tachometer. */
 export const HID_PAGE_SENSOR = 0x20
@@ -120,7 +120,7 @@ export function owningApp(executablePath: string): string | undefined {
 
 export interface HwmonInput {
   chip: string
-  /** `temp1_input` or `fan1_input`. */
+  /** Kernel attribute basename, e.g. `temp1_input`. */
   key: string
   input: string
   label?: string
@@ -129,6 +129,26 @@ export interface HwmonInput {
    * that file does not exist. `tempN_max` is not a critical limit.
    */
   critical?: string
+}
+
+export function parseHwmonElectrical(dir: string, row: HwmonInput): ElectricalReading | undefined {
+  const match = row.key.match(/^(in|curr|power)\d+_input$/)
+  if (!match) return
+  const raw = row.input.trim()
+  if (!/^-?\d+$/.test(raw)) return
+  const value = Number(raw)
+  if (!Number.isSafeInteger(value)) return
+  const unit = match[1] === 'in' ? 'volts' : match[1] === 'curr' ? 'amps' : 'watts'
+  const key = row.key.replace(/_input$/, '')
+  const label = row.label?.trim()
+  // A bare voltage channel does not identify the rail or the scaling.
+  if (unit === 'volts' && !label) return
+  return {
+    channel: `${dir}/${key}`,
+    name: `${row.chip} ${label || key}`,
+    unit,
+    value: value / (unit === 'watts' ? 1_000_000 : 1000),
+  }
 }
 
 /** `temp*_input` is millidegrees Celsius. `fan*_input` is rpm. A measured 0 stays 0. */

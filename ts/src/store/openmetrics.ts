@@ -108,6 +108,15 @@ export function renderSystemMetrics(system: Partial<SystemStats>, at = new Date(
   for (const fan of system.fans ?? []) {
     labeledGauge(lines, 'sloppytop_fan_rpm', 'Fan speed, revolutions per minute', 'fan', fan.name, fan.rpm)
   }
+  for (const [unit, quantity] of [['volts', 'voltage'], ['amps', 'current'], ['watts', 'power']] as const) {
+    const readings = system.electrical_sensors?.filter((row) => row.unit === unit && Number.isFinite(row.value))
+    if (!readings?.length) continue
+    const metric = `sloppytop_hwmon_${quantity}_${unit}`
+    lines.push(`# HELP ${metric} Linux hwmon ${quantity} input in ${unit}`, `# TYPE ${metric} gauge`)
+    for (const { channel, name, value } of readings) {
+      lines.push(`${metric}{channel="${escapeLabel(channel)}",sensor="${escapeLabel(name)}"} ${value}`)
+    }
+  }
   if (system.thermal_state) {
     labeledGauge(lines, 'sloppytop_thermal_state', 'macOS thermal state. The value is 1. Not a temperature limit.', 'state', system.thermal_state, 1)
   }
