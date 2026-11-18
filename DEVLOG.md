@@ -4,6 +4,10 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Per-device disk history completed — 2026-11-18
+
+- Added TUI disk history (`v` then `d`), verified the compiled CLI and interactive TUI against a temporary SQLite fixture, and documented read-only Linux/macOS topology findings. 245 tests passed, plus type-check, build, and TUI smoke.
+
 ## Per-device disk history started — 2026-11-18
 
 - Reviewed iodyne and added comparable CLI history charts for recorded disk names (`b513246`). Verified 243 tests, type-check, build, TUI smoke, and compiled CLI output against a temporary SQLite fixture.

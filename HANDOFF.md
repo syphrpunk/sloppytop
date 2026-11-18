@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: b513246 feat(history): compare recorded disk device trends
+HEAD: 19e6a39 feat(tui): compare recorded disk metrics in history
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -40,7 +40,7 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 
 [Deep dive 02](docs/research/slices/02-linux-memory-pressure-and-oom.md) is complete (`nht-9f5f15`): the optional Linux kernel count appears in system samples, history and OpenMetrics. Reports compare adjacent same-boot samples and keep kills separate from pressure. Verified read-only against live Linux procfs. Next research candidate: per-device disk history and topology.
 
-[Deep dive 03](docs/research/slices/03-device-disk-history.md) is underway (`nht-ed576c`): CLI history compares recorded disk trends; TUI comparison and read-only evidence for durable identity and topology are next.
+[Deep dive 03](docs/research/slices/03-device-disk-history.md) is complete (`nht-ed576c`): CLI and TUI compare recorded disks on shared scales. Read-only Linux and macOS checks support keeping the graphs grouped by recorded name, without implying durable hardware identity or adding topology to the sampling path.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -59,7 +59,6 @@ Open tasks (Memento snapshot):
 
 - `nht-9de7a2` (todo): Apple Silicon energy sample
 - `nht-4e0e0e` (todo): Carry live network rate validity through collection and storage
-- `nht-ed576c` (in-progress): Compare per-device disk trends in recorded history
 - `nht-cb0edf` (todo): Expand the CLI past process-table parity
 - `nht-2613eb` (todo): Harvest faculties from the _repos monitor corpus
 - `nht-b1794f` (todo): OpenTUI TUI replacement
