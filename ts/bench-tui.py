@@ -27,9 +27,11 @@ def process_usage(pid):
     return seconds, int(rss) / 1024
 
 
-def bench(binary, rows, trials, idle, starts):
+def bench(binary, rows, trials, idle, starts, trace):
     with tempfile.TemporaryDirectory(prefix="st-bench-") as folder:
-        command = shlex.join(["env", f"XDG_CONFIG_HOME={folder}", f"ST_FIXTURE_ROWS={rows or 24}",
+        trace_path = Path(folder) / "trace.json"
+        command = shlex.join(["env", f"SLOPPYTOP_TUI_TRACE={trace_path if trace else ''}",
+                              f"XDG_CONFIG_HOME={folder}", f"ST_FIXTURE_ROWS={rows or 24}",
                               str(binary), *([] if rows else ["tui"])])
         base = ["tmux", "-S", f"{folder}/tmux.sock", "-f", "/dev/null"]
 
@@ -124,11 +126,13 @@ def bench(binary, rows, trials, idle, starts):
             measure("resume_ms", lambda: keys("Space"), lambda f: "FROZEN" not in f and main(f))
             measure("discovery_load_ms", lambda: keys("D"), lambda f: "cached peers" in f)
             measure("discovery_dismiss_ms", lambda: keys("Escape"), main)
+            stop()
+            phases = {"phases_ms": json.loads(trace_path.read_text())} if trace else {}
             for _ in range(starts - 1):
-                stop()
                 start()
+                stop()
             return {"paused_cpu_pct": round(cpu_pct, 2), "paused_rss_mib": round(rss, 1),
-                    "live_rss_mib": live_memory, **{key: summary(values) for key, values in samples.items()}}
+                    "live_rss_mib": live_memory, **phases, **{key: summary(values) for key, values in samples.items()}}
         finally:
             try:
                 stop()
@@ -143,10 +147,11 @@ if __name__ == "__main__":
     parser.add_argument("--trials", type=int, default=20)
     parser.add_argument("--idle", type=float, default=5)
     parser.add_argument("--starts", type=int, default=8)
+    parser.add_argument("--trace", action="store_true", help="include application phase timings")
     args = parser.parse_args()
     if args.trials < 1 or args.idle <= 0 or args.starts < 1:
         parser.error("trials, idle and starts must be positive")
     for rows in (None, 100, 1_000, 5_000):
         binary = args.fixture if rows else args.live
         print(json.dumps({"mode": "fixture" if rows else "live", "rows": rows,
-                          **bench(binary.resolve(strict=True), rows, args.trials, args.idle, args.starts)}), flush=True)
+                          **bench(binary.resolve(strict=True), rows, args.trials, args.idle, args.starts, args.trace)}), flush=True)

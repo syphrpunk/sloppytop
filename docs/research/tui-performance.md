@@ -27,7 +27,10 @@ runs disposable tmux servers and config directories, samples the visible frame
 without saving any live process rows, and reports elapsed times and CPU/RSS.
 CLI process startup and tmux overhead are included, so compare like for like.
 Use the raw output for distributions and document worst cases, not just
-averages. Main-thread lag and per-stage timings require separate instrumentation.
+averages. Append `--trace` to include main-thread lag and application phase
+timings. The trace contains durations and counts only, no process or terminal
+data. For manual reproduction set `SLOPPYTOP_TUI_TRACE` to a private file path
+before launching the TUI and exit normally to write the result.
 
 ## Initial baseline
 
@@ -62,3 +65,15 @@ paused CPU for the 100/1,000/5,000-row fixtures to 1.32% / 1.66% / 1.33% (from
 4.63% / 4.64% / 5.30%). Paused RSS was 82–92 MiB. Live paused CPU was still
 2.98%, and live search and resize p95 still missed budget at 229 and 318 ms.
 Do not treat the fixture CPU improvement as live performance acceptance.
+
+## Phase trace before collector isolation
+
+`just tui-bench --trace --trials 5 --starts 2 --idle 2` on the same host:
+live sample p50/p95 1,004/1,063 ms; live event-loop lag p95 11 ms but
+maximum 333 ms, compared with 23 ms maximum at 5,000 fixture rows.
+The live renderer setup took 8 ms and first frame submission took 12 ms
+from entry to `runTui`, versus 1.5–2.7 s from launching the benchmark
+session to observing the screen. Resize composition p95 was 2.31 ms.
+These measurements distinguish frame construction from the longer startup
+and resize paths; they do not yet localize the wait before `runTui`, the
+time between resize request and renderer event, or individual collectors.

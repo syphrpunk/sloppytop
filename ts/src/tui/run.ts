@@ -43,6 +43,7 @@ import {
 } from './state.ts'
 import { styleFrame } from './style.ts'
 import { getTheme, type Theme } from './theme.ts'
+import { startTuiTrace } from './trace.ts'
 
 export function mountFrame(renderer: CliRenderer, theme: Theme): void {
   renderer.root.add(
@@ -84,7 +85,10 @@ export async function runTui(
   loadDiscoveryDetail = async (section: 'connections' | 'dns') =>
     (await import('../discovery/overview.ts')).discoverDetail(section),
 ): Promise<void> {
+  const started = performance.now()
+  const trace = startTuiTrace()
   const config = ensureTuiConfig()
+  trace?.since('config', started)
   const sampleMs = config.record.sampleMs
   let probes: ProbeSet = config.probes
   let state = initialState(
@@ -115,11 +119,13 @@ export async function runTui(
   let metricsStop: (() => void) | null = null
 
   const theme = getTheme(state.theme)
+  const rendererStarted = performance.now()
   const renderer = await createCliRenderer({
     exitOnCtrlC: false,
     useMouse: true,
     backgroundColor: theme.base,
   })
+  trace?.since('rendererSetup', rendererStarted)
   renderer.useMouse = true
   const text = new TextRenderable(renderer, {
     id: 'frame',
@@ -136,14 +142,18 @@ export async function runTui(
   let lastFrame: { text: string; theme: Theme } | undefined
 
   const paint = () => {
+    const paintStarted = performance.now()
     const width = renderer.terminalWidth || state.width || 80
     const height = renderer.terminalHeight || state.height || 24
     const strip = stripLineCount(system, width, height)
     const chrome = state.overlay === 'none' ? 5 : 3
     state = { ...state, width, height, bodyRows: Math.max(0, height - strip - chrome) }
     const view = visibleRows(state, processes)
+    trace?.since('layoutAndRows', paintStarted)
     state = ensureSelection(state, view.rows)
+    const composeStarted = performance.now()
     const frame = compose(state, { processes, system, history }, view)
+    trace?.since('compose', composeStarted)
     rows = frame.rows
     layout = frame.layout
     if (state.overlay === 'none') state = { ...state, bodyRows: frame.layout.bodyRows }
@@ -155,9 +165,11 @@ export async function runTui(
     text.width = width
     text.height = height
     if (lastFrame?.text !== frame.text || lastFrame.theme !== themeNow) {
+      const styleStarted = performance.now()
       text.content = styleFrame(frame.text, themeNow)
       text.fg = themeNow.text
       lastFrame = { text: frame.text, theme: themeNow }
+      trace?.since('styleAndAssign', styleStarted)
     }
   }
 
@@ -175,6 +187,7 @@ export async function runTui(
     }
     renderer.stop()
     renderer.destroy()
+    trace?.finish()
   }
 
   const apply = (effect: ScreenEffect | undefined) => {
@@ -417,7 +430,11 @@ export async function runTui(
   }
 
   renderer.on('resize', () => {
-    if (!stopped) paint()
+    if (!stopped) {
+      const resizeStarted = performance.now()
+      paint()
+      trace?.since('resizeCompose', resizeStarted)
+    }
   })
 
   const tick = async () => {
@@ -425,6 +442,7 @@ export async function runTui(
     const started = performance.now()
     try {
       const sample = await sampleTick({ paused: state.paused, sampleMs })
+      if (sample) trace?.since('sample', started)
       if (stopped) return
       if (sample) {
         system = sample.system
@@ -470,6 +488,7 @@ export async function runTui(
     })
     paint()
     renderer.start()
+    trace?.since('firstFrameSubmitted', started)
     void tick()
   })
 }
