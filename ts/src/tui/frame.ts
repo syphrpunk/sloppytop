@@ -25,6 +25,7 @@ import {
   SETTINGS_SECTIONS,
   recorderActions,
   reduce,
+  selectRow,
   toggleSort,
   visibleRows,
   type DisplayRow,
@@ -273,7 +274,7 @@ export function applyPointer(
     const delta = pointer.scroll === 'up' ? -3 : 3
     const max = Math.max(0, rows.length - layout.bodyRows)
     const scroll = Math.min(max, Math.max(0, state.scroll + delta))
-    return { state: { ...state, scroll } }
+    return { state: { ...state, scroll, treeManualScroll: state.tree } }
   }
 
   if (pointer.y === layout.headerLine) {
@@ -284,7 +285,7 @@ export function applyPointer(
 
   if (pointer.y >= layout.bodyStart && pointer.y < layout.bodyStart + layout.bodyRows) {
     const row = rows[state.scroll + (pointer.y - layout.bodyStart)]
-    if (row?.kind === 'process') return { state: { ...state, selectedPid: row.proc.pid } }
+    if (row?.kind === 'process') return { state: selectRow(state, row) }
   }
   return { state }
 }
@@ -977,18 +978,19 @@ function rowLine(state: ScreenState, row: DisplayRow, fitted: { id: TuiColumn; w
   if (row.kind === 'missing') return padRight(`  ? ${row.pin}`, state.width)
   const selected = row.proc.pid === state.selectedPid
   const marker = selected && row.pinned ? '>*' : selected ? '> ' : row.pinned ? '* ' : '  '
-  const cells = fitted.map((column) => cell(column.id, row.proc, row.prefix, column.width))
+  const cells = fitted.map((column) => cell(column.id, row.proc, row.prefix, column.width, row.branch?.hiddenCount))
   return marker + cells.join(' ')
 }
 
-function cell(id: TuiColumn, proc: ProcessInfo, prefix: string, width: number): string {
+function cell(id: TuiColumn, proc: ProcessInfo, prefix: string, width: number, hiddenCount = 0): string {
   const spec = COLUMNS[id]
   // Fold distant ancestors before clipping the label; a deep branch must
   // not turn the entire name cell into whitespace and line art.
-  if (id === 'name' && prefix && prefix.length > width - 4) {
-    prefix = width >= 8 ? '…' + prefix.slice(-3) : ''
+  const badge = id === 'name' && hiddenCount ? `+${hiddenCount} ` : ''
+  if (id === 'name' && prefix && prefix.length > width - badge.length - 4) {
+    prefix = width - badge.length >= 8 ? '…' + prefix.slice(-3) : ''
   }
-  const text = cellText(id, proc, prefix)
+  const text = cellText(id, proc, prefix + badge)
   return spec.align === 'right' ? padLeft(text, width) : padRight(text, width)
 }
 
@@ -1143,6 +1145,7 @@ function helpLines(): string[] {
     'sloppytop',
     '/ s f  search     space  pause     ?  help     q  quit',
     'up j  move        g G  ends        1-9 0  sort  T  tree',
+    'tree: ← fold/parent   → expand/child   +N hidden rows',
     'p  pin   i  detail   k  kill   c  columns   t  theme   r  refresh',
     'e  env   o  files   n  connections   l  listen   h  hardware',
     'D  local network discovery',

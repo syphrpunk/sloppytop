@@ -4,6 +4,7 @@
 import { FilterQueryError, filterProcesses, sortProcesses, type SortKey } from '../filter/index.ts'
 import { splitPinned } from '../filter/pins.ts'
 import { buildProcessTree } from '../filter/tree.ts'
+import { processTreeIdentity, projectProcessTree, type ProjectedTreeRow } from '../filter/tree-projection.ts'
 import { defaultProbes, disabledRecordProbes, PROBE_NAMES, type ProbeName, type ProbeSet } from '../monitor/probes.ts'
 import type { ProcessInfo } from '../monitor/types.ts'
 import { TUI_COLUMNS, type TuiColumn } from '../store/config.ts'
@@ -242,6 +243,9 @@ export interface ScreenState {
   sortBy: SortKey
   sortOrder: 'asc' | 'desc'
   tree: boolean
+  collapsed: ReadonlySet<string>
+  treeFocus: string | null
+  treeManualScroll: boolean
   selectedPid: number | null
   scroll: number
   overlay: Overlay
@@ -320,7 +324,7 @@ export interface ReduceResult {
 }
 
 export type DisplayRow =
-  | { kind: 'process'; proc: ProcessInfo; pinned: boolean; prefix: string }
+  | { kind: 'process'; proc: ProcessInfo; pinned: boolean; prefix: string; branch?: ProjectedTreeRow }
   | { kind: 'missing'; pin: string }
 
 export interface KeyPress {
@@ -361,6 +365,9 @@ export function initialState(
     sortBy: 'cpu',
     sortOrder: 'desc',
     tree: false,
+    collapsed: new Set(),
+    treeFocus: null,
+    treeManualScroll: false,
     selectedPid: null,
     scroll: 0,
     overlay: 'none',
@@ -393,10 +400,51 @@ export function initialState(
   }
 }
 
+interface RowView {
+  rows: DisplayRow[]
+  error: string
+  treeIndexes?: Map<number, number>
+  hiddenFocus?: { identity: string; ancestor: number }
+}
+
+// A selector belongs to one accepted sample. Only the tree is cached;
+// pins and folds are replaced (never mutated) by the reducer.
+export function createRowSelector(processes: ProcessInfo[]) {
+  let cached: { pins: string[]; search: string; collapsed: ReadonlySet<string>; focus: string | null; view: RowView } | undefined
+  return (state: ScreenState): RowView => {
+    if (!state.tree || state.processesOff) {
+      cached = undefined
+      return visibleRows(state, processes)
+    }
+    const { pins, search, collapsed, treeFocus } = state
+    if (cached && cached.pins === pins && cached.search === search && cached.collapsed === collapsed) {
+      // Visible selections never need a redirect. Reproject for a *new*
+      // hidden focus rather than reusing another descendant's ancestor.
+      if (cached.focus === treeFocus || !treeFocus || !collapsed.size ||
+          (state.selectedPid !== null && cached.view.treeIndexes?.has(state.selectedPid))) return cached.view
+    }
+    const view = visibleRows(state, processes)
+    cached = { pins, search, collapsed, focus: treeFocus, view }
+    return view
+  }
+}
+
+// Prune against the sample, not its filtered/unpinned subset. No work on
+// flat-mode ticks: returning to tree mode prunes against the latest sample.
+export function pruneTreeFolds(state: ScreenState, processes: ProcessInfo[]): ScreenState {
+  if (!state.tree || !state.collapsed.size) return state
+  const live = new Set<string>()
+  for (const proc of processes) {
+    const id = processTreeIdentity(proc)
+    if (state.collapsed.has(id)) live.add(id)
+  }
+  return live.size === state.collapsed.size ? state : { ...state, collapsed: live }
+}
+
 export function visibleRows(
   state: ScreenState,
   processes: ProcessInfo[],
-): { rows: DisplayRow[]; error: string } {
+): RowView {
   if (state.processesOff) return { rows: [], error: '' }
   let filtered: ProcessInfo[]
   try {
@@ -408,14 +456,19 @@ export function visibleRows(
 
   if (state.tree) {
     const split = splitPinned(filtered, state.pins)
-    const tree = buildProcessTree(split.rest)
+    const { rows, focus } = projectProcessTree(buildProcessTree(split.rest), state.collapsed, state.treeFocus)
+    const display: DisplayRow[] = [
+      ...split.pinned.map(proc => processRow(proc, true, '')),
+      ...missingRows(split.missing, state.search),
+    ]
+    for (const branch of rows) display.push({ kind: 'process', proc: branch.proc, pinned: false, prefix: branch.proc.tree_prefix, branch })
+    const treeIndexes = new Map<number, number>()
+    display.forEach((row, i) => { if (row.kind === 'process') treeIndexes.set(row.proc.pid, i) })
     return {
-      rows: [
-        ...split.pinned.map((proc) => processRow(proc, true, '')),
-        ...missingRows(split.missing, state.search),
-        ...tree.map((proc) => processRow(proc, false, proc.tree_prefix)),
-      ],
+      rows: display, treeIndexes,
       error: '',
+      ...(focus && state.treeFocus && focus.identity !== state.treeFocus
+        ? { hiddenFocus: { identity: state.treeFocus, ancestor: focus.proc.pid } } : {}),
     }
   }
 
@@ -431,7 +484,32 @@ export function visibleRows(
   }
 }
 
-export function ensureSelection(state: ScreenState, rows: DisplayRow[]): ScreenState {
+function ensureTreeSelection(state: ScreenState, view: RowView): ScreenState {
+  const { rows } = view
+  const pid = view.hiddenFocus && view.hiddenFocus.identity === state.treeFocus ? view.hiddenFocus.ancestor : state.selectedPid
+  let index = pid !== null ? view.treeIndexes?.get(pid) ?? -1 : -1
+  const match = rows[index]
+  if (pid === state.selectedPid && match?.kind === 'process' && state.treeFocus && rowIdentity(match) !== state.treeFocus) index = -1
+  if (index < 0) {
+    // On distinguishable PID reuse prefer another live row over the replacement.
+    index = rows.findIndex(row => row.kind === 'process' && row.proc.pid !== state.selectedPid)
+    if (index < 0) index = rows.findIndex(row => row.kind === 'process')
+  }
+  const row = rows[index]
+  const identity = row?.kind === 'process' ? rowIdentity(row) : null
+  const changed = identity !== state.treeFocus
+  const treeManualScroll = !changed && state.treeManualScroll
+  const size = bodyWindow(state)
+  let scroll = Math.min(state.scroll, Math.max(0, rows.length - size))
+  if (!treeManualScroll && index >= 0) scroll = Math.max(index - size + 1, Math.min(index, scroll))
+  // Never retarget an open confirmation when its process disappears.
+  const overlay = changed && state.overlay === 'kill' ? 'none' : state.overlay
+  return { ...state, scroll, treeManualScroll, overlay, selectedPid: row?.kind === 'process' ? row.proc.pid : null, treeFocus: identity }
+}
+
+export function ensureSelection(state: ScreenState, view: RowView): ScreenState {
+  const { rows } = view
+  if (state.tree) return ensureTreeSelection(state, view)
   const indexes = processIndexes(rows)
   if (indexes.length === 0) {
     return state.selectedPid === null ? state : { ...state, selectedPid: null }
@@ -441,9 +519,7 @@ export function ensureSelection(state: ScreenState, rows: DisplayRow[]): ScreenS
     return row?.kind === 'process' && row.proc.pid === state.selectedPid
   })
   if (stillThere) return state
-  const first = rows[indexes[0]!]
-  if (first?.kind !== 'process') return state
-  return reveal(state, rows, first.proc.pid)
+  return revealAt(state, rows, indexes[0]!)
 }
 
 export function wantsQuit(state: ScreenState, key: KeyPress): boolean {
@@ -470,7 +546,7 @@ function reduceSearch(state: ScreenState, key: KeyPress): ReduceResult {
     return { state: { ...state, searching: false, draft: state.search } }
   }
   if (key.name === 'return' || key.name === 'enter') {
-    return { state: { ...state, searching: false, search: state.draft, scroll: 0 } }
+    return { state: { ...state, searching: false, search: state.draft, scroll: 0, treeManualScroll: false } }
   }
   if (key.name === 'backspace' || key.name === 'delete') {
     return { state: { ...state, draft: [...state.draft].slice(0, -1).join('') } }
@@ -775,8 +851,10 @@ function reduceMain(state: ScreenState, key: KeyPress, rows: DisplayRow[]): Redu
   const sort = SORT_BY_NUMBER[key.name]
   if (sort) return { state: toggleSort(state, sort) }
   if (key.name === 'T' || (key.name === 't' && key.shift)) {
-    return { state: { ...state, tree: !state.tree, scroll: 0 } }
+    const proc = state.tree ? null : selected(state, rows)
+    return { state: { ...state, tree: !state.tree, treeFocus: proc ? processTreeIdentity(proc) : null, treeManualScroll: false, scroll: 0 } }
   }
+  if (state.tree && (key.name === 'left' || key.name === 'right')) return treeArrow(state, rows, key.name)
   if (key.name === 't') {
     const found = THEME_NAMES.findIndex((name) => name === state.theme)
     const index = found < 0 ? 0 : found
@@ -821,6 +899,27 @@ function reduceMain(state: ScreenState, key: KeyPress, rows: DisplayRow[]): Redu
   if (key.name === 'home' || (key.name === 'g' && !key.shift)) return { state: moveEnd(state, rows, 'start') }
   if (key.name === 'end' || key.name === 'G' || (key.name === 'g' && key.shift)) {
     return { state: moveEnd(state, rows, 'end') }
+  }
+  return { state }
+}
+
+function treeArrow(state: ScreenState, rows: DisplayRow[], key: 'left' | 'right'): ReduceResult {
+  const index = rows.findIndex(row => row.kind === 'process' && row.proc.pid === state.selectedPid)
+  const row = rows[index]
+  if (row?.kind !== 'process' || !row.branch) return { state }
+  const branch = row.branch
+  if (key === 'left' ? branch.descendantCount > 0 && !branch.hiddenCount : branch.hiddenCount > 0) {
+    const collapsed = new Set(state.collapsed)
+    if (key === 'left') collapsed.add(branch.identity)
+    else collapsed.delete(branch.identity)
+    return { state: { ...state, collapsed, treeManualScroll: false } }
+  }
+  if (key === 'left' && branch.parentIdentity) {
+    const parent = rows.findIndex(r => r.kind === 'process' && r.branch?.identity === branch.parentIdentity)
+    return { state: revealAt(state, rows, parent) }
+  }
+  if (key === 'right' && branch.descendantCount) {
+    return { state: revealAt(state, rows, index + 1) }
   }
   return { state }
 }
@@ -972,7 +1071,7 @@ function togglePin(state: ScreenState, rows: DisplayRow[]): ReduceResult {
   if (!proc) return { state }
   const name = proc.name
   const pins = state.pins.includes(name) ? state.pins.filter((pin) => pin !== name) : [...state.pins, name]
-  return { state: { ...state, pins }, effect: { pins } }
+  return { state: { ...state, pins, treeManualScroll: false }, effect: { pins } }
 }
 
 function selected(state: ScreenState, rows: DisplayRow[]): ProcessInfo | null {
@@ -991,28 +1090,33 @@ function move(state: ScreenState, rows: DisplayRow[], delta: number): ScreenStat
   })
   if (pos < 0) pos = delta < 0 ? indexes.length - 1 : 0
   else pos = Math.min(indexes.length - 1, Math.max(0, pos + delta))
-  const row = rows[indexes[pos]!]
-  if (row?.kind !== 'process') return state
-  return reveal(state, rows, row.proc.pid)
+  return revealAt(state, rows, indexes[pos]!)
 }
 
 function moveEnd(state: ScreenState, rows: DisplayRow[], edge: 'start' | 'end'): ScreenState {
   const indexes = processIndexes(rows)
   if (indexes.length === 0) return state
   const index = edge === 'start' ? indexes[0]! : indexes[indexes.length - 1]!
-  const row = rows[index]
-  if (row?.kind !== 'process') return state
-  return reveal({ ...state, scroll: edge === 'start' ? 0 : state.scroll }, rows, row.proc.pid)
+  return revealAt({ ...state, scroll: edge === 'start' ? 0 : state.scroll }, rows, index)
 }
 
-function reveal(state: ScreenState, rows: DisplayRow[], pid: number): ScreenState {
-  const index = rows.findIndex((row) => row.kind === 'process' && row.proc.pid === pid)
-  if (index < 0) return { ...state, selectedPid: pid }
+function rowIdentity(row: Extract<DisplayRow, { kind: 'process' }>): string {
+  return row.branch?.identity ?? processTreeIdentity(row.proc)
+}
+
+export function selectRow(state: ScreenState, row: Extract<DisplayRow, { kind: 'process' }>): ScreenState {
+  return state.tree ? { ...state, selectedPid: row.proc.pid, treeFocus: rowIdentity(row), treeManualScroll: false }
+    : { ...state, selectedPid: row.proc.pid }
+}
+
+function revealAt(state: ScreenState, rows: DisplayRow[], index: number): ScreenState {
+  const row = rows[index]
+  if (row?.kind !== 'process') return state
   const window = bodyWindow(state)
   let scroll = state.scroll
   if (index < scroll) scroll = index
   if (index >= scroll + window) scroll = index - window + 1
-  return { ...state, selectedPid: pid, scroll }
+  return { ...selectRow(state, row), scroll }
 }
 
 function bodyWindow(state: ScreenState): number {

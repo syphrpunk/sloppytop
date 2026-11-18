@@ -198,6 +198,7 @@ Press `?` inside the TUI to see every keybinding.
 | | `f` | Filter panel |
 | | `c` | Column visibility |
 | | `T` | Tree view |
+| | `←` / `→` | Tree: fold or select parent / expand or select first child (`+N` hidden rows) |
 | | `t` | Theme selector |
 | | `r` | Cycle refresh rate |
 | **Mouse** | Click row | Select process |

@@ -30,7 +30,8 @@ const sample: Sample = {
       utilization_percent: 0, vram_used_bytes: 0, vram_total_bytes: 8 * 2 ** 30 }],
   },
   processes: Array.from({ length: rows }, (_, i) => ({
-    pid: 200 + i, ppid: i ? 200 : 1, name: i === 0 ? 'fixture-worker' : i === 1 ? '界-fixture' : `fixture-child-${i}`,
+    pid: 200 + i, ppid: i === 0 ? 1 : i === 2 || i === 3 ? 201 : 200,
+    name: i === 0 ? 'fixture-worker' : i === 1 ? '界-fixture' : `fixture-child-${i}`,
     status: 'Running', user: 'fixture', command: 'fixture command',
     cpu_usage: Math.max(0, 100 - i * 3), memory_bytes: Math.max(0, 450 - i * 10) * 2 ** 20,
     runtime_secs: 600, disk_read_bytes: 0, disk_write_bytes: 0,

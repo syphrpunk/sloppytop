@@ -26,7 +26,8 @@ import {
   initialState,
   reduce,
   setArtifactPath,
-  visibleRows,
+  createRowSelector,
+  pruneTreeFolds,
   wantsQuit,
   type DisplayRow,
   type DetailState,
@@ -94,6 +95,7 @@ export async function runTui(
   let processes: ProcessInfo[] = []
   let system: Partial<SystemStats> = {}
   let history: SampleHistory = emptyHistory()
+  let selectRows = createRowSelector(processes)
   let rows: DisplayRow[] = []
   let layout: Layout = { headerLine: -1, columns: [], bodyStart: 0, bodyRows: 0 }
   state = {
@@ -147,9 +149,9 @@ export async function runTui(
     const strip = stripLineCount(system, width, height)
     const chrome = state.overlay === 'none' ? 5 : 3
     state = { ...state, width, height, bodyRows: Math.max(0, height - strip - chrome) }
-    const view = visibleRows(state, processes)
+    const view = selectRows(state)
     trace?.since('layoutAndRows', paintStarted)
-    state = ensureSelection(state, view.rows)
+    state = ensureSelection(state, view)
     const composeStarted = performance.now()
     const frame = compose(state, { processes, system, history }, view)
     trace?.since('compose', composeStarted)
@@ -495,6 +497,7 @@ export async function runTui(
   }
 
   const accept = (next: ScreenState) => {
+    if (next.tree && !state.tree) next = pruneTreeFolds(next, processes)
     if (state.overlay !== next.overlay) {
       pageToken++
       cgroupToken++
@@ -540,8 +543,10 @@ export async function runTui(
       if (sample && !state.paused) {
         system = sample.system
         processes = sample.processes
+        selectRows = createRowSelector(processes)
         probes = sample.probes
         history = pushHistory(history, system)
+        state = pruneTreeFolds(state, processes)
         state = {
           ...state,
           waiting: false,

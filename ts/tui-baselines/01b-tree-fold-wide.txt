@@ -1,0 +1,30 @@
+sloppytop  Charm
+╭─ cpu ───────────────────────────────────────────────╮ ╭─ mem ────────────────────────────────────────────────╮
+│ CPU  32.0%  ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣀ │ │ MEM  7.0 GB / 16.0 GB  ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣀  │
+│ c0 ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣀ 9  c1 ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣤ 58  │ │ free    9.0 GB                                       │
+│ c2 ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣀ 21  c3 ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣀ 40  │ │                                                      │
+╰─────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────────────╯
+╭─ disk ──────────────────────────────────────────────╮ ╭─ net ────────────────────────────────────────────────╮
+│ DSK  180.0 GB / 500.0 GB  ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣀ │ │ rx      ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣿ 17.6K/s             │
+│ free    320.0 GB                                    │ │ tx      ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣿ 5.9K/s              │
+╰─────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────────────╯
+also  host
+  PID     Name             Command                  Thr   User       Memory   CPU%  v
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+      200 fixture-worker   fixture command                fixture        450M   100.0
+>     201 ├─ +2 界-fixture fixture command                fixture        440M    97.0
+      204 ├─ fixture-chil… fixture command                fixture        410M    88.0
+      205 ├─ fixture-chil… fixture command                fixture        400M    85.0
+      206 ├─ fixture-chil… fixture command                fixture        390M    82.0
+      207 ├─ fixture-chil… fixture command                fixture        380M    79.0
+      208 ├─ fixture-chil… fixture command                fixture        370M    76.0
+      209 ├─ fixture-chil… fixture command                fixture        360M    73.0
+      210 ├─ fixture-chil… fixture command                fixture        350M    70.0
+      211 ├─ fixture-chil… fixture command                fixture        340M    67.0
+      212 ├─ fixture-chil… fixture command                fixture        330M    64.0
+      213 ├─ fixture-chil… fixture command                fixture        320M    61.0
+      214 ├─ fixture-chil… fixture command                fixture        310M    58.0
+      215 ├─ fixture-chil… fixture command                fixture        300M    55.0
+      216 ├─ fixture-chil… fixture command                fixture        290M    52.0
+fixture · test OS · 1                                                                        PID 201  界-fixture
+22/24  live  D discover  ? help  q quit

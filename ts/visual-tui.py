@@ -8,7 +8,6 @@ import html
 import os
 from pathlib import Path
 import re
-import shlex
 import shutil
 import signal
 import subprocess
@@ -84,6 +83,8 @@ def run(fixture, output, review_only=False):
     output.mkdir(parents=True, exist_ok=True)
     style_baselines = {
         "01-wide": "1e99e3bfff23def73010d6cf7a965f8ae07394dda00a4a8a566b4ecb864695b7",
+        "01b-tree-fold-wide": "0e9f89b69c21587c9c18186023e49b5e489abac7b3702123eb39cb45fe9faf80",
+        "01c-tree-fold-narrow": "ecb90f9b92182a1cb28ebfb4363af91fd8852ae4c06d4789b9a8cee5480e064b",
         "02-narrow": "b9384ebaae3724131e44abf007240fc674974aef6e958490f526912ef4939475",
         "04b-neighbors-bottom": "b6de05e3450d43b04b9d806ba463b518622174194dd83af0830e9ca351d621ab",
         "19-settings": "09130eedc89d077a20473368537d1b9824c2abb79cef754cf73ac809886ff422",
@@ -92,8 +93,8 @@ def run(fixture, output, review_only=False):
         "19-columns": "35207b7faf7de99beaee036f1dcb3fbca371a31a3b966e27a9d93622660e5084",
     }
     with tempfile.TemporaryDirectory(prefix="st-visual-") as folder:
-        command = (f"exec env ST_VISUAL_HISTORY=1 ST_FIXTURE_DISCOVERY_DELAY=350 "
-                   f"XDG_CONFIG_HOME={shlex.quote(folder)} {shlex.quote(str(fixture))}")
+        # Have tmux exec directly, without user shell startup hooks.
+        command = ["env", "ST_VISUAL_HISTORY=1", "ST_FIXTURE_DISCOVERY_DELAY=350", f"XDG_CONFIG_HOME={folder}", str(fixture)]
         base = ["tmux", "-S", f"{folder}/tmux.sock", "-f", "/dev/null"]
 
         def tmux(*args, check=True):
@@ -135,9 +136,16 @@ def run(fixture, output, review_only=False):
         pid = None
         try:
             pid = int(tmux("new-session", "-d", "-s", "visual", "-x", "112", "-y", "30",
-                           "-P", "-F", "#{pane_pid}", command))
+                           "-P", "-F", "#{pane_pid}", *command))
             capture("01-wide", ["PID", "fixture-worker"], 112, 30, timeout=20)
+            tmux("send-keys", "-t", "visual", "T", "Right", "Left")
+            capture("01b-tree-fold-wide", ["+2 界-fixture", "PID 201", "22/24"], 112, 30, compare=True)
             tmux("resize-window", "-t", "visual", "-x", "56", "-y", "18")
+            tmux("send-keys", "-t", "visual", "Left", "Left")
+            capture("01c-tree-fold-narrow", ["+23 fixture-", "PID 200", "1/24"], 56, 18, compare=True)
+            tmux("send-keys", "-t", "visual", "Right")
+            capture("01d-tree-reopen", ["+2 界-fixture", "22/24"], 56, 18)
+            tmux("send-keys", "-t", "visual", "T")
             capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0", "D discover",
                                   "界-fixture", "440M    97.0"], 56, 18)
             tmux("send-keys", "-t", "visual", "D")

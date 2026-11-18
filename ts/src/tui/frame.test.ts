@@ -4,7 +4,7 @@ import { defaultProbes, projectProcesses, projectSystem } from '../monitor/probe
 import type { ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { DEFAULT_TUI } from '../store/config.ts'
 import { applyPointer, compose, emptyHistory, pushHistory } from './frame.ts'
-import { initialState, reduce, visibleRows, wantsQuit, type KeyPress, type ScreenState } from './state.ts'
+import { createRowSelector, ensureSelection, initialState, pruneTreeFolds, reduce, visibleRows, wantsQuit, type KeyPress, type ScreenState } from './state.ts'
 import { composeOverview } from '../discovery/overview.ts'
 import { observe } from '../discovery/provider.ts'
 
@@ -807,6 +807,135 @@ describe('process table', () => {
     expect(refresh.state.refreshMs).toBe(2000)
     expect(refresh.effect?.tui?.refreshMs).toBe(2000)
     expect(reduce(screen(), key('T'), rows).state.tree).toBe(true)
+  })
+})
+
+describe('process tree screen', () => {
+  const forest = [proc({ pid: 1, name: 'root' }), proc({ pid: 2, ppid: 1, name: 'branch' }),
+    proc({ pid: 3, ppid: 2, name: 'leaf' }), proc({ pid: 4, name: 'peer' })]
+
+  function session(processes = forest, override: Partial<ScreenState> = {}) {
+    let state = screen({ tree: true, bodyRows: 2, ...override })
+    let select = createRowSelector(processes)
+    let view = select(state)
+    function paint(next: ScreenState) {
+      view = select(next)
+      state = ensureSelection(next, view)
+    }
+    paint(state)
+    return {
+      get state() { return state }, get view() { return view },
+      keys(...names: string[]) { for (const name of names) paint(reduce(state, key(name), view.rows).state) },
+      refresh(next: ProcessInfo[]) { select = createRowSelector(next); paint(pruneTreeFolds(state, next)) },
+      pointer(kind: 'scroll' | 'down', y: number) {
+        paint(applyPointer(state, { headerLine: -1, columns: [], bodyStart: 0, bodyRows: state.bodyRows! }, view.rows,
+          { kind, scroll: 'down', x: 0, y }).state)
+      },
+      ids() { return view.rows.map(row => row.kind === 'process' ? row.proc.pid : row.pin) },
+    }
+  }
+
+  test('nested folds, pins, missing matches and search use displayed parents and counts', () => {
+    const ui = session(forest, { pins: ['absent'] })
+    ui.keys('right', 'left')
+    expect(ui.ids()).toEqual(['absent', 1, 2, 4])
+    const folded = ui.view
+    ui.keys('left')
+    expect(ui.state.selectedPid).toBe(1)
+    expect(ui.view).toBe(folded) // selecting a visible parent did not rebuild the tree
+    ui.keys('left')
+    expect(ui.view.rows[1]).toMatchObject({ branch: { hiddenCount: 2 } })
+    ui.keys('right', 'right', 'p')
+    expect(ui.ids()).toEqual([2, 'absent', 1, 3, 4])
+    expect(ui.state.scroll).toBe(0)
+    ui.keys('left', 'right')
+    expect(ui.state.selectedPid).toBe(2) // pinned rows aren't branches
+    ui.keys('p', '/', 'l', 'e', 'a', 'f', 'enter')
+    expect(ui.ids()).toEqual([3])
+    ui.keys('left')
+    expect(ui.state.selectedPid).toBe(3) // filtered-out parents aren't focusable
+    ui.keys('/', 'backspace', 'backspace', 'backspace', 'backspace', 'enter')
+    expect(ui.ids()).toEqual(['absent', 1, 2, 4])
+    expect(ui.state.selectedPid).toBe(2) // the selected leaf is now hidden by its parent
+    ui.keys('T', 'end')
+    expect(ui.ids()).toContain(3)
+    // Focus the hidden leaf in flat order, then re-enter the folded tree.
+    ui.keys('home', 'down', 'down', 'T')
+    expect(ui.state.selectedPid).toBe(2)
+    expect(ui.ids()).toEqual(['absent', 1, 2, 4])
+  })
+
+  test('sample replacement preserves focus, follows reparenting, and never transfers a fold or confirmation on PID reuse', () => {
+    const ui = session()
+    ui.keys('right', 'left', 'end')
+    const next = forest.toReversed().map(p => ({ ...p, cpu_usage: 11, ppid: p.pid === 4 ? 2 : p.ppid }))
+    ui.refresh(next)
+    expect(ui.ids()).toEqual([1, 2])
+    expect(ui.state.selectedPid).toBe(2) // selected peer moved underneath a folded branch
+    ui.keys('k')
+    ui.refresh(next.map(p => p.pid === 2 ? { ...p, command: 'replacement' } : p))
+    expect(ui.ids()).toEqual([1, 2, 3, 4])
+    expect(ui.state.collapsed.size).toBe(0)
+    expect(ui.state.selectedPid).toBe(1)
+    expect(ui.state.overlay).toBe('none')
+    ui.refresh([])
+    expect(ui.state.selectedPid).toBeNull()
+    expect(ui.state.scroll).toBe(0)
+  })
+
+  test('wheel can browse independently; click, keyboard and shrinking samples use the same clamped viewport', () => {
+    const many = Array.from({ length: 12 }, (_, i) => proc({ pid: i + 1, name: `row${i}` }))
+    const ui = session(many)
+    ui.pointer('scroll', 1)
+    ui.refresh([...many])
+    expect(ui.state.scroll).toBe(3)
+    expect(ui.state.selectedPid).toBe(1)
+    ui.pointer('down', 1)
+    expect(ui.state.selectedPid).toBe(5)
+    ui.refresh([many[4]!, many[5]!])
+    expect(ui.state.selectedPid).toBe(5)
+    expect(ui.state.scroll).toBe(0)
+    ui.pointer('down', 1)
+    expect(ui.state.selectedPid).toBe(6)
+    ui.refresh(many)
+    expect(ui.state.scroll).toBe(4)
+    ui.keys('end')
+    expect(ui.state.scroll).toBe(10)
+  })
+
+  test('5000 rows: page into a deep chain, fold it, then resolve the last flat selection to the visible ancestor', () => {
+    const chain = Array.from({ length: 5000 }, (_, i) => proc({ pid: i + 1, ppid: i, name: `level${i}` }))
+    const ui = session(chain, { bodyRows: 15 })
+    ui.keys('pagedown', 'left')
+    expect(ui.view.rows).toHaveLength(16)
+    expect(ui.view.rows[15]).toMatchObject({ branch: { hiddenCount: 4984 } })
+    const text = compose({ ...ui.state, width: 32, height: 12, scroll: 15, columns: ['pid', 'name', 'cpu'] },
+      { processes: chain, history: emptyHistory(), system: {} }, ui.view).text
+    expect(text).toContain('+4984')
+    expect(text.split('\n').every(line => Bun.stringWidth(line) <= 32)).toBe(true)
+    ui.keys('T', 'end', 'T')
+    expect(ui.state.selectedPid).toBe(16)
+    expect(ui.state.scroll).toBe(1)
+    ui.keys('right', 'end')
+    expect(ui.state.selectedPid).toBe(5000)
+    expect(ui.state.scroll).toBe(4985)
+  })
+
+  test('probe and mode transitions invalidate cached rows; flat paints do not read tree identity fields', () => {
+    const select = createRowSelector(forest)
+    const tree = screen({ tree: true })
+    const first = select(tree)
+    expect(select({ ...tree, width: 40, overlay: 'help' })).toBe(first)
+    expect(select({ ...tree, processesOff: true }).rows).toHaveLength(0)
+    expect(select(tree)).not.toBe(first)
+    const flatProc = proc({ pid: 9, name: 'flat' })
+    Object.defineProperty(flatProc, 'command', { get() { throw Error('unexpected identity read') } })
+    const flat = screen({ collapsed: new Set(['old tree key']) })
+    expect(pruneTreeFolds(flat, [flatProc])).toBe(flat)
+    const view = createRowSelector([flatProc])(flat)
+    expect(ensureSelection(flat, view).selectedPid).toBe(9)
+    expect(view.treeIndexes).toBeUndefined()
+    expect(compose(screen({ overlay: 'help' }), { processes: [], history: emptyHistory(), system: {} }).text).toContain('← fold/parent')
   })
 })
 
