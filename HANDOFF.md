@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 7b731a7 chore(handoff): append checkpoint installed-history-evidence
+HEAD: 0bd8703 Verify recorder destination switch and restore through the installed TUI
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -89,6 +89,7 @@ Rebuilt and installed this checkout into /opt/homebrew/bin. Both ./st tui and /o
 Installed integrated process privacy/disclosure and tree/interval controls plus the recording-only group picker through 740d600. Verified actual checkout and installed commands with a controlled child process and isolated configs. Recorder destination, history drill-down and fixed-host SLA acceptance remain open.
 Installed the selected History evidence view, verified via both ./st and /opt/homebrew/bin/st. Destination preview and confirmed config switching are backend-only so far (36ebb8a); implement Settings UI next. No real DB or scheduler changed. Fixed-host SLA evidence remains pending.
 Confirmed and stopped four stale visual fixture processes and their surviving private tmux server. Fix timeout/termination cleanup before further timing runs (nht-080f08); do not terminate ambiguous checkout TUI sessions or unrelated runtimes by name.
+Recorder destination controls are installed: both checkout and shared st verified preview/cancel/confirm/restore on disposable config. Owned-process harness cleanup is integrated, with no matching TUI/test processes or private test servers remaining after validation. Fixed-host SLA acceptance remains outstanding.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -106,7 +107,7 @@ Confirmed and stopped four stale visual fixture processes and their surviving pr
 Open tasks:
 (task manager: memento)
 {
-  "count": 10,
+  "count": 9,
   "items": [
     {
       "id": "nht-9de7a2",
@@ -189,22 +190,22 @@ Open tasks:
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-b1794f-opentui-tui-replacement.md"
     },
     {
-      "id": "nht-4a44a1",
-      "uuid": "01a1efcf-a7e7-7000-abd7-8d5a72203b96",
-      "slug": "nht-4a44a1-preview-and-safely-change-the-recorder-destination",
-      "title": "Preview and safely change the recorder destination",
-      "status": "in-progress",
-      "type": "task",
-      "parent": "nht-f4dce9",
-      "blockedBy": [
-        "nht-8697aa"
-      ],
+      "id": "nht-9bd745",
+      "uuid": "01a0d7da-f8f6-7000-99b1-e2408001ca4d",
+      "slug": "nht-9bd745-stall-pressure-thermal-headroom-and-battery",
+      "title": "Stall pressure, thermal headroom, and battery",
+      "status": "todo",
+      "type": "feature",
+      "parent": "nht-2613eb",
+      "blockedBy": [],
       "blocking": [],
-      "priority": "medium",
+      "priority": "high",
       "attention": null,
       "attentionReason": null,
-      "updatedAt": "2026-11-18T20:21:54.989Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-4a44a1-preview-and-safely-change-the-recorder-destination.md"
+      "updatedAt": "2026-10-24T17:18:45.298Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-9bd745-stall-pressure-thermal-headroom-and-battery.md"
+    },
+    {
 
 <!-- /handoff:next -->
 

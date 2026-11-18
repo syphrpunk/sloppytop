@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Verified recorder destination and test teardown: 351 Bun tests passed, one Linux-only skip, 23 Python tests passed, visual comparisons and both installed/checkout smokes passed. Real recorder config and schedule untouched.
+
+
+## Session digest — 2026-11-18
+
 - Audited live process ownership, removed confirmed test leftovers and filed nht-080f08. Two orphaned checkout TUI processes were left alone pending user confirmation.
 
 
