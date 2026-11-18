@@ -5,6 +5,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   cleanCpuFeatures,
   hardwareInventory,
+  parseDarwinBatteryCapacity,
   normalizeHardware,
   parseCpuinfoFlags,
   parseDarwinHardware,
@@ -55,6 +56,31 @@ const PROFILER = {
 }
 
 describe('hardware inventory', () => {
+  test('keeps raw macOS capacity separate from the OS health reading', () => {
+    const header = '+-o AppleSmartBattery  <class AppleSmartBattery, id 0x1>'
+    const raw = parseDarwinBatteryCapacity(`${header}
+      "BatteryInstalled" = Yes
+      "MaxCapacity" = 100
+      "NominalChargeCapacity" = 4600
+      "DesignCapacity" = 5760
+      "AppleRawMaxCapacity" = 4456
+      "Serial" = "PRIVATE"
+`)
+    expect(raw).toEqual({ design_capacity_mah: 5760, raw_maximum_capacity_mah: 4456 })
+    expect(parseDarwinBatteryCapacity(`${header}\n      "MaxCapacity" = 100`)).toBeUndefined()
+    expect(parseDarwinBatteryCapacity(`${header}\n      "BatteryInstalled" = No\n      "DesignCapacity" = 5760`)).toBeUndefined()
+    expect(parseDarwinBatteryCapacity(`${header}\n      "DesignCapacity" = 5760\n      "AppleRawMaxCapacity" = 0`))
+      .toEqual({ design_capacity_mah: 5760 })
+    const report = parseDarwinHardware({ SPPowerDataType: [{
+      _name: 'spbattery_information',
+      sppower_battery_health_info: {
+        sppower_battery_health: 'Good',
+        sppower_battery_health_maximum_capacity: '80%',
+        sppower_battery_cycle_count: 495,
+      },
+    }] }, { collectedAt: 'fixture', ...(raw ? { batteryCapacity: raw } : {}) })
+    expect(report.battery).toEqual({ ...raw, health: 'Good', maximum_capacity_percent: 80, cycle_count: 495 })
+  })
   test('darwin keeps chip, cores, display, and battery health, and drops serials', () => {
     const report = parseDarwinHardware(PROFILER, { memoryBytes: 17_179_869_184, collectedAt: '2026-10-03T00:00:00.000Z' })
     expect(report).toEqual({

@@ -19,6 +19,7 @@ The `handoff-create --changelog` flow appends entries to "## Unreleased" as you 
 - TUI history (`v`) has a disk comparison tab (`d`); left and right switch metrics.
 - Host network rates use monotonic elapsed time. Missing or reset counter intervals are omitted instead of reported as idle; previously recorded values are unchanged.
 - Linux live sensor samples include hwmon voltage, current and instantaneous power where available, without guessing board voltage scaling.
+- On-demand macOS hardware inventory shows design and raw maximum battery capacity in mAh when available, alongside the OS health percentage and cycle count.
 
 ## 0.3.0 - 2026-10-23
 

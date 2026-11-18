@@ -25,6 +25,8 @@ export interface HardwareBattery {
   health?: string
   maximum_capacity_percent?: number
   cycle_count?: number
+  design_capacity_mah?: number
+  raw_maximum_capacity_mah?: number
 }
 
 export interface HardwareReport {
@@ -101,6 +103,10 @@ export function normalizeHardware(value: unknown): HardwareReport | null {
     if (typeof b['cycle_count'] === 'number' && Number.isFinite(b['cycle_count']) && b['cycle_count'] >= 0) {
       battery.cycle_count = Math.round(b['cycle_count'])
     }
+    for (const key of ['design_capacity_mah', 'raw_maximum_capacity_mah'] as const) {
+      const value = b[key]
+      if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0) battery[key] = value
+    }
     if (Object.keys(battery).length > 0) report.battery = battery
   }
   const features = cleanCpuFeatures(raw['cpu_features'])
@@ -143,13 +149,32 @@ export function parseCpuinfoFlags(text: string): string[] | undefined {
   return cleanCpuFeatures(line[1]!.trim().split(/\s+/))
 }
 
+export function parseDarwinBatteryCapacity(text: string): HardwareBattery | undefined {
+  // `ioreg -d 1` emits only the service; never search nested BatteryData or
+  // substitute MaxCapacity (often normalized to 100 rather than mAh).
+  if (!/^\s*\+-o AppleSmartBattery\s+<class AppleSmartBattery,/m.test(text)
+    || /^\s+"BatteryInstalled" = No\s*$/m.test(text)) return
+  const capacity = (key: string) => {
+    const raw = text.match(new RegExp(`^[ \\t]+"${key}" = (\\d+)[ \\t]*$`, 'm'))?.[1]
+    const value = Number(raw)
+    if (Number.isSafeInteger(value) && value > 0) return value
+  }
+  const design = capacity('DesignCapacity')
+  const maximum = capacity('AppleRawMaxCapacity')
+  if (design === undefined && maximum === undefined) return
+  return {
+    ...(design !== undefined ? { design_capacity_mah: design } : {}),
+    ...(maximum !== undefined ? { raw_maximum_capacity_mah: maximum } : {}),
+  }
+}
+
 /**
  * `system_profiler -json` for hardware, displays, and power.
  * `memoryBytes` is `hw.memsize` when the caller has it; the "16 GB" label is the fallback.
  */
 export function parseDarwinHardware(
   raw: unknown,
-  opts: { memoryBytes?: number; collectedAt: string; cpuFeatures?: string[] },
+  opts: { memoryBytes?: number; collectedAt: string; cpuFeatures?: string[]; batteryCapacity?: HardwareBattery },
 ): HardwareReport {
   if (!raw || typeof raw !== 'object') throw new HardwareError('system_profiler returned no inventory')
   const doc = raw as Record<string, unknown>
@@ -193,6 +218,7 @@ export function parseDarwinHardware(
   }
   const power = arrayOf(doc['SPPowerDataType']).find((item) => item['_name'] === 'spbattery_information')
   const health = power?.['sppower_battery_health_info']
+  if (opts.batteryCapacity) built['battery'] = opts.batteryCapacity
   if (health && typeof health === 'object') {
     const info = health as Record<string, unknown>
     const capacity =
@@ -200,6 +226,7 @@ export function parseDarwinHardware(
         ? info['sppower_battery_health_maximum_capacity'].match(/(\d+(?:\.\d+)?)\s*%/)
         : null
     built['battery'] = {
+      ...opts.batteryCapacity,
       health: info['sppower_battery_health'],
       maximum_capacity_percent: capacity ? Number(capacity[1]) : undefined,
       cycle_count: info['sppower_battery_cycle_count'],
@@ -341,14 +368,27 @@ function collectDarwin(collectedAt: string): HardwareReport {
       execFileSync('/usr/sbin/sysctl', ['-n', 'hw.memsize'], { encoding: 'utf8' }).trim(),
     )
     const cpuFeatures = readCpuFeatures()
+    const batteryCapacity = readDarwinBatteryCapacity()
     return parseDarwinHardware(JSON.parse(text), {
       collectedAt,
       ...(Number.isFinite(mem) ? { memoryBytes: mem } : {}),
       ...(cpuFeatures ? { cpuFeatures } : {}),
+      ...(batteryCapacity ? { batteryCapacity } : {}),
     })
   } catch (err) {
     if (err instanceof HardwareError) throw err
     throw new HardwareError('system_profiler failed')
+  }
+}
+
+function readDarwinBatteryCapacity(): HardwareBattery | undefined {
+  try {
+    return parseDarwinBatteryCapacity(execFileSync(
+      '/usr/sbin/ioreg', ['-r', '-c', 'AppleSmartBattery', '-d', '1'],
+      { encoding: 'utf8', timeout: 500, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024 },
+    ))
+  } catch {
+    return undefined
   }
 }
 
