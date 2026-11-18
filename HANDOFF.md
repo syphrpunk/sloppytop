@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 36ebb8a Validate and confirm recorder destination switches without moving history
+HEAD: 7b731a7 chore(handoff): append checkpoint installed-history-evidence
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -88,6 +88,7 @@ Tree mode now supports folding and focus navigation (a24f505). Optional recordin
 Rebuilt and installed this checkout into /opt/homebrew/bin. Both ./st tui and /opt/homebrew/bin/st tui rendered the new tree help in independent PTYs. For subsequent user-facing changes distinguish built vs installed: refresh this local install and verify a visible feature through the user's actual command.
 Installed integrated process privacy/disclosure and tree/interval controls plus the recording-only group picker through 740d600. Verified actual checkout and installed commands with a controlled child process and isolated configs. Recorder destination, history drill-down and fixed-host SLA acceptance remain open.
 Installed the selected History evidence view, verified via both ./st and /opt/homebrew/bin/st. Destination preview and confirmed config switching are backend-only so far (36ebb8a); implement Settings UI next. No real DB or scheduler changed. Fixed-host SLA evidence remains pending.
+Confirmed and stopped four stale visual fixture processes and their surviving private tmux server. Fix timeout/termination cleanup before further timing runs (nht-080f08); do not terminate ambiguous checkout TUI sessions or unrelated runtimes by name.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->

@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Audited live process ownership, removed confirmed test leftovers and filed nht-080f08. Two orphaned checkout TUI processes were left alone pending user confirmation.
+
+
+## Session digest — 2026-11-18
+
 - Verified 348 tests, one Linux-only skip, type-check, installation and both entrypoint diagnosis smokes. Visual suite timed out under concurrent load, then passed standalone.
 
 
