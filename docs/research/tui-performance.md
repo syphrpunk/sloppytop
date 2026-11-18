@@ -234,3 +234,21 @@ showed no clear first-launch improvement: before 2.45–3.86 s, after
 3.39–3.76 s to first frame. The interrupted repeat-launch series was not
 large or consistent enough to claim a warm-start gain. The cold-start
 target remains unmet.
+
+### Dynamic-loader timing control
+
+After lazy loading, measured `--version` with `DYLD_PRINT_LIBRARIES=1`
+on five ordinary copies of the standalone ARM64 executable, followed by
+a repeat on each identical path. Both pipes were timestamped with a
+monotonic clock from before `subprocess.Popen`, without a TTY.
+
+| Launch | Spawn call returned | First dyld line | Version output |
+|---|---:|---:|---:|
+| Fresh file (5) | 2.3–3.0 ms | 1,117–1,293 ms | 1,167–1,350 ms |
+| Same file again (5) | 2.0–5.3 ms | 2.9–6.2 ms | 44–53 ms |
+
+After the first loader line, version output took 49–57 ms fresh versus
+41–50 ms on repeat. Most of the cold penalty precedes the first
+observable dyld message, so additional JS lazy loading cannot account
+for it. This control does not identify the OS or host policy component
+responsible; it does not establish that signing or notarization would help.

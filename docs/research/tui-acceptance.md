@@ -21,3 +21,7 @@ the [comparative timings](tui-performance.md#macos-packaging-investigation).
 The next distinct control is a Developer ID signed/notarized candidate;
 the local keychain has no usable signing identity. No OS protections,
 release packaging, or targets were changed to obtain a pass.
+
+A five-pair loader timing control after lazy loading placed the fresh-file
+delay before the first dyld diagnostic (1.12–1.29 s fresh versus 3–6 ms on
+repeat). The remaining gate is not a measured TUI initialization problem.
