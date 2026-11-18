@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Local network discovery batch planned — 2026-11-18
+
+- Prepared twelve on-demand local discovery slices (14–25) with acceptance evidence for each. Planning only; no host checks or runtime changes.
+
+
 ## Powercap hardware validation deferred — 2026-11-18
 
 - Deferred Slice 13 real hardware testing until later this week. Updated `nht-4aa2dd` and the validation checklist; no runtime or host changes.

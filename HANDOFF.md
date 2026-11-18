@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 58a8539 docs: record OptiPlex powercap access check
+HEAD: 7336340 docs: defer powercap hardware validation
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -49,6 +49,8 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 [Slice 09](docs/research/slices/09-linux-cgroup-totals.md) adds Linux cgroup totals (`8cb2991`); [10](docs/research/slices/10-history-coverage.md) adds CLI/TUI history coverage (`d84921b`); [11](docs/research/slices/11-interface-throughput.md) adds live interface rates (`84075f8`); [12](docs/research/slices/12-disk-topology.md) adds on-demand disk topology (`3b90ee8`). All four have local verification and individual evidence notes.
 
 [Slice 13](docs/research/slices/13-linux-powercap.md) adds experimental package watts (`093616b`). The Linux arm64 guest exposed no powercap. The OptiPlex exposes `package-0`, but its energy counter is root-only. Real hardware validation is deferred until later this week (`nht-4aa2dd`), separately from the NVIDIA follow-up. The goal remains blocked until the checklist is verified on a host with counters readable without elevation.
+
+[Proposed slices 14–25](docs/research/slices/14-25-network-discovery-plan.md) lay out twelve on-demand local network discovery slices with per-slice verification gates. No implementation has started; the hardware validation follow-ups are unchanged.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -64,6 +66,8 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 **Deferred until later this week:** Use the [Slice 13 powercap checklist](docs/research/slices/13-linux-powercap.md#real-hardware-verification) on an authorized Linux host with counters readable by the test account. Track evidence in `nht-4aa2dd`.
 
 **Separate, deferred:** NVIDIA cloud validation remains in `nht-f456db`.
+
+**Proposed next batch:** Review the [local network discovery plan](docs/research/slices/14-25-network-discovery-plan.md). Start with Slice 14 once implementation is requested.
 
 **Queue: Memento is the source of truth.**
 
