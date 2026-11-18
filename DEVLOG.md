@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Revised TUI acceptance — 2026-11-18
+
+- Removed the operator-waived fresh-launch gate, verified the retained budgets and fixed the discovery smoke to inspect rendered terminal cells.
+
+
 ## Second-Mac startup retest — 2026-11-18
 
 - Repeated five launch pairs after a reported change to real-time protection; the cold-start miss persisted.

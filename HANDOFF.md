@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: af85998 docs(tui): record startup retest on mbp2023
+HEAD: 37c7ccd test(tui): verify remaining acceptance and fix discovery smoke
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -73,6 +73,7 @@ Instruments System Trace identified a 537 ms pre-start wait in one fresh executa
 Ran five fresh/repeat PTY pairs with the identical ARM64 artifact on mbp2023 (macOS 27.0.1). All ten live smokes passed; fresh first frame took 1.24–1.49 s versus 82.5–84.8 ms on repeat. The fresh-start gate still fails on the second Mac. No global install or services changed, and temporary files were removed.
 Instruments on mbp2023 observed fresh main-thread blocks of 265 and 864 ms ending in Malwarebytes and syspolicyd wakeups respectively, before the first target syscall. The same-file repeat showed neither wakeup. The measured fresh-start gates are still unmet; no security settings changed.
 After the operator reported disabling Malwarebytes real-time protection, the same binary on mbp2023 still took 1.28–1.47 s fresh and 82–86 ms on repeat across five pairs. All ten live smokes passed. No new trace or independent verification of the protection setting was performed.
+The operator removed macOS fresh-file startup and signing/packaging from the goal; the failed measurements remain in the performance notes. The retained checks passed, including repeat-launch startup, resize, interaction, idle and memory budgets, visual baselines and compiled discovery. Both TUI Memento items are complete. The Pi goal still requires an explicit resume before closing.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -85,13 +86,11 @@ After the operator reported disabling Malwarebytes real-time protection, the sam
 
 <!-- handoff:next -->
 
-**TUI goal:** See the [acceptance checklist](docs/research/tui-acceptance.md) and [performance notes](docs/research/tui-performance.md#second-mac-mbp2023) (`nht-005268`, `nht-ead7a9`). A second Mac reproduced the fresh-file startup miss. Next distinct controls include a trusted signed/notarized artifact or another supported distribution candidate.
+**TUI:** Retained work verified; both Memento items are complete. See the [acceptance checklist](docs/research/tui-acceptance.md). Resume the blocked Pi goal explicitly to close it under the operator's revised scope. Fresh-file macOS startup was removed, not passed.
 
-**Deferred:** Linux powercap (`nht-4aa2dd`) and NVIDIA (`nht-f456db`) still require their separately documented hardware verification.
+**Deferred hardware work:** Linux powercap (`nht-4aa2dd`) and NVIDIA (`nht-f456db`) still require their separately documented hardware verification.
 
 **Discovery batch verified:** See the [discovery workflow and evidence](docs/research/slices/18-25-discovery-workflow.md).
-
-**Queue:** Memento is the source of truth. Other open items include Apple Silicon energy (`nht-9de7a2`), CLI parity (`nht-cb0edf`), corpus research (`nht-2613eb`), OpenTUI (`nht-b1794f`), and pressure/thermal/battery (`nht-9bd745`).
 
 <!-- /handoff:next -->
 
