@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: cd472ac docs(tui): finalize the revised acceptance audit
+HEAD: 2af088d test(diagnostics): validate the compiled workflow on Linux and macOS
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -75,6 +75,7 @@ Instruments on mbp2023 observed fresh main-thread blocks of 265 and 864 ms endin
 After the operator reported disabling Malwarebytes real-time protection, the same binary on mbp2023 still took 1.28–1.47 s fresh and 82–86 ms on repeat across five pairs. All ten live smokes passed. No new trace or independent verification of the protection setting was performed.
 The operator removed macOS fresh-file startup and signing/packaging from the goal; the failed measurements remain in the performance notes. The retained checks passed, including repeat-launch startup, resize, interaction, idle and memory budgets, visual baselines and compiled discovery. Both TUI Memento items are complete. The Pi goal still requires an explicit resume before closing.
 After resuming, reran type-check, build, live and discovery PTY smokes, visual baselines, and all 290 tests on macOS (289 pass, one Linux-only skip). The retained TUI acceptance checks and both Memento items are verified; fresh-file startup was removed by the operator, not passed.
+The [diagnosis batch](docs/research/slices/26-37-diagnosis.md) added recorder health, history evidence, comparison reports, workload and interface history, redacted discovery diffs and diagnostic reports, and TUI sample inspection. Mac and OptiPlex builds passed the same-DB compiled diagnosis smoke; macOS had 298 tests pass (one Linux-only skip) and Linux had 299 pass. The existing Apple Silicon tracker `nht-9de7a2` remains open: two Macs did not supply validated fan and cluster-frequency measurements, and CPU energy stayed at zero in the second Mac's three live trials. Revisit only with a reliable unprivileged provider or a user-approved change to the requirement. NVIDIA and Linux powercap remain separate.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -87,11 +88,112 @@ After resuming, reran type-check, build, live and discovery PTY smokes, visual b
 
 <!-- handoff:next -->
 
-**TUI:** The retained [acceptance checks](docs/research/tui-acceptance.md) passed and both Memento items are complete. Fresh-file macOS startup was explicitly removed from scope, not passed.
+**Queue: the configured task manager below (source of truth); the configured queue view, if any, is generated from it.**
 
-**Deferred hardware work:** Linux powercap (`nht-4aa2dd`) and NVIDIA (`nht-f456db`) still require their separately documented hardware verification.
+**Diagnosis:** Resume [Slice 34](docs/research/slices/26-37-diagnosis.md) when an unprivileged RPM and cluster-frequency source plus a live energy comparison are available. Do not close `nht-9de7a2` based on the temperature and watts evidence alone.
 
-**Discovery batch verified:** See the [discovery workflow and evidence](docs/research/slices/18-25-discovery-workflow.md).
+Open tasks:
+(task manager: memento)
+{
+  "count": 7,
+  "items": [
+    {
+      "id": "nht-9de7a2",
+      "uuid": "01a0d7da-f81b-7000-bb47-53203d449d63",
+      "slug": "nht-9de7a2-apple-silicon-energy-sample",
+      "title": "Apple Silicon energy sample",
+      "status": "todo",
+      "type": "feature",
+      "parent": "nht-2613eb",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "high",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-11-01T08:26:19.378Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-9de7a2-apple-silicon-energy-sample.md"
+    },
+    {
+      "id": "nht-cb0edf",
+      "uuid": "01a0d7da-f744-7000-953d-f33b5e5bdcd9",
+      "slug": "nht-cb0edf-expand-the-cli-past-process-table-parity",
+      "title": "Expand the CLI past process-table parity",
+      "status": "todo",
+      "type": "milestone",
+      "parent": null,
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "high",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-09-25T09:17:26.726Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-cb0edf-expand-the-cli-past-process-table-parity.md"
+    },
+    {
+      "id": "nht-2613eb",
+      "uuid": "01a0d7da-f7b9-7000-89cb-1567be8c3ef1",
+      "slug": "nht-2613eb-harvest-faculties-from-the-repos-monitor-corpus",
+      "title": "Harvest faculties from the _repos monitor corpus",
+      "status": "todo",
+      "type": "epic",
+      "parent": "nht-cb0edf",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "high",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-09-25T09:17:26.842Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-2613eb-harvest-faculties-from-the-repos-monitor-corpus.md"
+    },
+    {
+      "id": "nht-b1794f",
+      "uuid": "01a00e6e-2b7e-7000-b59f-dae09b769881",
+      "slug": "nht-b1794f-opentui-tui-replacement",
+      "title": "OpenTUI TUI replacement",
+      "status": "todo",
+      "type": "epic",
+      "parent": null,
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "low",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-08-17T06:34:56.255Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-b1794f-opentui-tui-replacement.md"
+    },
+    {
+      "id": "nht-9bd745",
+      "uuid": "01a0d7da-f8f6-7000-99b1-e2408001ca4d",
+      "slug": "nht-9bd745-stall-pressure-thermal-headroom-and-battery",
+      "title": "Stall pressure, thermal headroom, and battery",
+      "status": "todo",
+      "type": "feature",
+      "parent": "nht-2613eb",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "high",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-10-24T17:18:45.298Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-9bd745-stall-pressure-thermal-headroom-and-battery.md"
+    },
+    {
+      "id": "nht-f456db",
+      "uuid": "01a1eca1-0d8a-7000-8379-96b786102420",
+      "slug": "nht-f456db-validate-experimental-nvidia-telemetry-on-a-real-cloud-gpu",
+      "title": "Validate experimental NVIDIA telemetry on a real cloud GPU",
+      "status": "todo",
+      "type": "task",
+      "parent": "nht-2613eb",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": null,
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-11-18T03:09:00.170Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-f456db-validate-experimental-nvidia-telemetry-on-a-real-cloud-gpu.md"
+    },
+    {
 
 <!-- /handoff:next -->
 

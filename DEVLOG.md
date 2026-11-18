@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Diagnosis batch and cross-platform release checks — 2026-11-18
+
+- Added and tested recorder health, history/report evidence, redacted exports, and TUI sample inspection. Verified the compiled workflow on macOS and Linux; Apple Silicon energy coverage remains open.
+
+
 ## Final TUI acceptance audit — 2026-11-18
 
 - Rechecked the retained TUI acceptance criteria and reran the full local validation suite after resuming the goal.
