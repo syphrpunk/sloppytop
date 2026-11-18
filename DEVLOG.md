@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Full-session TUI trace and fresh-file startup controls — 2026-11-18
+
+- Recorded full-session lag and RSS after the Unicode fix, and confirmed that APFS clones reproduce the macOS launch delay without entering the TUI.
+
+
 ## TUI Unicode alignment and styled baselines — 2026-11-18
 
 - Fixed truncated values beside wide-character names and checked four reviewed styled frames. A deliberate color mutation failed verification.

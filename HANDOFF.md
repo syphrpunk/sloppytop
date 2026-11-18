@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 61296bf fix(tui): align Unicode cells and check rendered styles
+HEAD: e62e2f1 docs(tui): isolate first launch delay with APFS clone controls
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -63,6 +63,7 @@ The PTY harness now opens and dismisses every overlay, checks a narrow picker ba
 Sustained benchmarks now measure RSS/CPU and tree toggles. Linux arm64 passed type-check, standalone build, all 288 tests, and compiled PTY smoke as UID 1000. On macOS the 5,000-row soak stayed below the memory budget, but Escape dismissal narrowly missed p95; the live memory run has not established a plateau. Cold macOS startup remains open.
 The [acceptance checklist](docs/research/tui-acceptance.md) maps delivered changes and open gates. A 105-second macOS run showed RSS reclamation (132 → 107 MiB), and the 5,000-row Escape repeat passed but did not erase the previous miss. The trace preserves worst stalls across percentile-buffer wraparound. A minimal standalone Bun launch reproduced the fresh-build startup delay. Latest macOS validation: 288 pass, one Linux-only skip, type-check, build, visual and compiled PTY smoke.
 Visual review caught a wide-character name clipping the adjacent CPU cell. Fixed terminal-cell alignment and grapheme-safe truncation; added reviewed SVG hashes for the main layouts, discovery scrolling and picker. An intentional background-color mutation failed the style check. Latest macOS validation: 289 passed, one Linux-only skip, type-check, build, compiled smoke and visual checks. Fresh macOS launch remains above budget.
+After the Unicode fix, an 80-second live soak measured 16.9 ms maximum loop lag across the full session and search/Escape/scroll p95 of 27/45/19 ms. Live RSS rose from 93 to 145 MiB during the observation; paused RSS was 106 MiB. First launches of verified APFS clones still took 2.32–2.51 s even for `--version`, confirming the delay does not require a rebuild or TUI initialization.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -75,7 +76,7 @@ Visual review caught a wide-character name clipping the adjacent CPU cell. Fixed
 
 <!-- handoff:next -->
 
-**TUI goal active:** Follow the [acceptance checklist](docs/research/tui-acceptance.md), [visual backlog](docs/research/tui-follow-up.md) (`nht-005268`) and [performance notes](docs/research/tui-performance.md) (`nht-ead7a9`). Styled baselines and Unicode coverage now pass. Rerun the long trace with the full-session maximum. Fresh macOS standalone startup remains above budget and reproduces without Sloppytop.
+**TUI goal active:** Follow the [acceptance checklist](docs/research/tui-acceptance.md), [visual backlog](docs/research/tui-follow-up.md) (`nht-005268`) and [performance notes](docs/research/tui-performance.md) (`nht-ead7a9`). Styled baselines, Unicode coverage and full-session lag checks pass on macOS. Fresh standalone startup remains above budget; RSS should be observed across more than one reclamation cycle.
 
 **Deferred:** Linux powercap (`nht-4aa2dd`) and NVIDIA (`nht-f456db`) still require their separately documented hardware verification.
 
