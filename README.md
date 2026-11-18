@@ -106,6 +106,11 @@ just setup
 ```
 
 `just build` writes `ts/dist/sloppytop`.
+Use `just install` for `/usr/local/bin`, or `just install /opt/homebrew/bin`
+for the usual Apple Silicon Homebrew PATH. The checkout installer adds an
+`st` symlink beside `sloppytop` only if neither the destination, PATH, nor
+your login shell already uses `st`. It does not edit shell startup files.
+Package-manager installs keep their existing command names.
 
 </details>
 

@@ -843,7 +843,8 @@ describe('screen boundaries', () => {
     }
     const tick = run.slice(run.indexOf('const tick = async'), run.indexOf('await new Promise'))
     const sampleTick = run.slice(run.indexOf('export async function runSampleTick'), run.indexOf('export async function runTui'))
-    expect(tick.includes('runSampleTick')).toBe(true)
+    expect(run.includes('sampleTick = runSampleTick')).toBe(true)
+    expect(tick.includes('await sampleTick')).toBe(true)
     expect(tick.includes('paint()')).toBe(true)
     expect(sampleTick.includes('takeSample')).toBe(true)
     expect(tick.includes('fulfillPage')).toBe(false)

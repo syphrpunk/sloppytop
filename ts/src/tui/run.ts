@@ -79,6 +79,7 @@ export async function runSampleTick(opts: { paused: boolean; sampleMs: number })
 export async function runTui(
   loaders: PageLoaders = defaultPageLoaders(),
   loadDiscovery = async () => (await import('../discovery/overview.ts')).discoverOverview(),
+  sampleTick = runSampleTick,
 ): Promise<void> {
   const config = ensureTuiConfig()
   const sampleMs = config.record.sampleMs
@@ -405,7 +406,7 @@ export async function runTui(
     if (stopped) return
     const started = Date.now()
     try {
-      const sample = await runSampleTick({ paused: state.paused, sampleMs })
+      const sample = await sampleTick({ paused: state.paused, sampleMs })
       if (stopped) return
       if (sample) {
         system = sample.system

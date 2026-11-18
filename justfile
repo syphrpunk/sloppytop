@@ -25,9 +25,9 @@ clean:
     rm -rf ts/dist
     rm -f sloppytop-cli sloppytop-cli.exe sloppytop-cli-* neohtop-cli neohtop-cli.exe neohtop-cli-*
 
-# Install the compiled binary
-install: build
-    cp ts/dist/sloppytop /usr/local/bin/sloppytop
+# Install the compiled binary and add st only if that command is free
+install directory="/usr/local/bin": build
+    bun ts/install.ts ts/dist/sloppytop "{{directory}}"
 
 # Install TS dependencies
 ts-setup:
@@ -55,6 +55,11 @@ ts-compile: build
 # Quit-check the compiled screen. Uses a temp config dir and does not print the frame.
 ts-smoke:
     python3 ts/smoke-tui.py ts/dist/sloppytop
+
+# Capture synthetic terminal frames (text and SVG, plus PNG with rsvg-convert)
+tui-visual output="ts/dist/tui-visual":
+    cd ts && bun build --compile discovery-pty-fixture.ts --outfile dist/discovery-pty-fixture
+    python3 ts/visual-tui.py ts/dist/discovery-pty-fixture "{{output}}"
 
 # Cross-target bun runtimes are not downloadable on canary. Release binaries
 # are compiled natively per platform in CI (see release.yml).
