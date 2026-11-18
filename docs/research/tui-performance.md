@@ -168,6 +168,12 @@ row, not the footer PID, which Linux can emit as separate updates.
   1.31 s to launch, versus under 0.01 s on its second launch. This
   reproduces the fresh-build delay without any Sloppytop dependencies or
   code. It is not evidence that the cold-start target has been met.
+- Three first launches of APFS clones of the already-built executable
+  took 2.32–2.51 s for `--version` (at most 0.08 s user plus system CPU).
+  The delay therefore also occurs on a new file without recompiling or
+  invoking the TUI. Running `codesign --verify --strict` on two more clones
+  did not remove the delay; their first launches still took 2.36 and
+  2.41 s. This does not identify the macOS component responsible.
 - After the Unicode layout fix, `just tui-bench --workload live --trace
   --trials 20 --starts 1 --idle 5 --soak 80` measured 16.9 ms maximum
   loop lag across all 4,686 observations (1.04 ms p95 over the last
