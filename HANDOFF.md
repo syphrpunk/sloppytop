@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 4439ba4 docs: trace sampling gaps in three reference monitors
+HEAD: d6c3e63 feat: chart recorded metrics with gaps and Linux thermal headroom
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -36,7 +36,9 @@ The GitHub repository is now `syphrpunk/sloppytop`, and this checkout’s `origi
 
 Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/research/new-repo-corpus.md) for the inventory and shortlist. No reference code was imported.
 
-[Deep dive 01](docs/research/slices/01-sampling-gaps.md) is complete: the working tree charts stored rates directly and retains missing sample slots (`nht-62c980`). Verified 236 tests, type-check, compiled build, and TUI smoke on macOS arm64. The implementation remains unstaged because it builds on pre-existing TUI history edits. Live collection/storage validity is separate (`nht-4e0e0e`); next research slice is Linux pressure and OOM outcomes.
+[Deep dive 01](docs/research/slices/01-sampling-gaps.md) is complete and committed with the pending chart and Linux headroom work in `d6c3e63` (`nht-62c980`). Recorder and Homebrew cask edits are in `e42bb2b`. Verified 236 tests, type-check, compiled build, and TUI smoke on macOS arm64; the cask parsed in Homebrew and its digest matched the release asset. No live cask install or scheduler was run. Live rate validity is tracked separately (`nht-4e0e0e`).
+
+[Deep dive 02](docs/research/slices/02-linux-memory-pressure-and-oom.md) is underway: traced PSI and OOM semantics in Headroom and Below. The first implementation (`nht-9f5f15`) is a read-only Linux kernel count, not a journal parser or an oomd policy detector.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->

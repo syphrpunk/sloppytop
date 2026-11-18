@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Pending work committed; OOM deep dive started — 2026-11-18
+
+- Committed the recorder and cask (`e42bb2b`) and recorded charts with Linux thermal headroom (`d6c3e63`). Re-ran 236 tests, type-check, build, and TUI smoke. Parsed the cask and checked its asset digest, without installing it.
+- Started [slice 02](docs/research/slices/02-linux-memory-pressure-and-oom.md) and filed `nht-9f5f15` for the host kernel count.
+
 ## Sampling slice completed — 2026-11-18
 
 - Fixed TUI history rate units and missing slots, closed `nht-62c980`, and filed live rate validity separately (`nht-4e0e0e`). All 236 tests, type-check, compiled build, and TUI smoke passed on macOS arm64.
