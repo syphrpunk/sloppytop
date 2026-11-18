@@ -4,6 +4,10 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Sampling slice completed — 2026-11-18
+
+- Fixed TUI history rate units and missing slots, closed `nht-62c980`, and filed live rate validity separately (`nht-4e0e0e`). All 236 tests, type-check, compiled build, and TUI smoke passed on macOS arm64.
+
 ## Sampling deep dive — 2026-11-18
 
 - Compared GPUI Metrics Monitor, iodyne, and nanomon source. Reproduced the TUI history unit mismatch and dropped samples; documented the test cases and filed `nht-62c980`. No product code changed.

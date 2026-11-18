@@ -20,9 +20,10 @@ Scope: three source snapshots from `_repos/new`, compared with Sloppytop at `c4f
 
 Called `historyView()` with three samples one minute apart, supplied newest first. RX rates in chronological order were `100, 10, 10`; CPU power was `0, missing, 4`. The current output was `rx/s: [0]` and `cpu W: [0, 4]`. Expected: three RX samples as recorded and three power slots, with the middle slot visibly absent. This exercised projection, not the live collectors or database.
 
-## Implementation handoff
+## Implementation and verification
 
-- **First fix** (`nht-62c980`): chart the stored RX/TX rates directly; give optional chart values an explicit missing slot. Use a glyph distinct from zero and left padding, and exclude missing values from auto-scaling. Skip an entirely missing series, but not a series of measured zeros. Test steady and declining rates, single rows, interior and trailing gaps, and width clipping.
-- **Separate follow-up:** make live elapsed time monotonic and invalidate only affected counter intervals; use the first valid observation after an unavailable reading as the next baseline. Trace storage and export compatibility before making the new validity signal public. Preserve older rows as recorded; don't guess which zeros were invalid. This slice treats gaps in existing rows, not intervals in which the recorder wrote no row at all.
+- **Completed** (`nht-62c980`): history charts read stored RX/TX rates directly. Optional measurements retain one slot per row; missing slots render as `⠂`, distinct from zero and left padding, and don't affect auto-scaling. All-missing series are omitted; measured-zero series remain.
+- Regression tests exercise steady and declining rates, a single measured-zero row, interior and trailing gaps in the rendered frame, and width clipping. On macOS arm64, `just test` (236 passing), `just ts-check`, `just build`, and `just ts-smoke` passed.
+- **Separate follow-up** (`nht-4e0e0e`): make live elapsed time monotonic and invalidate only affected counter intervals; use the first valid observation after an unavailable reading as the next baseline. Trace storage and export compatibility before making the new validity signal public. Preserve older rows as recorded; don't guess which zeros were invalid. This slice treats gaps in existing rows, not intervals in which the recorder wrote no row at all.
 
-Next research slice: Linux memory pressure versus OOM outcomes (Headroom and Below). No product code was changed in this slice.
+Next research slice: Linux memory pressure versus OOM outcomes (Headroom and Below).
