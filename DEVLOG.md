@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Replaced the stale local binary and verified the installed shortcut matches the build byte for byte; both checkout and installed commands rendered fold/parent help.
+
+
+## Session digest — 2026-11-18
+
 - Integrated keyboard tree folding and recording-only storage groups. 329 tests passed, one Linux-only skip; type-check, build, visual comparisons and compiled diagnosis passed.
 
 

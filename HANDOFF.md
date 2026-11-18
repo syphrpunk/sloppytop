@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 88d15a0 Apply recording-only group choices at SQLite insertion
+HEAD: 6ff99fa chore(handoff): append checkpoint tree-and-record-policy
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -85,6 +85,7 @@ Audit dispatch is tracked under Memento epic nht-f4dce9: one completed evidence 
 First wave integrated locally through cd9f83e. The 12-repeat macOS baseline/candidate PTY comparison after warmup measured populated-table p95 2443/1988 ms, with 3/0 misses. Recorder Settings is read-only; focused picker remains prototype-only. Fixed-host macOS/Linux release-gate reports are still pending (nht-bee39c).
 Integrated confirmed recorder schedule changes and readback (c4e0103), plus tree projection only (b97c133). Wire tree keys, focus and hidden counts next. The diagnosis smoke initially failed before the first tmux frame; launching the binary directly instead of through shell startup hooks fixed it (5eddc53). No real scheduler was changed.
 Tree mode now supports folding and focus navigation (a24f505). Optional recording groups are enforced at SQLite insertion (88d15a0); the next screen integration is exposing those choices in recorder Settings without changing global probes.
+Rebuilt and installed this checkout into /opt/homebrew/bin. Both ./st tui and /opt/homebrew/bin/st tui rendered the new tree help in independent PTYs. For subsequent user-facing changes distinguish built vs installed: refresh this local install and verify a visible feature through the user's actual command.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
