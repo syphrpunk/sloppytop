@@ -183,6 +183,20 @@ Cli.create('sloppytop', {
       }
     },
   })
+  .command('discover', {
+    description: 'Inspect local network state on demand without probing the network',
+    mcp: false,
+    options: z.object({
+      section: z.enum(['interfaces', 'routes', 'neighbors']).default('interfaces').describe('Local inventory section'),
+    }),
+    async run(c) {
+      if (!loadConfig().probes.network) return c.error(probeOff('network'))
+      if (c.options.section === 'routes') return { providers: (await import('./discovery/routes.ts')).discoverRoutes() }
+      if (c.options.section === 'neighbors') return { providers: (await import('./discovery/neighbors.ts')).discoverNeighbors() }
+      const { discoverInterfaces } = await import('./discovery/interfaces.ts')
+      return discoverInterfaces()
+    },
+  })
   .command('system', {
     description:
       'System-wide stats: CPU, memory, disk, per-device throughput and latency, network, load, host info. On macOS, GPU utilization and in-use GPU memory are included when AGX PerformanceStatistics is present. Temperatures, fan speeds, memory composition, page rates, thermal state, and P/E core labels are included when the platform measures them.',
