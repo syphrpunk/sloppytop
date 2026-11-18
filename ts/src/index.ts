@@ -156,15 +156,24 @@ Cli.create('sloppytop', {
       'On-demand hardware inventory: chip, core layout, memory, displays, battery health, and CPU feature flags when the platform lists them. Cached under ~/.config/sloppytop, or an existing ~/.config/neohtop directory. record and service never call this.',
     options: z.object({
       refresh: z.boolean().default(false).describe('Re-read the platform and replace the cache'),
+      diskTopology: z.boolean().default(false).describe('Read current disk topology instead of cached hardware inventory'),
     }),
-    run(c) {
+    async run(c) {
       if (!loadConfig().probes.hardware) return c.error(probeOff('hardware'))
       try {
+        if (c.options.diskTopology) {
+          if (c.options.refresh) return c.error({ code: 'INVALID_ARGS', message: '--disk-topology is already live; do not combine it with --refresh' })
+          const { diskTopology } = await import('./monitor/disk-topology.ts')
+          const disks = diskTopology()
+          if (!disks.length) return c.error({ code: 'HARDWARE_UNAVAILABLE', message: 'no disk topology is visible on this platform' })
+          return c.ok({ disks })
+        }
         const report = hardwareInventory({ refresh: c.options.refresh })
         appendProbeLog([hardwareEntry(report)])
         note('hardware', report.from_cache ? 'cache hit' : 'fresh inventory')
         return c.ok(report)
       } catch (err) {
+        if (c.options.diskTopology) return c.error({ code: 'HARDWARE_UNAVAILABLE', message: 'unable to read disk topology' })
         if (err instanceof HardwareError) {
           note('hardware', err.message, 'error')
           return c.error({ code: 'HARDWARE_UNAVAILABLE', message: err.message })
