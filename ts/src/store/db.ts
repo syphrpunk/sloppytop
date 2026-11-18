@@ -7,6 +7,7 @@ import type {
   CpuCoreKind,
   DiskDevice,
   FanReading,
+  NetworkInterfaceRate,
   ProcessInfo,
   SystemStats,
   TemperatureReading,
@@ -29,6 +30,7 @@ CREATE TABLE IF NOT EXISTS system_samples (
   load_15 REAL NOT NULL,
   network_rx_bytes INTEGER,
   network_tx_bytes INTEGER,
+  network_interfaces TEXT,
   disk_total_bytes INTEGER NOT NULL,
   disk_used_bytes INTEGER NOT NULL,
   disk_free_bytes INTEGER NOT NULL,
@@ -83,6 +85,7 @@ CREATE INDEX IF NOT EXISTS idx_process_samples_name ON process_samples(name);
 `
 
 const ADDED_SYSTEM_COLUMNS: [name: string, type: string][] = [
+  ['network_interfaces', 'TEXT'],
   ['swap_total_bytes', 'INTEGER'],
   ['swap_used_bytes', 'INTEGER'],
   ['battery_charge_percent', 'REAL'],
@@ -180,13 +183,13 @@ export function insertSample(
       temperatures, fans, thermal_state,
       memory_wired_bytes, memory_compressed_bytes, memory_app_bytes, memory_cached_bytes,
       pageins_per_s, pageouts_per_s, compressions_per_s, decompressions_per_s,
-      cpu_core_kinds, linux_oom_kills, linux_boot_id
+      cpu_core_kinds, linux_oom_kills, linux_boot_id, network_interfaces
     ) VALUES (
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-      ?, ?, ?, ?
+      ?, ?, ?, ?, ?
     )
   `)
   const insertProcess = db.prepare(`
@@ -290,6 +293,7 @@ export function insertSample(
       coreKinds,
       system.linux_oom_kills ?? null,
       system.linux_oom_kills !== undefined ? linuxBootId ?? null : null,
+      jsonOrNull(system.network_interfaces),
     )
     const sampleId = Number(lastInsertRowid)
     for (const p of top) {
@@ -331,6 +335,7 @@ export interface HistoryRow {
   load_1: number
   network_rx_bytes?: number
   network_tx_bytes?: number
+  network_interfaces?: NetworkInterfaceRate[]
   process_count: number
   swap_total_bytes?: number
   swap_used_bytes?: number
@@ -371,6 +376,7 @@ interface HistorySqlRow {
   load_1: number
   network_rx_bytes: number | null
   network_tx_bytes: number | null
+  network_interfaces: string | null
   process_count: number
   swap_total_bytes: number | null
   swap_used_bytes: number | null
@@ -413,6 +419,8 @@ function historyRow(row: HistorySqlRow): HistoryRow {
   }
   if (row.network_rx_bytes != null) out.network_rx_bytes = row.network_rx_bytes
   if (row.network_tx_bytes != null) out.network_tx_bytes = row.network_tx_bytes
+  const interfaces = parseInterfaceRates(row.network_interfaces)
+  if (interfaces) out.network_interfaces = interfaces
   if (row.swap_total_bytes != null && row.swap_used_bytes != null) {
     out.swap_total_bytes = row.swap_total_bytes
     out.swap_used_bytes = row.swap_used_bytes
@@ -460,7 +468,7 @@ export function queryHistory(db: Database, sinceIso: string, limit: number): His
   const rows = db
     .prepare(
       `SELECT id, at, cpu_usage_total, memory_used, memory_total, load_1,
-              network_rx_bytes, network_tx_bytes, process_count,
+              network_rx_bytes, network_tx_bytes, network_interfaces, process_count,
               swap_total_bytes, swap_used_bytes,
               battery_charge_percent, battery_charging,
               psi_cpu_some_avg10, psi_io_some_avg10, psi_memory_some_avg10,
@@ -521,6 +529,24 @@ function parseTemperatures(text: string | null): TemperatureReading[] | undefine
     }
     if (typeof rec['headroom_celsius'] === 'number' && Number.isFinite(rec['headroom_celsius'])) {
       reading.headroom_celsius = rec['headroom_celsius']
+    }
+    out.push(reading)
+  }
+  return out
+}
+
+export function parseInterfaceRates(text: string | null): NetworkInterfaceRate[] | undefined {
+  const parsed = parseJson(text)
+  if (!parsed?.length) return
+  const out: NetworkInterfaceRate[] = []
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') return
+    const rec = item as Record<string, unknown>
+    if (typeof rec.name !== 'string' || !rec.name) return
+    const reading: NetworkInterfaceRate = { name: rec.name }
+    for (const key of ['rx_bytes_per_s', 'tx_bytes_per_s'] as const) {
+      const value = rec[key]
+      if (typeof value === 'number' && Number.isFinite(value) && value >= 0) reading[key] = value
     }
     out.push(reading)
   }

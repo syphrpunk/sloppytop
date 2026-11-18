@@ -5,6 +5,7 @@ import { Database } from 'bun:sqlite'
 import { describe, expect, test } from 'bun:test'
 import type { ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { dbInfo, insertSample, openDb, queryHistory, queryTopProcesses } from './db.ts'
+import { reportInterfaceHistory } from './report.ts'
 
 const system: SystemStats = {
   cpu_brand: 'Test CPU',
@@ -64,6 +65,25 @@ function proc(pid: number, cpu: number): ProcessInfo {
 }
 
 describe('metrics store', () => {
+  test('interface history preserves sample-local names, zero, and unmeasured directions', () => {
+    using db = openDb(':memory:')
+    const samples = [
+      { at: '2026-01-01T00:00:00.000Z' },
+      { at: '2026-01-01T01:00:00.000Z', interfaces: [{ name: 'en0', rx_bytes_per_s: 0, tx_bytes_per_s: 12 }] },
+      { at: '2026-01-01T02:00:00.000Z', interfaces: [{ name: 'renamed' }] },
+      { at: '2026-01-01T03:00:00.000Z', interfaces: [{ name: 'en0', tx_bytes_per_s: 3 }] },
+    ]
+    const written = samples.map(({ at, interfaces }) => insertSample(
+      db, at, { ...system, ...(interfaces ? { network_interfaces: interfaces } : {}) },
+      [], { processLimit: 5, retentionDays: 30 },
+    ))
+    const start = samples[0]!.at
+    const history = queryHistory(db, start, 10).reverse()
+    expect(history.map((row) => row.network_interfaces)).toEqual(samples.map((row) => row.interfaces))
+    expect(reportInterfaceHistory(db, start)).toEqual(samples.map(({ at, interfaces }, index) => ({
+      at, sample_id: written[index]!.sampleId, ...(interfaces ? { interfaces } : {}),
+    })))
+  })
   test('insert, query back, top-N limit', () => {
     const db = openDb(':memory:')
     const procs = [proc(1, 5), proc(2, 50), proc(3, 25)]
@@ -235,6 +255,7 @@ describe('metrics store', () => {
     expect(legacy.network_rx_bytes).toBe(0)
     expect(legacy.network_tx_bytes).toBe(17)
     expect(legacy).not.toHaveProperty('linux_oom_kills')
+    expect(legacy).not.toHaveProperty('network_interfaces')
     insertSample(
       db,
       new Date().toISOString(),

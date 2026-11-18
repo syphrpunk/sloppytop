@@ -7,9 +7,11 @@
 | 28 — Window comparison | `report --compare --hours N` compares adjacent half-open windows, showing sample counts, occupied hourly slots, and sampled deltas. Tests cover boundary rows, both-empty, unequal, equally sparse and comparable coverage. Compiled smoke with only a current sample emitted `insufficient` and omitted deltas. |
 | 29 — Anomaly evidence | Report flags expose the readings and predicates used for I/O and memory pressure, CPU saturation, OOM counter increases, and RSS growth, with timestamps or spans. Tests inspect the evidence for all branches. Load and RSS trends are not causal diagnoses. |
 | 30 — Workload history | `report --workloads` summarizes recorded CPU and RSS per sample and configured group. Tests cover full, truncated and missing process lists, and verify command text used by existing group matching does not appear in the output. No storage changes. |
+| 31 — Interface history | `history` and `report --interfaces` carry sample-local observations without assuming continuity across rows. Tests cover zeros, unmeasured directions, renames, name reuse, and old rows. Compiled macOS smoke read back one recording with 22 interface observations. |
+| 32 — Discovery comparison | `discover --before FILE --after FILE` accepts two full or two redacted overview exports. A partial full snapshot does not imply removal; a redacted comparison exposes only visible count changes and coverage. Comparison reads saved local files without invoking live providers, even with the network probe off. |
 
 Run `just test`, `just ts-check`, and `just build`. On macOS ARM64 the
 initial diagnostics changes passed 294 tests, with one Linux-only skip.
 After Slices 29–30, type-check, 19 focused tests, and a compiled build passed.
-Next: preserve per-interface RX/TX in Slice 31; revisit the Linux scheduler
-gate independently.
+Next: audit existing thermal and Apple Silicon energy providers in Slices
+33–34; revisit the Linux scheduler gate independently.

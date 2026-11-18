@@ -6,6 +6,7 @@ import type { Database } from 'bun:sqlite'
 import { availableParallelism } from 'node:os'
 import { compileFilter } from '../filter/index.ts'
 import type { ProcessGroup } from './config.ts'
+import { parseInterfaceRates } from './db.ts'
 import { detectLeak, LEAK_DEFAULTS, scoreGroup, type SeriesPoint } from './footprint.ts'
 
 export interface ReportWindow {
@@ -166,6 +167,17 @@ export function reportWindow(db: Database, sinceIso: string): ReportWindow | nul
     .get(sinceIso) as { n: number; first: string | null; last: string | null }
   if (row.n === 0 || !row.first || !row.last) return null
   return { hours: 0, from: row.first, to: row.last, samples: row.n }
+}
+
+/** Keep observations separate: a reused interface name is not a durable identity. */
+export function reportInterfaceHistory(db: Database, sinceIso: string) {
+  const rows = db.query(`
+    SELECT id, at, network_interfaces FROM system_samples WHERE at >= ? ORDER BY at, id
+  `).iterate(sinceIso) as Iterable<{ id: number; at: string; network_interfaces: string | null }>
+  return Array.from(rows, ({ id, at, network_interfaces }) => {
+    const interfaces = parseInterfaceRates(network_interfaces)
+    return { sample_id: id, at, ...(interfaces ? { interfaces } : {}) }
+  })
 }
 
 export function reportHourly(db: Database, sinceIso: string): HourlyRow[] {

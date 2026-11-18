@@ -1,8 +1,11 @@
 import { expect, test } from 'bun:test'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { composeOverview } from './overview.ts'
 import { observe } from './provider.ts'
 import { shareableOverview } from './redact.ts'
-import { compareSnapshots, parseSnapshot } from './snapshot.ts'
+import { compareRedactedSnapshots, compareSnapshots, parseSnapshot, readSnapshot } from './snapshot.ts'
 
 const at = new Date('2026-01-01T01:00:00Z')
 const item = <T>(source: string, rows: T[]) => observe(source, { text: '' }, () => ({ rows }), 'linux', at)
@@ -40,7 +43,38 @@ test('snapshot diff is deterministic and suppresses incomparable or partial chan
   peers.reverse()
   expect(compare()).toEqual(result)
   b.neighbors[0]!.status = 'partial'
-  expect(compare().sections.find(({ section }) => section === 'neighbors')!.coverage).toBe('partial')
+  expect(compare().sections.find(({ section }) => section === 'neighbors')).toEqual({
+    section: 'neighbors', coverage: 'partial', added: [], removed: [], changed: [],
+  })
   b.scope = 'different'
   expect(compare().sections.every((section) => !section.removed.length)).toBe(true)
+})
+
+test('redacted snapshot files compare visible counts without yielding row identities', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'st-snapshot-'))
+  try {
+    const path = join(tmp, 'overview.json')
+    const save = (value: unknown) => {
+      writeFileSync(path, JSON.stringify(value))
+      return readSnapshot(path)
+    }
+    const overview = shareableOverview(fixture())
+    const before = save(overview)
+    const after = save({
+      ...overview, neighbors: [{ status: 'partial', visible_rows: 2, name: 'private-name' }],
+      cached_neighbors: 2,
+    })
+    if (!before || !after || !('redacted' in before) || !('redacted' in after)) throw Error('expected redacted files')
+    const delta = compareRedactedSnapshots(before, after)
+    expect(delta.sections.find((row) => row.section === 'neighbors')).toEqual({
+      section: 'neighbors', before: { statuses: ['ready'], visible_rows: 1 },
+      after: { statuses: ['partial'], visible_rows: 2 }, visible_delta: 1,
+    })
+    expect(JSON.stringify(delta)).not.toContain('private-name')
+    expect(save({ ...overview, cached_neighbors: -1 })).toBeUndefined()
+    expect(save({ ...overview, redacted: false })).toBeUndefined()
+    expect(save({ ...overview, version: 2 })).toBeUndefined()
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
 })

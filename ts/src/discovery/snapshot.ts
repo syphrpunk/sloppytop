@@ -15,11 +15,47 @@ const schema = z.object({
 })
 type Snapshot = z.infer<typeof schema>
 
-export function readSnapshot(path: string): Snapshot | undefined {
+const count = z.number().int().nonnegative().max(12 * MAX_ROWS)
+const summary = z.array(z.object({ status, visible_rows: count.max(MAX_ROWS) })).max(12)
+const redactedSchema = z.object({
+  version: z.literal(1), redacted: z.literal(true),
+  interfaces: summary, routes: summary, neighbors: summary, listeners: summary,
+  tcp_listeners: count, udp_bound: count, cached_neighbors: count,
+})
+type RedactedSnapshot = z.infer<typeof redactedSchema>
+
+export function readSnapshot(path: string): Snapshot | RedactedSnapshot | undefined {
   // Explicit JSON export, not arbitrary streams or network paths.
   const raw = readLocal(path, 4 * 1024 * 1024)
   if ('issue' in raw || raw.clipped) return
-  try { return parseSnapshot(JSON.parse(raw.text)) } catch { return undefined }
+  try {
+    const value: unknown = JSON.parse(raw.text)
+    return value && typeof value === 'object' && 'redacted' in value
+      ? redactedSchema.parse(value)
+      : parseSnapshot(value)
+  } catch { return undefined }
+}
+
+export function compareRedactedSnapshots(before: RedactedSnapshot, after: RedactedSnapshot) {
+  const observed = sections.map((section) => {
+    function coverage(rows: RedactedSnapshot[typeof section]) {
+      return {
+        statuses: rows.map((row) => row.status),
+        visible_rows: rows.reduce((sum, row) => sum + row.visible_rows, 0),
+      }
+    }
+    const left = coverage(before[section])
+    const right = coverage(after[section])
+    return { section, before: left, after: right, visible_delta: right.visible_rows - left.visible_rows }
+  })
+  const counts = (['tcp_listeners', 'udp_bound', 'cached_neighbors'] as const).map((key) => ({
+    key, before: before[key], after: after[key], visible_delta: after[key] - before[key],
+  }))
+  return {
+    redacted: true,
+    interpretation: 'Visible counts only; scope and provider identity cannot be verified. Deltas may reflect changes in visibility.',
+    sections: observed, counts,
+  }
 }
 
 export function parseSnapshot(value: unknown): Snapshot {

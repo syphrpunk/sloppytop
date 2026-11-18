@@ -45,6 +45,7 @@ import {
   reportAnomalies,
   reportGroups,
   reportHourly,
+  reportInterfaceHistory,
   reportLeaks,
   reportTopConsumers,
   reportWindow,
@@ -196,16 +197,20 @@ Cli.create('sloppytop', {
       redact: z.boolean().default(false).describe('Export a shareable overview with only counts and coverage states'),
     }),
     async run(c) {
-      if (!loadConfig().probes.network) return c.error(probeOff('network'))
       if (c.options.before !== undefined || c.options.after !== undefined) {
         if (!c.options.before || !c.options.after || c.options.redact || c.options.section !== 'overview') {
           return c.error({ code: 'INVALID_ARGS', message: 'comparison requires --before and --after without a section or redaction' })
         }
-        const { readSnapshot, compareSnapshots } = await import('./discovery/snapshot.ts')
+        const { readSnapshot, compareSnapshots, compareRedactedSnapshots } = await import('./discovery/snapshot.ts')
         const before = readSnapshot(c.options.before), after = readSnapshot(c.options.after)
         if (!before || !after) return c.error({ code: 'DISCOVERY_INVALID', message: 'could not read a valid local discovery snapshot' })
+        if ('redacted' in before || 'redacted' in after) {
+          if ('redacted' in before && 'redacted' in after) return compareRedactedSnapshots(before, after)
+          return c.error({ code: 'DISCOVERY_INVALID', message: 'compare two full or two redacted snapshots, not one of each' })
+        }
         return compareSnapshots(before, after)
       }
+      if (!loadConfig().probes.network) return c.error(probeOff('network'))
       if (c.options.redact && c.options.section !== 'overview') {
         return c.error({ code: 'INVALID_ARGS', message: 'redaction is available for the overview only' })
       }
@@ -651,6 +656,7 @@ Cli.create('sloppytop', {
       hours: z.coerce.number().min(1).default(24).describe('Look-back window in hours'),
       compare: z.boolean().default(false).describe('Compare with the immediately preceding equal-length window'),
       workloads: z.boolean().default(false).describe('Include per-sample history for configured process groups'),
+      interfaces: z.boolean().default(false).describe('Include recorded network interface rates by sample'),
       top: z.coerce.number().int().min(1).default(10).describe('Top consumers to include'),
       charts: z
         .boolean()
@@ -716,6 +722,7 @@ Cli.create('sloppytop', {
             leaks,
             groups,
             ...(c.options.workloads ? { workload_history: reportWorkloadHistory(db, since, configuredGroups) } : {}),
+            ...(c.options.interfaces ? { interface_history: reportInterfaceHistory(db, since) } : {}),
           },
           {
             cta: {
