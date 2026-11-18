@@ -4,6 +4,13 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Slices 09–12 verified; Slice 13 hardware validation remains — 2026-11-18
+
+- Compared cgroup counters on Linux as UID 1000; verified CLI SQLite history and the compiled PTY on the same zero/gap fixture; checked interface rates and native disk topology on Linux and macOS.
+- macOS passed 266 tests with one Linux-only skip; Linux arm64 passed all 267. Both type-checks and builds passed, along with macOS TUI smoke, compiled record, stored metrics and live HTTP scrape.
+- Powercap conversion and failure-path fixtures passed. The opt-in driver-free Linux smoke omitted package data as expected. Real Linux package telemetry evidence is still needed (`nht-4aa2dd`).
+
+
 ## Next five slices proposed — 2026-11-18
 
 - Prepared the sequence and verification criteria for slices 09–13 in `docs/research/slices/09-13-plan.md`. Planning only; NVIDIA validation is unchanged.

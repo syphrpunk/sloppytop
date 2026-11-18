@@ -14,5 +14,6 @@ to the displayed window and row limit; latest age refers to its newest row.
 
 The compiled CLI read two stored zero-valued samples three hours apart and
 rendered `⠀╌⠀` without changing the returned row count. The TUI frame
-regression renders the same cells, age, and legend. Additional fixtures
+regression and the compiled TUI in a real PTY render the same cells, age,
+and legend. Additional fixtures
 cover hourly, bursty and mixed-cadence histories.

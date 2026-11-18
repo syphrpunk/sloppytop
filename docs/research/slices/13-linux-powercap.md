@@ -23,7 +23,8 @@ Fixtures cover exact conversion, measured zero, resets/wrap ambiguity,
 domain identity, permissions, and unavailable powercap. The local Apple
 Silicon host is not Linux; its unprivileged Linux arm64 container exposes
 no `/sys/class/powercap`. No authorized real powercap host was identified.
-Real hardware validation is required before calling this supported.
+Real hardware validation is required before calling this supported
+(`nht-4aa2dd`).
 
 ## Real hardware verification
 
