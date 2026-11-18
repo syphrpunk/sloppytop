@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: e824b35 chore(handoff): refresh Sloppytop repo checkpoint
+HEAD: bc5ca20 chore: update references for the Sloppytop repository rename
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -33,6 +33,8 @@ Verified the working tree on macOS arm64: `just test` (232 passing), `just ts-ch
 
 Memento is the task source of truth. Several open items overlap existing code: the OpenTUI screen already ships, and Apple Silicon energy and Linux stall-pressure collectors already exist. Inspect remaining acceptance criteria before picking up those items; no tracker status changed.
 The GitHub repository is now `syphrpunk/sloppytop`, and this checkout’s `origin` points there. The local directory and legacy config paths retain their old names.
+
+Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/research/new-repo-corpus.md) for the inventory and shortlist. No reference code was imported.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->

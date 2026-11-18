@@ -4,6 +4,10 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Reference corpus vetting — 2026-11-18
+
+- Two Luna and two Terra agents reviewed all 77 archives. Ranked the candidates in [the corpus review](docs/research/new-repo-corpus.md); no archive was extracted or run.
+
 ## Repository rename — 2026-11-18
 
 - Renamed the GitHub repository to `syphrpunk/sloppytop`, updated this checkout’s `origin`, and updated installation links and release consumers.
