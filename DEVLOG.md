@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Guarded st install and TUI visual testing — 2026-11-18
+
+- Installed the guarded `st` symlink; added installer collision tests and captured six TUI frames in tmux. Filed usability and performance follow-ups with reproduction evidence. Passed type-check, build, PTY smokes, and 281 tests with one Linux-only skip on the final run.
+
+
 ## macOS checkout build installed on PATH — 2026-11-18
 
 - Passed 280 tests (one Linux-only skip), type-check, build, and both compiled TUI and discovery smokes. Installed a byte-identical copy at `/opt/homebrew/bin/sloppytop` and verified redacted discovery from outside the checkout.

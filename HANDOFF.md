@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 2eb036f docs: checkpoint verified network discovery batch
+HEAD: 6bc6d6c feat: guard the st install shortcut and capture TUI regressions
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -53,6 +53,8 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 [Slices 14–25](docs/research/slices/14-25-network-discovery-plan.md) are implemented and verified. `discover` and TUI `D` read local tables on demand; raw exports are explicit and `--redact` emits only counts and coverage. See the [provider matrix and audit](docs/research/slices/18-25-discovery-workflow.md). Linux arm64 and macOS were validated. Discovery is not exposed via MCP or collected by the recorder or scraper. NVIDIA and powercap follow-ups are unchanged.
 
 Built the `2eb036f` checkout on macOS arm64 and installed the verified binary at `/opt/homebrew/bin/sloppytop`. The CLI reports `0.3.0`; this is the checkout build with discovery, not a release download. No recorder service or persistent metrics listener was configured.
+
+The checkout installer now adds `st` only when the destination, PATH, and login shell agree it is free; `/opt/homebrew/bin/st` is installed and points to `sloppytop`. `just tui-visual` captures styled terminal frames with synthetic data. The [TUI backlog](docs/research/tui-follow-up.md) tracks usability (`nht-005268`) and a separate performance investigation (`nht-ead7a9`).
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -70,6 +72,8 @@ Built the `2eb036f` checkout on macOS arm64 and installed the verified binary at
 **Separate, deferred:** NVIDIA cloud validation remains in `nht-f456db`.
 
 **Discovery batch verified:** See the [discovery workflow, provider matrix, and acceptance evidence](docs/research/slices/18-25-discovery-workflow.md).
+
+**TUI follow-ups:** [Usability and visual regressions](docs/research/tui-follow-up.md) (`nht-005268`); profile responsiveness in a dedicated session (`nht-ead7a9`).
 
 **Queue: Memento is the source of truth.**
 
