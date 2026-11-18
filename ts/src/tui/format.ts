@@ -1,19 +1,27 @@
 // Byte and duration formatting.
-// Width is counted in Unicode code points. Braille and the tree marks are one cell wide.
+// Width is counted in terminal cells; clipping preserves grapheme clusters.
 
 const BYTE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const
 const COMPACT_UNITS = ['B', 'K', 'M', 'G', 'T'] as const
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 
 export function widthOf(text: string): number {
-  return [...text].length
+  return Bun.stringWidth(text)
 }
 
 export function clip(text: string, width: number): string {
   if (width <= 0) return ''
-  const chars = [...text]
-  if (chars.length <= width) return chars.join('')
-  if (width === 1) return chars[0] ?? ''
-  return `${chars.slice(0, width - 1).join('')}…`
+  if (widthOf(text) <= width) return text
+  if (/^[\x20-\x7e]*$/.test(text)) return width === 1 ? text[0]! : `${text.slice(0, width - 1)}…`
+  let used = 0
+  let end = 0
+  for (const { segment, index } of graphemes.segment(text)) {
+    const cells = widthOf(segment)
+    if (used + cells >= width) break
+    used += cells
+    end = index + segment.length
+  }
+  return `${text.slice(0, end)}…`
 }
 
 export function padRight(text: string, width: number): string {

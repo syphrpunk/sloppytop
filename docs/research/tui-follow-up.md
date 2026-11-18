@@ -47,6 +47,10 @@ that the tmux session exits. It never captures the real process list.
   image in the output directory. Review both before updating a baseline.
   The discovery bottom frame exercises mouse overscroll and pinned controls;
   the next frame checks that one Up moves immediately.
+- Four checked styled frames use hashes of the generated SVG, recorded on
+  tmux 3.5a. If one changes, inspect the emitted SVG/PNG and terminal cells
+  before replacing the hash. The visual fixture holds its live sparkline
+  input to one sample; the separate benchmark still takes repeated samples.
 - Keep `just test`, `just ts-check`, `just build`, `just ts-smoke`, and the
   [compiled discovery check](slices/18-25-discovery-workflow.md#acceptance-evidence).
   The visual captures complement these; a settle check is not latency proof.

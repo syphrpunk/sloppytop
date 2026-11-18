@@ -1208,7 +1208,7 @@ function discoveryRate(rate: number | undefined): string {
 
 function historyChart(label: string, values: readonly SparklinePoint[], width: number, max?: number, breaks: readonly number[] = []): string {
   const name = clip(plain(label), 18)
-  const sparkWidth = Math.max(4, width - name.length - 2)
+  const sparkWidth = Math.max(4, width - widthOf(name) - 2)
   const spark = sparkline(values, { width: sparkWidth, breaks, ...(max === undefined ? {} : { max }) })
   return `${name}  ${spark}`
 }
@@ -1336,7 +1336,7 @@ function wrapWords(text: string, width: number): string[] {
   let current = ''
   for (const word of text.split(' ')) {
     const next = current ? `${current} ${word}` : word
-    if ([...next].length > limit && current) {
+    if (widthOf(next) > limit && current) {
       lines.push(current)
       current = word
     } else current = next

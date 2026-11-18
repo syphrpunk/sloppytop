@@ -67,6 +67,8 @@ const loaders = {
   ],
 }
 
+let visualSamplePresented = false
+
 await runTui(loaders, async () => {
   if (process.env.ST_FIXTURE_DISCOVERY_DELAY === '350') await Bun.sleep(350)
   const time = new Date('2026-11-18T04:00:00Z')
@@ -78,7 +80,11 @@ await runTui(loaders, async () => {
     issues: ['visibility'],
   }), 'linux', time)
   return composeOverview([denied], [], [cache], [], 'fixture', time)
-}, async ({ paused }) => paused ? undefined : sample, async section => {
+}, async ({ paused }) => {
+  if (paused || (process.env.ST_VISUAL_HISTORY === '1' && visualSamplePresented)) return undefined
+  visualSamplePresented = true
+  return sample
+}, async section => {
   const time = new Date('2026-11-18T04:00:00Z')
   return section === 'connections'
     ? { section, providers: [observe('ss tcp6', { text: '' }, () => ({ rows: [{

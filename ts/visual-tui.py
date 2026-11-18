@@ -3,6 +3,7 @@
 
 import argparse
 import difflib
+import hashlib
 import html
 import os
 from pathlib import Path
@@ -81,6 +82,12 @@ def svg(ansi, width, height):
 
 def run(fixture, output):
     output.mkdir(parents=True, exist_ok=True)
+    style_baselines = {
+        "01-wide": "1e8a343be6d6c1fcc7f62c6411ed671befb80c12c14e7b961dc6cf1ac6a88a2b",
+        "02-narrow": "044f9ab54efbaa411891671bd39a16a1e9e45a2dd0f9722a949e834e20f65cbc",
+        "04b-neighbors-bottom": "4ad7957fc75df2cdd026e938d6af0335b0923c1df177b422641390649ffd03d0",
+        "19-columns": "8ebe5bf46ded96e57c2ab3600001f1233ca18a2d2bbc9f7a4852b224964f374d",
+    }
     with tempfile.TemporaryDirectory(prefix="st-visual-") as folder:
         command = (f"exec env ST_VISUAL_HISTORY=1 ST_FIXTURE_DISCOVERY_DELAY=350 "
                    f"XDG_CONFIG_HOME={shlex.quote(folder)} {shlex.quote(str(fixture))}")
@@ -96,7 +103,8 @@ def run(fixture, output):
                 if all(token in plain for token in expected):
                     ansi = tmux("capture-pane", "-peN", "-t", "visual")
                     (output / f"{label}.txt").write_text(plain)
-                    (output / f"{label}.svg").write_text(svg(ansi, width, height))
+                    styled = svg(ansi, width, height)
+                    (output / f"{label}.svg").write_text(styled, encoding="utf-8")
                     converter = shutil.which("rsvg-convert")
                     if converter:
                         subprocess.run([converter, str(output / f"{label}.svg"), "-o", str(output / f"{label}.png")], check=True, timeout=10)
@@ -108,6 +116,10 @@ def run(fixture, output):
                             diff = difflib.unified_diff(expected_frame.splitlines(True), actual_frame.splitlines(True),
                                                         fromfile=str(baseline), tofile=str(output / f"{label}.txt"))
                             raise RuntimeError("terminal frame changed:\n" + "".join(diff))
+                    if label in style_baselines:
+                        digest = hashlib.sha256(styled.encode()).hexdigest()
+                        if digest != style_baselines[label]:
+                            raise RuntimeError(f"{label}: styled frame changed ({digest}); review {output / (label + '.svg')}")
                     return
                 time.sleep(.06)
             raise RuntimeError(f"{label}: expected {expected!r}\n{plain}")
@@ -118,7 +130,8 @@ def run(fixture, output):
                            "-P", "-F", "#{pane_pid}", command))
             capture("01-wide", ["PID", "fixture-worker"], 112, 30, timeout=20)
             tmux("resize-window", "-t", "visual", "-x", "56", "-y", "18")
-            capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0"], 56, 18)
+            capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0",
+                                  "界-fixture", "440M    97.0"], 56, 18)
             tmux("send-keys", "-t", "visual", "D")
             capture("02b-discovery-loading", ["reading local tables…", "q close"], 56, 18)
             tmux("send-keys", "-t", "visual", "q")
