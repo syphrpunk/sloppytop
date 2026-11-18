@@ -87,7 +87,7 @@ def run(fixture, output, review_only=False):
         "01c-tree-fold-narrow": "33a31806c13bf7b7d59ef4e71b12f57ea715f4c7b420772a768081333952ea63",
         "02-narrow": "7fc0f001801d24fbe6dc580704678baf9ca12a2bbb054ab35e3136ff95c1e48a",
         "04b-neighbors-bottom": "b6de05e3450d43b04b9d806ba463b518622174194dd83af0830e9ca351d621ab",
-        "19-settings": "09130eedc89d077a20473368537d1b9824c2abb79cef754cf73ac809886ff422",
+        "19-settings": "d12171621afaa126abc20eac8905ed45aa6ba358e3f7e8048962ae2bcab8443d",
         "19-settings-recorder-wide": "a3b0eb1dd93c946cf2b83d32b25a786839ed83458a14c2525aca2e25d34889f1",
         "19-recorder-enable-review": "856751ac742d812d57b5e43cba7d3fc7f8b8466fb13d13522d79505268389f22",
         "19-columns": "35207b7faf7de99beaee036f1dcb3fbca371a31a3b966e27a9d93622660e5084",
@@ -258,6 +258,14 @@ def run(fixture, output, review_only=False):
                     tmux("send-keys", "-t", "visual", "-l", "\x1b[<65;9;7M" * 20)
                     capture("19-columns-bottom", ["> [ ] cgroup", "Space toggle"], 56, 12)
                 if key == "m":
+                    tmux("send-keys", "-t", "visual", "Down", "Down", "Down", "Enter")
+                    capture("19-record-groups", ["SQLite only", "required, read-only"], 56, 12)
+                    tmux("send-keys", "-t", "visual", *["Down"] * 5, "Space")
+                    capture("19-record-groups-changed", ["[ ] processes (optional)"], 56, 12)
+                    tmux("send-keys", "-t", "visual", "Escape")
+                    capture("19-record-groups-back", ["> Recording groups", "Enter open"], 56, 12)
+                    tmux("send-keys", "-t", "visual", "Up", "Up", "Up")
+                    capture("19-record-groups-overview", ["> Recorder details"], 56, 12)
                     tmux("send-keys", "-t", "visual", "Enter")
                     capture("19-settings-recorder", ["failed (exit 7)", "latest insert  2026-11-18", "0 s (any insert)"], 56, 12)
                     tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")

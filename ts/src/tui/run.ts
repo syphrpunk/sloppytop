@@ -9,6 +9,7 @@ import { ensureTuiConfig, loadConfig, saveConfig, updateMetrics, updateProbes } 
 import { appendProbeLog } from '../store/probe-log.ts'
 import type { PageLoaders } from './pages.ts'
 import { recorderMatches, type RecorderChange } from './recorder.ts'
+import { openRecordGroups, saveRecordGroupChange } from './record-groups.ts'
 import type { RecorderHealth } from './store.ts'
 import {
   applyPointer,
@@ -207,6 +208,12 @@ export async function runTui(
     }
     if (effect.pins || effect.tui) persist(effect)
     if (effect.toggleProbe) persistProbe(effect.toggleProbe)
+    const page = state.settingsPage
+    if (page?.section === 'groups' && (effect.openRecordGroups || effect.saveRecordGroup)) {
+      const groups = effect.openRecordGroups ? openRecordGroups(loadConfig().record.optionalGroups)
+        : page.groups && saveRecordGroupChange(page.groups, effect.saveRecordGroup!)
+      state = { ...state, settingsPage: { ...page, groups } }
+    }
     if (effect.toggleMetrics) void toggleListener()
     if (effect.detailPid != null || effect.loadEnv != null || effect.loadFiles != null ||
         effect.openNet || effect.openListen || effect.openHardware || effect.refreshHardware ||

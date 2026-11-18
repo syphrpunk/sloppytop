@@ -9,6 +9,7 @@ import { defaultProbes, disabledRecordProbes, PROBE_NAMES, type ProbeName, type 
 import type { ProcessInfo } from '../monitor/types.ts'
 import { TUI_COLUMNS, type TuiColumn } from '../store/config.ts'
 import { validRecorderInterval, type RecorderChange } from './recorder.ts'
+import { reduceRecordGroups, type RecordGroupChange, type RecordGroupsView } from './record-groups.ts'
 import { THEME_NAMES } from './theme.ts'
 
 export type Overlay =
@@ -216,9 +217,10 @@ export interface LogView {
   lines: string[]
 }
 
-export const SETTINGS_SECTIONS = ['recorder', 'probes', 'metrics'] as const
+export const SETTINGS_SECTIONS = ['recorder', 'probes', 'metrics', 'groups'] as const
 
 export interface SettingsView {
+  groups?: RecordGroupsView
   section: 'overview' | (typeof SETTINGS_SECTIONS)[number]
   probeIndex: number
   probes: ProbeSet
@@ -314,6 +316,8 @@ export interface ScreenEffect {
   openSettings?: boolean
   changeRecorder?: RecorderChange
   toggleProbe?: { name: ProbeName; enabled: boolean }
+  openRecordGroups?: boolean
+  saveRecordGroup?: RecordGroupChange
   toggleMetrics?: boolean
   record?: boolean
   artifact?: import('./artifacts.ts').ArtifactRequest
@@ -780,8 +784,15 @@ function reduceSettings(state: ScreenState, key: KeyPress): ReduceResult {
   if (section === 'overview') {
     if (delta) return { state: { ...state, panelIndex: Math.min(SETTINGS_SECTIONS.length - 1, Math.max(0, state.panelIndex + delta)) } }
     if (key.name === 'enter' || key.name === 'return' || key.name === 'space') {
-      return { state: { ...state, settingsPage: { ...page, section: SETTINGS_SECTIONS[state.panelIndex]! } } }
+      const selected = SETTINGS_SECTIONS[state.panelIndex]!
+      return { state: { ...state, settingsPage: { ...page, section: selected } },
+        ...(selected === 'groups' && { effect: { openRecordGroups: true } }) }
     }
+  }
+  if (section === 'groups' && page.groups) {
+    const { view, change } = reduceRecordGroups(page.groups, key.name)
+    return { state: { ...state, settingsPage: { ...page, groups: view } },
+      ...(change && { effect: { saveRecordGroup: change } }) }
   }
   if (section === 'probes' && delta) {
     const probeIndex = Math.min(PROBE_NAMES.length - 1, Math.max(0, page.probeIndex + delta))

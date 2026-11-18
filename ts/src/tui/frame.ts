@@ -3,6 +3,7 @@
 
 import type { SortKey } from '../filter/index.ts'
 import { PROBE_NAMES, RECORD_PROBES } from '../monitor/probes.ts'
+import { recordGroupLines } from './record-groups.ts'
 import type { CpuCoreKind, DiskDevice, ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { TUI_COLUMNS, type TuiColumn } from '../store/config.ts'
 import { sparkline, type SparklinePoint } from '../view/sparkline.ts'
@@ -1434,6 +1435,7 @@ function logLines(state: ScreenState): string[] {
 
 function settingsHints(state: ScreenState): string {
   switch (state.settingsPage?.section) {
+    case 'groups':
     case 'probes': return 'Esc back   ↑/↓ select   Space toggle'
     case 'recorder': {
       const page = state.settingsPage
@@ -1453,6 +1455,8 @@ function settingsHints(state: ScreenState): string {
 function settingsLines(state: ScreenState): string[] {
   const page = state.settingsPage
   if (!page) return []
+  if (page.section === 'groups') return page.groups
+    ? recordGroupLines(page.groups, page.probes, state.height - 5) : ['Loading recording groups…']
   if (page.section === 'probes') {
     const room = Math.max(1, state.height - 5) // framed panel, plus the scope line
     return ['Global probes · affect all collection', ...pickerWindow(PROBE_NAMES, page.probeIndex, room).map(name => {
@@ -1473,7 +1477,7 @@ function settingsLines(state: ScreenState): string[] {
     : `Recorder: ${on} · cadence ${service?.cadence ?? 'unknown'} · last run ${service?.last_run?.outcome ?? 'unknown'}`
   if (page.section === 'overview') {
     const labels = {
-      recorder: 'Recorder details', probes: 'Global probe switches',
+      recorder: 'Recorder details', probes: 'Global probe switches', groups: 'Recording groups (storage only)',
       metrics: `Metrics listener (${page.listening ? 'listening' : 'stopped'})`,
     }
     const compact = state.height <= 12
