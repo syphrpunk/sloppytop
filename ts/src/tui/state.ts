@@ -104,6 +104,7 @@ export interface HistorySeries {
 
 export interface HistoryView {
   status: 'loading' | 'empty' | 'ready' | 'error'
+  timeline?: ReturnType<typeof import('../view/history-coverage.ts').historyCoverage>
   message: string
   cpu: number[]
   memory: number[]

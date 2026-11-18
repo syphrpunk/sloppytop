@@ -52,6 +52,7 @@ import { takeSample } from './sample.ts'
 import { RecordBlocked, recordSample } from './store/record.ts'
 import * as service from './store/service.ts'
 import { diskHistoryCharts } from './view/disk-history.ts'
+import { historyCoverage } from './view/history-coverage.ts'
 import { sparkline } from './view/sparkline.ts'
 
 const listOptions = z.object({
@@ -573,15 +574,16 @@ Cli.create('sloppytop', {
           ? rows.map((r) => ({ ...r, top_processes: queryTopProcesses(db, r.id) }))
           : rows
         const chrono = [...rows].reverse() // queryHistory returns newest-first
-        const diskCharts = c.options.charts ? diskHistoryCharts(chrono) : []
+        const { breaks, coverage } = historyCoverage(chrono)
+        const diskCharts = c.options.charts ? diskHistoryCharts(chrono, breaks) : []
         const charts = c.options.charts
           ? {
               cpu_pct: sparkline(
                 chrono.map((r) => r.cpu_usage_total),
-                { max: 100 },
+                { max: 100, breaks },
               ),
-              memory_used: sparkline(chrono.map((r) => r.memory_used)),
-              load_1: sparkline(chrono.map((r) => r.load_1)),
+              memory_used: sparkline(chrono.map((r) => r.memory_used), { breaks }),
+              load_1: sparkline(chrono.map((r) => r.load_1), { breaks }),
               ...(diskCharts.length ? { disk_devices: diskCharts } : {}),
             }
           : undefined
@@ -590,6 +592,7 @@ Cli.create('sloppytop', {
           ...dbInfo(db),
           window_hours: c.options.hours,
           returned: rows.length,
+          coverage,
           ...(charts ? { charts } : {}),
           samples,
         }

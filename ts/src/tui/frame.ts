@@ -1074,10 +1074,10 @@ function helpLines(): string[] {
 
 const SETTINGS_WINDOW = 8
 
-function historyChart(label: string, values: readonly SparklinePoint[], width: number, max?: number): string {
+function historyChart(label: string, values: readonly SparklinePoint[], width: number, max?: number, breaks: readonly number[] = []): string {
   const name = clip(plain(label), 18)
   const sparkWidth = Math.max(4, width - name.length - 2)
-  const spark = sparkline(values, max === undefined ? { width: sparkWidth } : { max, width: sparkWidth })
+  const spark = sparkline(values, { width: sparkWidth, breaks, ...(max === undefined ? {} : { max }) })
   return `${name}  ${spark}`
 }
 
@@ -1100,27 +1100,31 @@ function historyLines(state: ScreenState): string[] {
   if (!page || page.status === 'loading') return fitHistory(state.height, ['history …'], ['esc  close'])
   if (page.status !== 'ready') return fitHistory(state.height, ['history', ...wrapWords(page.message, state.width)], ['esc  close'])
   const width = chartWidth(state.width)
+  const breaks = page.timeline?.breaks ?? []
+  const coverage = page.timeline?.coverage
+  const age = coverage?.latest_sample_age_seconds
+  const titleSuffix = age === undefined ? '' : ` · latest ${age < 60 ? `${age}s` : `${Math.floor(age / 60)}m`} ago`
+  const legend = breaks.length ? `${coverage!.unobserved_interval_marker} unobserved time   ⠂ missing reading` : '⠂ missing reading'
   if (state.historyDiskIndex !== null) {
     const metric = page.diskMetrics[state.historyDiskIndex]
     if (!metric) return fitHistory(state.height, ['disk history', 'no recorded device readings'], ['d  overview  esc  close'])
     const labelWidth = Math.min(32, Math.floor(width / 2))
     const chartSize = Math.max(1, width - labelWidth - 2)
-    const lines = [`disk  ${metric.title}  ${state.historyDiskIndex + 1}/${page.diskMetrics.length}`]
+    const lines = [`disk  ${metric.title}  ${state.historyDiskIndex + 1}/${page.diskMetrics.length}${titleSuffix}`]
     for (const [index, { name, values }] of metric.series.entries()) {
       const label = padRight(clip(`${index + 1} ${plain(name)}`, labelWidth), labelWidth)
-      lines.push(`${label}  ${sparkline(values, { width: chartSize, max: metric.max })}`)
+      lines.push(`${label}  ${sparkline(values, { width: chartSize, max: metric.max, breaks })}`)
     }
-    lines.push('⠂ missing   oldest → newest')
     const controls = page.diskMetrics.length > 1 ? '←/→  metric  d  overview  esc  close' : 'd  overview  esc  close'
-    return fitHistory(state.height, lines, [controls])
+    return fitHistory(state.height, lines, [legend, controls])
   }
-  const lines = ['history']
-  if (page.cpu.length > 0) lines.push(historyChart('cpu', page.cpu, width, 100))
-  if (page.memory.length > 0) lines.push(historyChart('mem', page.memory, width))
-  if (page.load.length > 0) lines.push(historyChart('load', page.load, width))
+  const lines = [`history${titleSuffix}`]
+  if (page.cpu.length > 0) lines.push(historyChart('cpu', page.cpu, width, 100, breaks))
+  if (page.memory.length > 0) lines.push(historyChart('mem', page.memory, width, undefined, breaks))
+  if (page.load.length > 0) lines.push(historyChart('load', page.load, width, undefined, breaks))
   for (const series of page.series) {
     if (series.values.length === 0) continue
-    lines.push(historyChart(series.label, series.values, width, series.max))
+    lines.push(historyChart(series.label, series.values, width, series.max, breaks))
   }
   for (const note of page.notes) lines.push(note)
   if (page.recent.length > 0) {
@@ -1129,7 +1133,7 @@ function historyLines(state: ScreenState): string[] {
       lines.push(`  ${point.at}  cpu ${point.cpu.toFixed(1)}  mem ${formatBytesCompact(point.memory)}  load ${point.load.toFixed(2)}`)
     }
   }
-  return fitHistory(state.height, lines, [page.diskMetrics.length ? 'd  disks  esc  close' : 'esc  close'])
+  return fitHistory(state.height, lines, [page.diskMetrics.length ? 'd  disks  esc  close' : 'esc  close', ...(breaks.length ? [legend] : [])])
 }
 
 function reportLines(state: ScreenState): string[] {

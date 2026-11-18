@@ -22,6 +22,7 @@ The `handoff-create --changelog` flow appends entries to "## Unreleased" as you 
 - On-demand macOS hardware inventory shows design and raw maximum battery capacity in mAh when available, alongside the OS health percentage and cycle count.
 - `tree --summary-pid <PID>` reports CPU and summed RSS for a visible process subtree, with measurement coverage and without command lines or environment values.
 - On Linux, `tree --cgroup-pid <PID>` reports hierarchical CPU and charged memory from the PID's cgroup v2.
+- CLI and TUI history show the latest sample age and mark unobserved time between samples more than 90 minutes apart.
 
 ## 0.3.0 - 2026-10-23
 

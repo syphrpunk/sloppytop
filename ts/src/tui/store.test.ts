@@ -4,6 +4,20 @@ import { tmpdir, homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'bun:test'
+
+test('history renders age and an unobserved interval as a distinct cell', () => {
+  const row = (hoursAgo: number) => ({
+    at: new Date(Date.now() - hoursAgo * 3_600_000).toISOString(),
+    cpu_usage_total: 0, memory_used: 0, load_1: 0,
+  })
+  const page = historyView([row(1), row(4)])
+  const frame = compose(screen({ overlay: 'history', historyPage: page }), {
+    processes: [], system: {}, history: emptyHistory(),
+  })
+  expect(frame.text).toContain('latest 60m ago')
+  expect(frame.text).toContain('⠀╌⠀')
+  expect(frame.text).toContain('╌ unobserved time')
+})
 import { defaultProbes } from '../monitor/probes.ts'
 import type { SystemStats } from '../monitor/types.ts'
 import { DEFAULT_TUI } from '../store/config.ts'

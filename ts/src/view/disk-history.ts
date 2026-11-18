@@ -62,13 +62,13 @@ export function diskHistory(rows: readonly { disk_devices?: DiskDevice[] }[]): {
   return { names, metrics }
 }
 
-export function diskHistoryCharts(rows: readonly { disk_devices?: DiskDevice[] }[]): DeviceCharts[] {
+export function diskHistoryCharts(rows: readonly { disk_devices?: DiskDevice[] }[], breaks?: readonly number[]): DeviceCharts[] {
   const { names, metrics } = diskHistory(rows)
   const byName = new Map<string, DeviceCharts>(names.map((name) => [name, { name }]))
   for (const { key, max, series } of metrics) {
     for (const { name, values } of series) {
       const chart = byName.get(name)
-      if (chart && values.some((v) => v !== null)) chart[key] = sparkline(values, { max })
+      if (chart && values.some((v) => v !== null)) chart[key] = sparkline(values, { max, ...(breaks ? { breaks } : {}) })
     }
   }
   return [...byName.values()].filter((chart) => Object.keys(chart).length > 1)

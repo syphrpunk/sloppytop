@@ -11,6 +11,7 @@ const LEVELS = ['⠀', '⣀', '⣤', '⣶', '⣿'] as const
 const TRACK = '⠤'
 /** One missing sample, distinct from both an idle sample and left padding. */
 const GAP = '⠂'
+export const UNOBSERVED = '╌'
 
 export type SparklinePoint = number | null
 
@@ -27,6 +28,8 @@ export interface SparklineOptions {
   max?: number
   /** Fixed output width: longer series keep the most recent points, shorter ones get a left track pad. */
   width?: number
+  /** Draw an unobserved interval immediately before each indexed point. */
+  breaks?: readonly number[]
 }
 
 /**
@@ -39,13 +42,17 @@ export function sparkline(values: readonly SparklinePoint[], opts: SparklineOpti
     (peak, value) => value !== null && Number.isFinite(value) ? Math.max(peak, value) : peak,
     0,
   )
-  let vals = values
+  const breaks = opts.breaks?.length ? new Set(opts.breaks) : undefined
+  let cells: string[] = []
+  for (const [i, v] of values.entries()) {
+    const cell = v === null || !Number.isFinite(v) ? GAP : levelFor(v, max)
+    if (breaks?.has(i)) cells.push(UNOBSERVED)
+    cells.push(cell)
+  }
   let pad = 0
   if (opts.width !== undefined) {
-    if (vals.length > opts.width) vals = vals.slice(vals.length - opts.width)
-    pad = opts.width - vals.length
+    if (cells.length > opts.width) cells = cells.slice(cells.length - opts.width)
+    pad = opts.width - cells.length
   }
-  return TRACK.repeat(pad) + vals.map((v) =>
-    v === null || !Number.isFinite(v) ? GAP : levelFor(v, max),
-  ).join('')
+  return TRACK.repeat(pad) + cells.join('')
 }

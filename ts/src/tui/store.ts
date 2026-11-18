@@ -7,6 +7,7 @@ import { disabledRecordProbes, type ProbeSet } from '../monitor/probes.ts'
 import type { FanReading, ProcessInfo, SystemStats, TemperatureReading } from '../monitor/types.ts'
 import { takeSample, type RecordableSample } from '../sample.ts'
 import { diskHistory } from '../view/disk-history.ts'
+import { historyCoverage } from '../view/history-coverage.ts'
 import { loadConfig } from '../store/config.ts'
 import { insertSample, openDb, queryHistory, type HistoryRow } from '../store/db.ts'
 import { metricsResponse } from '../store/metrics.ts'
@@ -172,6 +173,7 @@ export function historyView(rows: HistoryInput[]): HistoryView {
   }
   return {
     status: 'ready',
+    timeline: historyCoverage(chrono),
     message: '',
     cpu: chrono.map((row) => row.cpu_usage_total),
     memory: chrono.map((row) => row.memory_used),
