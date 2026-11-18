@@ -252,3 +252,11 @@ After the first loader line, version output took 49–57 ms fresh versus
 observable dyld message, so additional JS lazy loading cannot account
 for it. This control does not identify the OS or host policy component
 responsible; it does not establish that signing or notarization would help.
+
+### OpenTUI 0.9.2
+
+Upgraded from 0.6.8 without changing TUI code or visual baselines. The
+Apple Silicon standalone build, live PTY smoke, and visual suite passed.
+Three interleaved fresh-copy PTY trials per version measured 2.96–3.25 s
+to first frame on 0.6.8 and 2.88–3.27 s on 0.9.2. The ranges overlap,
+and neither version meets the cold-start target.
