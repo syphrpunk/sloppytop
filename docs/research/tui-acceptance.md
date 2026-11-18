@@ -25,3 +25,8 @@ release packaging, or targets were changed to obtain a pass.
 A five-pair loader timing control after lazy loading placed the fresh-file
 delay before the first dyld diagnostic (1.12–1.29 s fresh versus 3–6 ms on
 repeat). The remaining gate is not a measured TUI initialization problem.
+
+[The second Mac](tui-performance.md#second-mac-mbp2023) also missed both
+fresh-file targets. Its System Trace recorded pre-start waits ending in
+Malwarebytes and `syspolicyd` wakeups. The repeat trace did not show those
+wakeups. A trusted signed/notarized candidate has not been tested.

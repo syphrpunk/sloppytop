@@ -293,5 +293,17 @@ temporary config and no global install or service changes.
 | Repeat | 82.5–84.8 ms | 1,284–1,365 ms | 17.7–20.0 ms |
 
 All ten live smokes passed, but the fresh-file startup budgets still
-failed. This independently reproduces the first-launch penalty; no
-system trace was taken on the second host to attribute it there.
+failed. This independently reproduces the first-launch penalty.
+
+A follow-up Instruments 27.2 **System Trace** pair used the same binary
+and `--version`. This Instruments version exports wakeups in
+`thread-state` rather than `thread-narrative`. The fresh target's main
+thread was blocked for 264.52 ms from the trace boundary, then woken by
+Malwarebytes' `RTProtectionDaemon`. After 40 µs running it blocked for
+another 864.03 ms, ending in a `syspolicyd` wakeup. The first captured
+target syscall followed about 36 µs later. The repeat trace had a
+pre-launch tool-controlled wait ending in an `xctrace` wakeup; neither
+security daemon appeared among its named main-thread wakeups. These
+are scheduler observations, not proof of what either daemon checked
+or that signing would remove the waits. Both probes exited successfully,
+and no security settings changed.
