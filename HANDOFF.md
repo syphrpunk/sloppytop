@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 740d600 Expose recording-only field choices in Settings
+HEAD: 36ebb8a Validate and confirm recorder destination switches without moving history
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -87,6 +87,7 @@ Integrated confirmed recorder schedule changes and readback (c4e0103), plus tree
 Tree mode now supports folding and focus navigation (a24f505). Optional recording groups are enforced at SQLite insertion (88d15a0); the next screen integration is exposing those choices in recorder Settings without changing global probes.
 Rebuilt and installed this checkout into /opt/homebrew/bin. Both ./st tui and /opt/homebrew/bin/st tui rendered the new tree help in independent PTYs. For subsequent user-facing changes distinguish built vs installed: refresh this local install and verify a visible feature through the user's actual command.
 Installed integrated process privacy/disclosure and tree/interval controls plus the recording-only group picker through 740d600. Verified actual checkout and installed commands with a controlled child process and isolated configs. Recorder destination, history drill-down and fixed-host SLA acceptance remain open.
+Installed the selected History evidence view, verified via both ./st and /opt/homebrew/bin/st. Destination preview and confirmed config switching are backend-only so far (36ebb8a); implement Settings UI next. No real DB or scheduler changed. Fixed-host SLA evidence remains pending.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -104,7 +105,7 @@ Installed integrated process privacy/disclosure and tree/interval controls plus 
 Open tasks:
 (task manager: memento)
 {
-  "count": 11,
+  "count": 10,
   "items": [
     {
       "id": "nht-9de7a2",
@@ -121,22 +122,6 @@ Open tasks:
       "attentionReason": null,
       "updatedAt": "2026-11-01T08:26:19.378Z",
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-9de7a2-apple-silicon-energy-sample.md"
-    },
-    {
-      "id": "nht-18068d",
-      "uuid": "01a1efcf-a9cc-7000-8811-4ef2311eeccb",
-      "slug": "nht-18068d-drill-from-a-selected-history-point-into-its-evidence",
-      "title": "Drill from a selected history point into its evidence",
-      "status": "todo",
-      "type": "task",
-      "parent": "nht-f4dce9",
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "medium",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-11-18T17:58:46.477Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-18068d-drill-from-a-selected-history-point-into-its-evidence.md"
     },
     {
       "id": "nht-bee39c",
@@ -203,6 +188,22 @@ Open tasks:
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-b1794f-opentui-tui-replacement.md"
     },
     {
+      "id": "nht-4a44a1",
+      "uuid": "01a1efcf-a7e7-7000-abd7-8d5a72203b96",
+      "slug": "nht-4a44a1-preview-and-safely-change-the-recorder-destination",
+      "title": "Preview and safely change the recorder destination",
+      "status": "in-progress",
+      "type": "task",
+      "parent": "nht-f4dce9",
+      "blockedBy": [
+        "nht-8697aa"
+      ],
+      "blocking": [],
+      "priority": "medium",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-11-18T20:21:54.989Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-4a44a1-preview-and-safely-change-the-recorder-destination.md"
 
 <!-- /handoff:next -->
 

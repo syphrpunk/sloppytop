@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Verified 348 tests, one Linux-only skip, type-check, installation and both entrypoint diagnosis smokes. Visual suite timed out under concurrent load, then passed standalone.
+
+
+## Session digest — 2026-11-18
+
 - Verified both entrypoints, names-only and reversible detail sections, tree ordering/tick controls and recording-only group toggles; 338 tests passed, one Linux-only skip. Type-check, visual comparisons and compiled diagnosis passed.
 
 
