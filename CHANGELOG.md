@@ -20,6 +20,7 @@ The `handoff-create --changelog` flow appends entries to "## Unreleased" as you 
 - Host network rates use monotonic elapsed time. Missing or reset counter intervals are omitted instead of reported as idle; previously recorded values are unchanged.
 - Linux live sensor samples include hwmon voltage, current and instantaneous power where available, without guessing board voltage scaling.
 - On-demand macOS hardware inventory shows design and raw maximum battery capacity in mAh when available, alongside the OS health percentage and cycle count.
+- `tree --summary-pid <PID>` reports CPU and summed RSS for a visible process subtree, with measurement coverage and without command lines or environment values.
 
 ## 0.3.0 - 2026-10-23
 

@@ -9,7 +9,7 @@ import { splitPinned } from './filter/pins.ts'
 import { buildProcessTree } from './filter/tree.ts'
 import { openFiles } from './monitor/files.ts'
 import { HardwareError, hardwareInventory } from './monitor/hardware.ts'
-import { Monitor, processDetail, sleep } from './monitor/index.ts'
+import { Monitor, processDetail, sampleWindow } from './monitor/index.ts'
 import type { ProcessInfo } from './monitor/types.ts'
 import { ListenError, listeningSockets } from './monitor/listen.ts'
 import { NetError, sampleNet } from './monitor/net.ts'
@@ -348,14 +348,23 @@ Cli.create('sloppytop', {
     },
   })
   .command('tree', {
-    description: 'Process tree (depth-first, PPID→PID) with rendering prefixes',
+    description: 'Process tree (depth-first, PPID→PID), or CPU and memory totals for a visible subtree',
     options: z.object({
       filter: listOptions.shape.filter,
       user: listOptions.shape.user,
       sampleMs: listOptions.shape.sampleMs,
+      summaryPid: z.coerce.number().int().positive().optional().describe('Summarize the visible process tree rooted at this PID'),
     }),
     async run(c) {
       if (!loadConfig().probes.processes) return c.error(probeOff('processes'))
+      if (c.options.summaryPid !== undefined) {
+        if (c.options.filter || c.options.user) return c.error({
+          code: 'INVALID_ARGS', message: '--summary-pid cannot be combined with --filter or --user',
+        })
+        const { workload } = await takeSample(c.options.sampleMs, c.options.summaryPid)
+        if (!workload) return c.error({ code: 'NOT_FOUND', message: `no visible process with pid ${c.options.summaryPid}` })
+        return c.ok(workload)
+      }
       const { processes } = await takeSample(c.options.sampleMs)
       let matched
       try {
@@ -479,10 +488,9 @@ Cli.create('sloppytop', {
       mon.setFlags(collectFlags(probes))
       mon.refresh()
       for (let seq = 1; c.options.count === 0 || seq <= c.options.count; seq++) {
-        await sleep(c.options.intervalMs)
-        mon.refresh()
+        const stats = await sampleWindow(mon, c.options.intervalMs, probes.gpu)
         const at = new Date().toISOString()
-        const system = projectSystem(mon.stats(), probes)
+        const system = projectSystem(stats, probes)
         const all = projectProcesses(mon.processes(), probes)
         appendProbeLog(probeEntries(system, all, probes, at))
         const rows = probes.processes

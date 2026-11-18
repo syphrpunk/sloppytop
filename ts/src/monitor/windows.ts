@@ -29,7 +29,7 @@ $net = @()
 try {
   $net = @(Get-CimInstance Win32_PerfRawData_Tcpip_NetworkInterface | Select-Object Name,BytesReceivedPersec,BytesSentPersec)
 } catch {}
-$procs = @(Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,WorkingSetSize,VirtualSize,ThreadCount,CommandLine,KernelModeTime,UserModeTime,ReadTransferCount,WriteTransferCount,@{n='RuntimeSecs';e={ if ($_.CreationDate) { [int](($now - $_.CreationDate).TotalSeconds) } else { 0 } }})
+$procs = @(Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,WorkingSetSize,VirtualSize,ThreadCount,CommandLine,KernelModeTime,UserModeTime,ReadTransferCount,WriteTransferCount,@{n='CreationTicks';e={ if ($_.CreationDate) { [string]$_.CreationDate.Ticks } }},@{n='RuntimeSecs';e={ if ($_.CreationDate) { [int](($now - $_.CreationDate).TotalSeconds) } else { 0 } }})
 @{
   cpuBrand = $cpu.Name
   memoryTotalKb = $os.TotalVisibleMemorySize
@@ -74,6 +74,7 @@ interface RawWindows {
     ReadTransferCount?: number
     WriteTransferCount?: number
     RuntimeSecs?: number
+    CreationTicks?: string
   }[]
 }
 
@@ -104,8 +105,11 @@ export function buildSample(raw: RawWindows, coreTicks: CoreTicks[], host: strin
       {
         pid: p.ProcessId,
         ppid: p.ParentProcessId ?? 0,
+        ...(p.CreationTicks && p.KernelModeTime != null && p.UserModeTime != null
+          ? { startIdentity: p.CreationTicks } : {}),
         name: p.Name ?? String(p.ProcessId),
         memoryBytes: p.WorkingSetSize ?? 0,
+        ...(p.WorkingSetSize == null ? { memoryUnmeasured: true as const } : {}),
         status: 'Running',
         user: '',
         command: p.CommandLine ?? p.Name ?? '',

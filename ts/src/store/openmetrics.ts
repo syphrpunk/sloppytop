@@ -97,6 +97,18 @@ export function renderSystemMetrics(system: Partial<SystemStats>, at = new Date(
   gauge(lines, 'sloppytop_dram_power_watts', 'DRAM package power, watts', system.dram_power_watts)
   gauge(lines, 'sloppytop_gpu_utilization_percent', 'GPU utilization, 0-100', system.gpu_utilization_percent)
   gauge(lines, 'sloppytop_gpu_memory_bytes', 'In-use GPU memory, bytes', system.gpu_memory_bytes)
+  for (const [key, help] of [
+    ['utilization_percent', 'NVIDIA GPU utilization, 0-100'],
+    ['vram_used_bytes', 'NVIDIA in-use VRAM, bytes'],
+    ['vram_total_bytes', 'NVIDIA total VRAM, bytes'],
+  ] as const) {
+    const name = `sloppytop_nvidia_${key}`
+    const readings = (system.nvidia_devices ?? []).flatMap((device) => {
+      const value = device[key]
+      return value === undefined ? [] : [`${name}{uuid="${escapeLabel(device.uuid)}"} ${value}`]
+    })
+    if (readings.length) lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} gauge`, ...readings)
+  }
   for (const device of system.disk_devices ?? []) {
     labeledGauge(lines, 'sloppytop_disk_read_bytes_per_second', 'Device read rate', 'device', device.name, device.read_bytes_per_s)
     labeledGauge(lines, 'sloppytop_disk_write_bytes_per_second', 'Device write rate', 'device', device.name, device.write_bytes_per_s)

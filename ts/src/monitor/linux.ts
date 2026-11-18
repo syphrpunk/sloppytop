@@ -83,6 +83,7 @@ function collectProcs(uptimeSecs: number): RawProc[] {
       const proc: RawProc = {
         pid: Number(entry),
         ppid: Number(f[1] ?? 0),
+        ...(Number.isSafeInteger(startTicks) && startTicks > 0 ? { startIdentity: startTicks } : {}),
         name: comm,
         memoryBytes: Number(f[21] ?? 0) * PAGE_SIZE,
         status: STATUS_MAP[f[0] ?? ''] ?? 'Unknown',

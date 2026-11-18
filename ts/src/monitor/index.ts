@@ -7,6 +7,8 @@ import { powerWatts } from './energy.ts'
 import { gpuTimeDeltas } from './gpu.ts'
 import { pageRates, type PageRates } from './memory.ts'
 import { networkRate, type NetworkCounters } from './network.ts'
+import { startNvidiaSample } from './nvidia.ts'
+import { summarizeTree } from './workload.ts'
 import type { CollectFlags } from './probes.ts'
 import type { EnergyNj } from './energy.ts'
 import type {
@@ -26,6 +28,7 @@ interface PrevSample {
   network?: NetworkCounters
   coreTicks?: { busy: number; total: number }[]
   procTicks: Map<number, number>
+  procStarts: Map<number, number | string>
   procDisk: Map<number, { read: number; write: number }>
   procWakeups: Map<number, number>
   pageCounters?: PageCounters
@@ -62,6 +65,7 @@ export class Monitor {
   #diskDevices: DiskDevice[] = []
   #procGpuMs = new Map<number, number>()
   #procCpu = new Map<number, number>()
+  #observedCpu = new Set<number>()
   #procDiskRate = new Map<number, { read: number; write: number }>()
   #procWakeupRate = new Map<number, number>()
   #pageRates: PageRates = {}
@@ -132,18 +136,24 @@ export class Monitor {
 
     // Per-process CPU%
     this.#procCpu.clear()
+    this.#observedCpu.clear()
     const procTicks = new Map<number, number>()
+    const procStarts = new Map<number, number | string>()
     for (const proc of sample.procs) {
       if (proc.cpuPct !== undefined) {
         // macOS: ps pcpu is ready-made
         this.#procCpu.set(proc.pid, proc.cpuPct)
+        this.#observedCpu.add(proc.pid)
       } else if (proc.cpuTicks !== undefined) {
         procTicks.set(proc.pid, proc.cpuTicks)
+        if (proc.startIdentity !== undefined) procStarts.set(proc.pid, proc.startIdentity)
         const prevTicks = prev?.procTicks.get(proc.pid)
         if (prevTicks !== undefined && elapsed > 0) {
           // delta-based between refreshes
           const pct = ((proc.cpuTicks - prevTicks) / CLK_TCK / elapsed) * 100
           this.#procCpu.set(proc.pid, Math.max(0, pct))
+          if (proc.cpuTicks >= prevTicks && proc.startIdentity !== undefined
+            && proc.startIdentity === prev?.procStarts.get(proc.pid)) this.#observedCpu.add(proc.pid)
         } else {
           // first sight: average since process start
           const avg =
@@ -158,6 +168,7 @@ export class Monitor {
       ...(sample.network ? { network: sample.network } : {}),
       coreTicks: sample.cpuPerCoreTicks,
       procTicks,
+      procStarts,
       procDisk,
       procWakeups,
       ...(sample.pageCounters ? { pageCounters: sample.pageCounters } : {}),
@@ -170,6 +181,15 @@ export class Monitor {
 
   detail(pid: number): ProcessDetail {
     return this.impl.detail(pid)
+  }
+
+  workload(rootPid: number) {
+    return summarizeTree((this.#sample?.procs ?? []).map((p) => ({
+      pid: p.pid,
+      ppid: p.ppid,
+      cpu: this.#observedCpu.has(p.pid) ? this.#procCpu.get(p.pid) : undefined,
+      rss: p.memoryUnmeasured ? undefined : p.memoryBytes,
+    })), rootPid)
   }
 
   stats(): SystemStats {
@@ -308,18 +328,29 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
  * One-shot snapshot. Samples twice `sampleMs` apart so delta-based metrics
  * (Linux CPU%, network rates) are real instead of zero.
  */
-export async function snapshot(sampleMs = 500, flags?: CollectFlags): Promise<{
-  system: SystemStats
-  processes: ProcessInfo[]
-  linuxBootId?: string
-}> {
+export async function snapshot(sampleMs = 500, flags?: CollectFlags, workloadRootPid?: number) {
   const mon = await Monitor.create()
   mon.setFlags(flags)
   mon.refresh()
+  const system = await sampleWindow(mon, sampleMs, flags?.gpu)
+  const bootId = mon.linuxBootId()
+  const workload = workloadRootPid === undefined ? undefined : mon.workload(workloadRootPid)
+  return {
+    system, processes: mon.processes(),
+    ...(bootId ? { linuxBootId: bootId } : {}),
+    ...(workload ? { workload } : {}),
+  }
+}
+
+/** NVIDIA runs alongside the ordinary sampling window, never on its critical path. */
+export async function sampleWindow(mon: Monitor, sampleMs: number, gpu?: boolean): Promise<SystemStats> {
+  const nvidia = startNvidiaSample(gpu)
   await sleep(sampleMs)
   mon.refresh()
-  const bootId = mon.linuxBootId()
-  return { system: mon.stats(), processes: mon.processes(), ...(bootId ? { linuxBootId: bootId } : {}) }
+  const devices = nvidia()
+  const system = mon.stats()
+  if (devices) system.nvidia_devices = devices
+  return system
 }
 
 /** On-demand expensive fields (cwd, environ) — port of getProcessDetail */
@@ -328,5 +359,4 @@ export async function processDetail(pid: number): Promise<ProcessDetail> {
   return impl.detail(pid)
 }
 
-export { sleep }
 export type { ProcessDetail, ProcessInfo, SystemStats } from './types.ts'

@@ -18,11 +18,17 @@ export interface Sample extends RecordableSample {
 }
 
 /** Sample, drop disabled probe fields, and append one probe-log line per enabled probe. */
-export async function takeSample(sampleMs: number): Promise<Sample> {
+export async function takeSample(sampleMs: number, workloadRootPid?: number): Promise<Sample & {
+  workload?: NonNullable<Awaited<ReturnType<typeof snapshot>>['workload']>
+}> {
   const probes = loadConfig().probes
-  const snap = await snapshot(sampleMs, collectFlags(probes))
+  const snap = await snapshot(sampleMs, collectFlags(probes), probes.processes ? workloadRootPid : undefined)
   const system = projectSystem(snap.system, probes)
   const processes = projectProcesses(snap.processes, probes)
   appendProbeLog(probeEntries(system, processes, probes))
-  return { system, processes, probes, ...(snap.linuxBootId ? { linuxBootId: snap.linuxBootId } : {}) }
+  return {
+    system, processes, probes,
+    ...(snap.linuxBootId ? { linuxBootId: snap.linuxBootId } : {}),
+    ...(snap.workload ? { workload: snap.workload } : {}),
+  }
 }

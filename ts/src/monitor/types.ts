@@ -136,6 +136,7 @@ export interface SystemStats {
    */
   temperatures?: TemperatureReading[]
   electrical_sensors?: ElectricalReading[]
+  nvidia_devices?: NvidiaDevice[]
   fans?: FanReading[]
   /**
    * macOS `NSProcessInfo.thermalState`. Nominal is also what the API returns
@@ -215,6 +216,14 @@ export interface ElectricalReading {
   value: number
 }
 
+export interface NvidiaDevice {
+  uuid: string
+  driver_version: string
+  utilization_percent?: number
+  vram_used_bytes?: number
+  vram_total_bytes?: number
+}
+
 export interface FanReading {
   name: string
   rpm: number
@@ -229,6 +238,9 @@ export interface CoreTicks {
 }
 
 export interface RawProc {
+  /** Platform process incarnation, when known. */
+  startIdentity?: number | string
+  memoryUnmeasured?: true
   pid: number
   ppid: number
   name: string
