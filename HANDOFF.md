@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 6ff99fa chore(handoff): append checkpoint tree-and-record-policy
+HEAD: 740d600 Expose recording-only field choices in Settings
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -86,6 +86,7 @@ First wave integrated locally through cd9f83e. The 12-repeat macOS baseline/cand
 Integrated confirmed recorder schedule changes and readback (c4e0103), plus tree projection only (b97c133). Wire tree keys, focus and hidden counts next. The diagnosis smoke initially failed before the first tmux frame; launching the binary directly instead of through shell startup hooks fixed it (5eddc53). No real scheduler was changed.
 Tree mode now supports folding and focus navigation (a24f505). Optional recording groups are enforced at SQLite insertion (88d15a0); the next screen integration is exposing those choices in recorder Settings without changing global probes.
 Rebuilt and installed this checkout into /opt/homebrew/bin. Both ./st tui and /opt/homebrew/bin/st tui rendered the new tree help in independent PTYs. For subsequent user-facing changes distinguish built vs installed: refresh this local install and verify a visible feature through the user's actual command.
+Installed integrated process privacy/disclosure and tree/interval controls plus the recording-only group picker through 740d600. Verified actual checkout and installed commands with a controlled child process and isolated configs. Recorder destination, history drill-down and fixed-host SLA acceptance remain open.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -103,7 +104,7 @@ Rebuilt and installed this checkout into /opt/homebrew/bin. Both ./st tui and /o
 Open tasks:
 (task manager: memento)
 {
-  "count": 12,
+  "count": 11,
   "items": [
     {
       "id": "nht-9de7a2",

@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Verified both entrypoints, names-only and reversible detail sections, tree ordering/tick controls and recording-only group toggles; 338 tests passed, one Linux-only skip. Type-check, visual comparisons and compiled diagnosis passed.
+
+
+## Session digest — 2026-11-18
+
 - Replaced the stale local binary and verified the installed shortcut matches the build byte for byte; both checkout and installed commands rendered fold/parent help.
 
 
