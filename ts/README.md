@@ -52,7 +52,7 @@ sloppytop service uninstall
 
 ## Self-update
 
-Compiled release binaries embed incur's update metadata: `sloppytop --update` checks releases of `syphrpunk/neohtop-cli` for a newer `sloppytop-<target>.gz` asset, verifies its SHA-256 digest, and swaps the executable in place. Running from source is unaffected. The GitHub repository name is unchanged.
+Compiled release binaries embed incur's update metadata: `sloppytop --update` checks releases of `syphrpunk/sloppytop` for a newer `sloppytop-<target>.gz` asset, verifies its SHA-256 digest, and swaps the executable in place. Running from source is unaffected.
 
 ## Port status
 

@@ -12,8 +12,8 @@ Thanks for your interest in contributing to Sloppytop. Bug fixes, features, them
 ### Setup
 
 ```bash
-git clone https://github.com/<your-username>/neohtop-cli.git
-cd neohtop-cli
+git clone https://github.com/<your-username>/sloppytop.git
+cd sloppytop
 mise install
 just setup
 ./st tui
@@ -69,5 +69,5 @@ Add the field on the sample type in `ts/src/monitor/types.ts`. Read it in the pl
 
 ## Need Help?
 
-- Open a [GitHub issue](https://github.com/syphrpunk/neohtop-cli/issues)
+- Open a [GitHub issue](https://github.com/syphrpunk/sloppytop/issues)
 - Check existing issues before opening a new one

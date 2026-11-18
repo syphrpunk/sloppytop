@@ -1,16 +1,19 @@
-# neohtop-cli — devlog
+# Sloppytop — devlog
 
 Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
-## Session digest — 2026-09-25
+## Repository rename — 2026-11-18
+
+- Renamed the GitHub repository to `syphrpunk/sloppytop`, updated this checkout’s `origin`, and updated installation links and release consumers.
+
 ## Session digest — 2026-11-18
 
 - Reoriented on the TypeScript-only CLI and OpenTUI screen; refreshed the handoff and Memento queue snapshot without changing tracker state.
 - Verified the existing working tree on macOS arm64: 232 tests, type-check, compiled build, and TUI smoke passed. Homebrew and live scheduler installs were not tested.
 
-
+## Session digest — 2026-09-25
 
 - (checkpoint — see HANDOFF.md state/next for details)
 

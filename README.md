@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go&logoColor=white)](https://go.dev)
-[![Release](https://img.shields.io/github/v/release/syphrpunk/neohtop-cli?color=purple)](https://github.com/syphrpunk/neohtop-cli/releases)
+[![Release](https://img.shields.io/github/v/release/syphrpunk/sloppytop?color=purple)](https://github.com/syphrpunk/sloppytop/releases)
 
 A terminal process monitor — originally the CLI companion to [NeoHtop](https://github.com/Abdenasser/NeoHtop). The prebuilt binary is `sloppytop`. `sloppytop tui` opens the screen.
 
@@ -26,7 +26,7 @@ A terminal process monitor — originally the CLI companion to [NeoHtop](https:/
 
 ## Installation
 
-Download a prebuilt `sloppytop` binary from this repo's [releases](https://github.com/syphrpunk/neohtop-cli/releases). `sloppytop tui` opens the process monitor. `sloppytop --help` lists the other commands.
+Download a prebuilt `sloppytop` binary from this repo's [releases](https://github.com/syphrpunk/sloppytop/releases). `sloppytop tui` opens the process monitor. `sloppytop --help` lists the other commands.
 
 The macOS release build is Apple Silicon. An Intel Mac runs this checkout with bun.
 
@@ -34,7 +34,7 @@ The macOS release build is Apple Silicon. An Intel Mac runs this checkout with b
 <summary><b>macOS (Apple Silicon)</b></summary>
 
 ```bash
-curl -LO https://github.com/syphrpunk/neohtop-cli/releases/latest/download/sloppytop-macos-arm64.tar.gz
+curl -LO https://github.com/syphrpunk/sloppytop/releases/latest/download/sloppytop-macos-arm64.tar.gz
 tar xzf sloppytop-macos-arm64.tar.gz
 sudo mv sloppytop-macos-arm64 /usr/local/bin/sloppytop
 ```
@@ -46,12 +46,12 @@ sudo mv sloppytop-macos-arm64 /usr/local/bin/sloppytop
 
 ```bash
 # x86_64
-curl -LO https://github.com/syphrpunk/neohtop-cli/releases/latest/download/sloppytop-linux-amd64.tar.gz
+curl -LO https://github.com/syphrpunk/sloppytop/releases/latest/download/sloppytop-linux-amd64.tar.gz
 tar xzf sloppytop-linux-amd64.tar.gz
 sudo mv sloppytop-linux-amd64 /usr/local/bin/sloppytop
 
 # ARM64
-curl -LO https://github.com/syphrpunk/neohtop-cli/releases/latest/download/sloppytop-linux-arm64.tar.gz
+curl -LO https://github.com/syphrpunk/sloppytop/releases/latest/download/sloppytop-linux-arm64.tar.gz
 tar xzf sloppytop-linux-arm64.tar.gz
 sudo mv sloppytop-linux-arm64 /usr/local/bin/sloppytop
 ```
@@ -61,7 +61,7 @@ sudo mv sloppytop-linux-arm64 /usr/local/bin/sloppytop
 <details>
 <summary><b>Windows</b></summary>
 
-Download [`sloppytop-windows-amd64.tar.gz`](https://github.com/syphrpunk/neohtop-cli/releases/latest). The archive contains `sloppytop-windows-amd64.exe`.
+Download [`sloppytop-windows-amd64.tar.gz`](https://github.com/syphrpunk/sloppytop/releases/latest). The archive contains `sloppytop-windows-amd64.exe`.
 
 </details>
 
@@ -71,8 +71,8 @@ Download [`sloppytop-windows-amd64.tar.gz`](https://github.com/syphrpunk/neohtop
 The release has no Intel Mac binary. Clone the repo and run the checkout:
 
 ```bash
-git clone https://github.com/syphrpunk/neohtop-cli.git
-cd neohtop-cli
+git clone https://github.com/syphrpunk/sloppytop.git
+cd sloppytop
 mise install
 ./st tui
 ```
@@ -85,8 +85,8 @@ mise install
 Requires [mise](https://mise.jdx.dev) (installs bun and just from `mise.toml`).
 
 ```bash
-git clone https://github.com/syphrpunk/neohtop-cli.git
-cd neohtop-cli
+git clone https://github.com/syphrpunk/sloppytop.git
+cd sloppytop
 mise install
 just setup
 ./st tui
@@ -263,7 +263,7 @@ The prebuilt binary is the TypeScript CLI. `sloppytop tui` is the screen. Collec
 <summary><b>Project structure</b></summary>
 
 ```
-neohtop-cli/
+sloppytop/
 ├── ts/src/
 │   ├── index.ts             # commands
 │   ├── monitor/             # macOS, Linux, and Windows collectors

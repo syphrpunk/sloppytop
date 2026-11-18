@@ -4,7 +4,7 @@
 
 A terminal process monitor — originally the CLI companion to [NeoHtop](https://github.com/Abdenasser/NeoHtop). The package installs the `sloppytop` binary. `sloppytop tui` opens the screen.
 
-![Sloppytop](https://raw.githubusercontent.com/syphrpunk/neohtop-cli/main/assets/neohtop-cli.JPG)
+![Sloppytop](https://raw.githubusercontent.com/syphrpunk/sloppytop/main/assets/neohtop-cli.JPG)
 
 ## Install
 
@@ -57,9 +57,9 @@ sloppytop --help                   # see all commands
 
 ## Links
 
-- [GitHub](https://github.com/syphrpunk/neohtop-cli) — full docs, screenshots, and source
+- [GitHub](https://github.com/syphrpunk/sloppytop) — full docs, screenshots, and source
 - [NeoHtop Desktop](https://github.com/Abdenasser/NeoHtop) — the GUI version
-- [Releases](https://github.com/syphrpunk/neohtop-cli/releases) — prebuilt binaries
+- [Releases](https://github.com/syphrpunk/sloppytop/releases) — prebuilt binaries
 
 ## License
 

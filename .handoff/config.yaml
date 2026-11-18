@@ -1,6 +1,6 @@
 schemaVersion: "1"
 project:
-  name: neohtop-cli
+  name: sloppytop
   docs:
     handoff: HANDOFF.md
     devlog: DEVLOG.md
@@ -52,9 +52,9 @@ handoffs:
   active: HANDOFF.md
   archiveDir: .handoff/archive
   lockfile: .handoff/lock.json
-  lastCreated: "2026-11-18T00:51:29Z"
+  lastCreated: "2026-11-18T00:56:41Z"
   lastFullCreated: null
-  lastParentRev: 6102a7e
+  lastParentRev: e824b35
   verificationCache:
     command: null
     result: null

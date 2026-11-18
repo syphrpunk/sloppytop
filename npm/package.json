@@ -4,9 +4,9 @@
   "description": "Sloppytop terminal process monitor",
   "repository": {
     "type": "git",
-    "url": "https://github.com/syphrpunk/neohtop-cli"
+    "url": "https://github.com/syphrpunk/sloppytop"
   },
-  "homepage": "https://github.com/syphrpunk/neohtop-cli",
+  "homepage": "https://github.com/syphrpunk/sloppytop",
   "author": "Abdenasser",
   "license": "MIT",
   "keywords": [

@@ -142,8 +142,8 @@ Cli.create('sloppytop', {
     'System monitor for humans and agents — realtime process/CPU/memory/disk/network reporting',
   version: pkg.version,
   // Self-update for compiled binaries via GitHub release assets
-  // (sloppytop-<target>.gz on syphrpunk/neohtop-cli); a no-op when running from source.
-  update: Binary.github({ repository: 'syphrpunk/neohtop-cli' }),
+  // (sloppytop-<target>.gz on syphrpunk/sloppytop); a no-op when running from source.
+  update: Binary.github({ repository: 'syphrpunk/sloppytop' }),
 })
   .command('hardware', {
     description:

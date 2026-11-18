@@ -1,4 +1,4 @@
-# neohtop-cli — handoff
+# Sloppytop — handoff
 
 > **Read this first.** Single entry point for resuming work. Run the
 > `handoff-continue` skill for the structured summary. Then read the files
@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 6102a7e chore: drop the unused Go tree and the .augment skill links
+HEAD: e824b35 chore(handoff): refresh Sloppytop repo checkpoint
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -32,6 +32,7 @@ At orientation, `main` was two commits ahead of `origin/main` and already had un
 Verified the working tree on macOS arm64: `just test` (232 passing), `just ts-check`, `just build`, and `just ts-smoke`. Did not install the cask or exercise a live scheduler.
 
 Memento is the task source of truth. Several open items overlap existing code: the OpenTUI screen already ships, and Apple Silicon energy and Linux stall-pressure collectors already exist. Inspect remaining acceptance criteria before picking up those items; no tracker status changed.
+The GitHub repository is now `syphrpunk/sloppytop`, and this checkout’s `origin` points there. The local directory and legacy config paths retain their old names.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->

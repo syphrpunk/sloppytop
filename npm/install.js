@@ -6,7 +6,7 @@ const fs = require("fs");
 const { execSync } = require("child_process");
 
 const VERSION = require("./package.json").version;
-const REPO = "syphrpunk/neohtop-cli";
+const REPO = "syphrpunk/sloppytop";
 
 const PLATFORM_MAP = {
   "darwin-arm64": { file: "sloppytop-macos-arm64", archive: "tar.gz" },
@@ -28,7 +28,7 @@ function install() {
   if (platformKey === "darwin-x64") {
     console.error(
       "sloppytop: no prebuilt binary for Intel Macs.\n" +
-        "Clone https://github.com/syphrpunk/neohtop-cli and run ./st (mise install, then ./st tui)."
+        "Clone https://github.com/syphrpunk/sloppytop and run ./st (mise install, then ./st tui)."
     );
     process.exit(1);
   }
