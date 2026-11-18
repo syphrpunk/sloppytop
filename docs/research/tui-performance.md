@@ -55,3 +55,10 @@ Reducing OpenTUI's renderer debounce from 100 to 16 ms did not improve
 the measured resize: live p50 stayed at 239 ms and fixture p50 stayed
 at 240–242 ms. Reverted the change. Measure the PTY window-size transition
 separately from the app's resize event before tuning the renderer again.
+
+Sharing the process row projection across selection and composition, skipping
+identical frame styling, and avoiding paint after empty paused ticks improved
+paused CPU for the 100/1,000/5,000-row fixtures to 1.32% / 1.66% / 1.33% (from
+4.63% / 4.64% / 5.30%). Paused RSS was 82–92 MiB. Live paused CPU was still
+2.98%, and live search and resize p95 still missed budget at 229 and 318 ms.
+Do not treat the fixture CPU improvement as live performance acceptance.

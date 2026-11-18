@@ -136,10 +136,10 @@ export function pushHistory(history: SampleHistory, system: Partial<SystemStats>
 export function compose(
   state: ScreenState,
   input: { processes: ProcessInfo[]; system: Partial<SystemStats>; history: SampleHistory },
+  view = visibleRows(state, input.processes),
 ): Frame {
   const width = Math.max(1, state.width)
   const height = Math.max(1, state.height)
-  const view = visibleRows(state, input.processes)
   const fitted = fitColumns(state.columns, width, state.sortBy)
   const lines: string[] = []
   const capacity = Math.max(0, height - 1)

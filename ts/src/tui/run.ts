@@ -130,6 +130,7 @@ export async function runTui(
     wrapMode: 'none',
   })
   renderer.root.add(text)
+  let lastFrame: { text: string; theme: Theme } | undefined
 
   const paint = () => {
     const width = renderer.terminalWidth || state.width || 80
@@ -137,16 +138,20 @@ export async function runTui(
     const strip = stripLineCount(system, width, height)
     const chrome = state.overlay === 'none' ? 5 : 3
     state = { ...state, width, height, bodyRows: Math.max(0, height - strip - chrome) }
-    state = ensureSelection(state, visibleRows(state, processes).rows)
-    const frame = compose(state, { processes, system, history })
+    const view = visibleRows(state, processes)
+    state = ensureSelection(state, view.rows)
+    const frame = compose(state, { processes, system, history }, view)
     rows = frame.rows
     layout = frame.layout
     if (state.overlay === 'none') state = { ...state, bodyRows: frame.layout.bodyRows }
     const themeNow = getTheme(state.theme)
-    text.content = styleFrame(frame.text, themeNow)
-    text.fg = themeNow.text
     text.width = width
     text.height = height
+    if (lastFrame?.text !== frame.text || lastFrame.theme !== themeNow) {
+      text.content = styleFrame(frame.text, themeNow)
+      text.fg = themeNow.text
+      lastFrame = { text: frame.text, theme: themeNow }
+    }
   }
 
   const stop = () => {
@@ -404,7 +409,7 @@ export async function runTui(
 
   const tick = async () => {
     if (stopped) return
-    const started = Date.now()
+    const started = performance.now()
     try {
       const sample = await sampleTick({ paused: state.paused, sampleMs })
       if (stopped) return
@@ -420,15 +425,16 @@ export async function runTui(
           probes: sample.probes,
           statusMessage: '',
         }
+        paint()
       }
     } catch (err) {
       if (stopped) return
       const message = err instanceof Error && err.message ? err.message : 'sample failed'
       state = { ...state, waiting: false, statusMessage: message }
+      paint()
     }
     if (stopped) return
-    paint()
-    const wait = Math.max(0, state.refreshMs - (Date.now() - started))
+    const wait = Math.max(0, state.refreshMs - (performance.now() - started))
     timer = setTimeout(() => void tick(), wait)
   }
 
