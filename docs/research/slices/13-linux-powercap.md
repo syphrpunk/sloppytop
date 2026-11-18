@@ -26,17 +26,20 @@ no `/sys/class/powercap`. The OptiPlex (Intel Core i7-6700, Linux 6.18.43
 x86_64) exposes `intel-rapl:0` named `package-0`, but the SSH account
 (UID 1000) cannot read `energy_uj`: it is mode `0400`, owned by
 `root:root`. No elevation or permission changes were attempted.
-Real hardware validation with an unprivileged reader remains open
-(`nht-4aa2dd`).
+Real hardware validation is deferred until later this week (`nht-4aa2dd`),
+separately from NVIDIA validation (`nht-f456db`). The collector stays
+opt-in and experimental until that check passes.
 
 ## Real hardware verification
 
-On authorized Linux hardware with readable package counters as the normal
-user, record the checkout commit, platform/CPU, zone name, counter units
+Use an authorized Linux host where the test account can already read the
+package counters without elevation. Skip the OptiPlex unless that
+precondition is met. Record the checkout commit, platform/CPU, zone name, counter units
 and range. Capture multiple directly read counter/elapsed-time pairs and
 the CLI's `powercap_packages` at idle and with an existing workload.
 Compare the watts using the same units and interval; allow variation
-between separate sample windows. Save the evidence here.
+between separate sample windows. Save the evidence here and close
+`nht-4aa2dd` only after attaching it.
 
 ```sh
 git rev-parse --short HEAD

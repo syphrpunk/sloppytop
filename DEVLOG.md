@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Powercap hardware validation deferred — 2026-11-18
+
+- Deferred Slice 13 real hardware testing until later this week. Updated `nht-4aa2dd` and the validation checklist; no runtime or host changes.
+
+
 ## OptiPlex powercap access checked — 2026-11-18
 
 - The OptiPlex exposes RAPL `package-0`, but `energy_uj` is root-only and unreadable to UID 1000. No host settings changed; Slice 13 validation remains open.
