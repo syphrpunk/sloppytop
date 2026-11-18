@@ -5,6 +5,9 @@ import { runTui } from './src/tui/run.ts'
 import { defaultProbes } from './src/monitor/probes.ts'
 import type { Sample } from './src/sample.ts'
 
+const rows = Number(process.env.ST_FIXTURE_ROWS ?? 24)
+if (!Number.isInteger(rows) || rows < 1 || rows > 5_000) throw new Error('fixture rows must be 1–5000')
+
 const sample: Sample = {
   probes: defaultProbes(),
   system: {
@@ -12,13 +15,13 @@ const sample: Sample = {
     memory_total: 16 * 2 ** 30, memory_used: 7 * 2 ** 30, memory_free: 9 * 2 ** 30,
     uptime_secs: 6000, load_avg: [1.2, .9, .5],
     disk_total_bytes: 500 * 2 ** 30, disk_used_bytes: 180 * 2 ** 30, disk_free_bytes: 320 * 2 ** 30,
-    hostname: 'fixture', os_version: 'test OS', kernel_version: '1', process_count: 24,
+    hostname: 'fixture', os_version: 'test OS', kernel_version: '1', process_count: rows,
     network_rx_bytes: 18_000, network_tx_bytes: 6_000,
   },
-  processes: Array.from({ length: 24 }, (_, i) => ({
+  processes: Array.from({ length: rows }, (_, i) => ({
     pid: 200 + i, ppid: i ? 200 : 1, name: i === 0 ? 'fixture-worker' : `fixture-child-${i}`,
     status: 'Running', user: 'fixture', command: 'fixture command',
-    cpu_usage: 100 - i * 3, memory_bytes: (450 - i * 10) * 2 ** 20,
+    cpu_usage: Math.max(0, 100 - i * 3), memory_bytes: Math.max(0, 450 - i * 10) * 2 ** 20,
     runtime_secs: 600, disk_read_bytes: 0, disk_write_bytes: 0,
   })),
 }

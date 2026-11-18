@@ -61,5 +61,9 @@ tui-visual output="ts/dist/tui-visual":
     cd ts && bun build --compile discovery-pty-fixture.ts --outfile dist/discovery-pty-fixture
     python3 ts/visual-tui.py ts/dist/discovery-pty-fixture "{{output}}"
 
+# Benchmark compiled live and synthetic screens (build both binaries first).
+tui-bench *args:
+    python3 ts/bench-tui.py ts/dist/sloppytop ts/dist/discovery-pty-fixture {{args}}
+
 # Cross-target bun runtimes are not downloadable on canary. Release binaries
 # are compiled natively per platform in CI (see release.yml).
