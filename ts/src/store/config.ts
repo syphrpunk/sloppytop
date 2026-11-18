@@ -8,6 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { defaultProbes, parseProbes, type ProbeName, type ProbeSet } from '../monitor/probes.ts'
 import { isThemeName } from '../tui/theme.ts'
+import { parseRecordGroups, type OptionalRecordGroup, type RecordGroups } from './record-policy.ts'
 
 export interface MetricsConfig {
   /** When false, `metrics serve` does not bind. */
@@ -25,6 +26,8 @@ export interface Config {
     retentionDays: number
     /** delta-sampling window for CPU/network rates */
     sampleMs: number
+    /** SQLite field selection only. Missing groups are stored when measured. */
+    optionalGroups: RecordGroups
   }
   /** Name or command patterns floated by `top` and `processes`. */
   pins: string[]
@@ -81,7 +84,7 @@ export const DEFAULT_TUI: TuiConfig = {
 const TUI_COLUMN_SET = new Set<string>(TUI_COLUMNS)
 
 export const DEFAULTS: Config = {
-  record: { processLimit: 30, retentionDays: 30, sampleMs: 500 },
+  record: { processLimit: 30, retentionDays: 30, sampleMs: 500, optionalGroups: parseRecordGroups() },
   pins: [],
   groups: [],
   probes: defaultProbes(),
@@ -147,7 +150,7 @@ export function normalizeConfig(raw: unknown): Config {
     ? obj.pins.filter((pin): pin is string => typeof pin === 'string' && pin.trim().length > 0)
     : []
   return {
-    record: { ...DEFAULTS.record, ...record },
+    record: { ...DEFAULTS.record, ...record, optionalGroups: parseRecordGroups(record.optionalGroups) },
     pins: pins.map((pin) => pin.trim()),
     groups: parseGroups(obj.groups),
     probes: parseProbes(obj.probes),
@@ -321,6 +324,13 @@ export function initConfig(): Config {
 export function updateProbes(names: ProbeName[], enabled: boolean): Config {
   const config = loadConfig()
   for (const name of names) config.probes[name] = enabled
+  saveConfig(config)
+  return config
+}
+
+export function updateRecordGroup(group: OptionalRecordGroup, enabled: boolean): Config {
+  const config = loadConfig()
+  config.record.optionalGroups[group] = enabled
   saveConfig(config)
   return config
 }

@@ -14,6 +14,7 @@ import type {
   ThermalState,
 } from '../monitor/types.ts'
 import { dbPath, ensureConfigDir } from './config.ts'
+import { projectRecordGroups, type RecordGroups } from './record-policy.ts'
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS system_samples (
@@ -161,11 +162,12 @@ export interface RecordResult {
 export function insertSample(
   db: Database,
   at: string,
-  system: SystemStats,
-  processes: ProcessInfo[],
-  opts: { processLimit: number; retentionDays: number },
+  sampledSystem: SystemStats,
+  sampledProcesses: ProcessInfo[],
+  opts: { processLimit: number; retentionDays: number; optionalGroups?: Partial<RecordGroups> },
   linuxBootId?: string,
 ): RecordResult {
+  const { system, processes } = projectRecordGroups(sampledSystem, sampledProcesses, opts.optionalGroups)
   const insertSystem = db.prepare(`
     INSERT INTO system_samples (
       at, hostname, cpu_usage_total, cpu_usage_per_core,

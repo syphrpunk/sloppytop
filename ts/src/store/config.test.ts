@@ -11,6 +11,17 @@ describe('normalizeConfig', () => {
     expect(normalizeConfig({ record: { processLimit: 5 } }).record.retentionDays).toBe(30)
   })
 
+  test('recording choices default on; only boolean false for a stored optional group opts out', () => {
+    const allOn = { processes: true, power: true, sensors: true, pressure: true, battery: true, swap: true }
+    expect(normalizeConfig({ record: { processLimit: 5 } }).record.optionalGroups).toEqual(allOn)
+    const config = normalizeConfig({ record: { optionalGroups: {
+      pressure: false, sensors: 'false', swap: null, cpu: false, network: false, gpu: true,
+    } } })
+    expect(config.record.optionalGroups).toEqual({ ...allOn, pressure: false })
+    expect(config.probes.pressure).toBe(true)
+    expect(normalizeConfig({ probes: { pressure: false } }).record.optionalGroups.pressure).toBe(true)
+  })
+
   test('keeps string pins and drops blanks', () => {
     expect(normalizeConfig({ pins: [' postgres ', '', 3, 'node'] }).pins).toEqual(['postgres', 'node'])
   })
