@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 2af088d test(diagnostics): validate the compiled workflow on Linux and macOS
+HEAD: 9faae4d chore(handoff): full checkpoint diagnosis-26-37
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -76,6 +76,7 @@ After the operator reported disabling Malwarebytes real-time protection, the sam
 The operator removed macOS fresh-file startup and signing/packaging from the goal; the failed measurements remain in the performance notes. The retained checks passed, including repeat-launch startup, resize, interaction, idle and memory budgets, visual baselines and compiled discovery. Both TUI Memento items are complete. The Pi goal still requires an explicit resume before closing.
 After resuming, reran type-check, build, live and discovery PTY smokes, visual baselines, and all 290 tests on macOS (289 pass, one Linux-only skip). The retained TUI acceptance checks and both Memento items are verified; fresh-file startup was removed by the operator, not passed.
 The [diagnosis batch](docs/research/slices/26-37-diagnosis.md) added recorder health, history evidence, comparison reports, workload and interface history, redacted discovery diffs and diagnostic reports, and TUI sample inspection. Mac and OptiPlex builds passed the same-DB compiled diagnosis smoke; macOS had 298 tests pass (one Linux-only skip) and Linux had 299 pass. The existing Apple Silicon tracker `nht-9de7a2` remains open: two Macs did not supply validated fan and cluster-frequency measurements, and CPU energy stayed at zero in the second Mac's three live trials. Revisit only with a reliable unprivileged provider or a user-approved change to the requirement. NVIDIA and Linux powercap remain separate.
+Rebuilt the current macOS arm64 checkout and installed it at `/opt/homebrew/bin/sloppytop`; the existing `st` symlink now runs the updated build. The installed binary matched the checkout artifact byte-for-byte and passed the compiled diagnosis smoke through `st`. No release, push, or service change.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -89,8 +90,6 @@ The [diagnosis batch](docs/research/slices/26-37-diagnosis.md) added recorder he
 <!-- handoff:next -->
 
 **Queue: the configured task manager below (source of truth); the configured queue view, if any, is generated from it.**
-
-**Diagnosis:** Resume [Slice 34](docs/research/slices/26-37-diagnosis.md) when an unprivileged RPM and cluster-frequency source plus a live energy comparison are available. Do not close `nht-9de7a2` based on the temperature and watts evidence alone.
 
 Open tasks:
 (task manager: memento)

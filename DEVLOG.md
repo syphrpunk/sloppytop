@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Installed the updated local binary — 2026-11-18
+
+- Rebuilt and installed the arm64 checkout; verified the existing `st` shortcut with the compiled diagnosis smoke.
+
+
 ## Diagnosis batch and cross-platform release checks — 2026-11-18
 
 - Added and tested recorder health, history/report evidence, redacted exports, and TUI sample inspection. Verified the compiled workflow on macOS and Linux; Apple Silicon energy coverage remains open.
