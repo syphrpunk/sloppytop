@@ -21,6 +21,7 @@ The `handoff-create --changelog` flow appends entries to "## Unreleased" as you 
 - Linux live sensor samples include hwmon voltage, current and instantaneous power where available, without guessing board voltage scaling.
 - On-demand macOS hardware inventory shows design and raw maximum battery capacity in mAh when available, alongside the OS health percentage and cycle count.
 - `tree --summary-pid <PID>` reports CPU and summed RSS for a visible process subtree, with measurement coverage and without command lines or environment values.
+- On Linux, `tree --cgroup-pid <PID>` reports hierarchical CPU and charged memory from the PID's cgroup v2.
 
 ## 0.3.0 - 2026-10-23
 

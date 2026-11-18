@@ -14,6 +14,10 @@ The summary reports coverage per metric and does not include process
 command lines or environment values. Summed RSS may count shared pages
 more than once.
 
+On Linux, `--cgroup-pid <PID>` instead reads the containing cgroup v2's
+hierarchical CPU and charged memory, including descendants. This charged
+memory is not summed RSS. Unavailable counters are omitted.
+
 ## Options
 
 | Flag | Type | Default | Description |
@@ -22,3 +26,4 @@ more than once.
 | `--user` | `string` |  | Only processes owned by this user |
 | `--sampleMs` | `number` | `500` | Delta-sampling window in ms for CPU/network rates |
 | `--summary-pid` | `number` |  | Summarize one visible subtree; incompatible with `--filter` and `--user` |
+| `--cgroup-pid` | `number` |  | Summarize one Linux cgroup v2; incompatible with `--summary-pid`, `--filter`, and `--user` |

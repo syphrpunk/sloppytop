@@ -354,9 +354,20 @@ Cli.create('sloppytop', {
       user: listOptions.shape.user,
       sampleMs: listOptions.shape.sampleMs,
       summaryPid: z.coerce.number().int().positive().optional().describe('Summarize the visible process tree rooted at this PID'),
+      cgroupPid: z.coerce.number().int().positive().optional().describe('Summarize the Linux cgroup v2 containing this PID'),
     }),
     async run(c) {
       if (!loadConfig().probes.processes) return c.error(probeOff('processes'))
+      if (c.options.cgroupPid !== undefined) {
+        if (c.options.filter || c.options.user || c.options.summaryPid !== undefined) return c.error({
+          code: 'INVALID_ARGS', message: '--cgroup-pid cannot be combined with --summary-pid, --filter, or --user',
+        })
+        if (process.platform !== 'linux') return c.error({ code: 'UNAVAILABLE', message: 'cgroup totals require Linux cgroup v2' })
+        const { summarizeCgroup } = await import('./monitor/cgroup-summary.ts')
+        const report = await summarizeCgroup(c.options.cgroupPid, c.options.sampleMs)
+        if (!report) return c.error({ code: 'UNAVAILABLE', message: 'cgroup placement was unavailable or changed during sampling' })
+        return c.ok(report)
+      }
       if (c.options.summaryPid !== undefined) {
         if (c.options.filter || c.options.user) return c.error({
           code: 'INVALID_ARGS', message: '--summary-pid cannot be combined with --filter or --user',
