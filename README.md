@@ -261,6 +261,11 @@ Press `m` in the TUI to check recorder health on macOS or Linux. Settings
 shows scheduler and recorder state, the last run outcome when known, and
 the age of the last successful DB insert (including manual recordings).
 Close and reopen Settings to refresh. To manage the job, use `service`.
+From a selected process, press `i` for details and `t` to sample its visible
+subtree with the same collector as `tree --summary-pid`. Press `t` again
+to return. Coverage is shown per metric; the subtree may omit processes,
+and summed RSS can count shared pages more than once. This is separate from
+the `g` cgroup view.
 
 ```json
 {

@@ -78,6 +78,9 @@ export interface DetailState {
   filesOmitted?: boolean
   message?: string
   cgroup?: { status: 'loading' | 'ready' | 'unavailable'; cpu?: number; memory?: number }
+  subtree?: { status: 'loading' | 'unavailable' } | {
+    status: 'ready'; totals: NonNullable<ReturnType<typeof import('../monitor/workload.ts').summarizeTree>>
+  }
 }
 
 export type PageKind = 'net' | 'listen' | 'hardware'
@@ -274,6 +277,7 @@ export interface ScreenEffect {
   refreshHardware?: boolean
   openTopology?: boolean
   loadCgroup?: number
+  loadSubtree?: number
   openHistory?: boolean
   openDiscovery?: boolean
   openReport?: boolean
@@ -501,12 +505,21 @@ function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
 
 function reduceDetail(state: ScreenState, key: KeyPress): ReduceResult {
   const pid = state.detail?.pid ?? state.selectedPid
-  if (key.name === 'g' && pid) return {
+  if (key.name === 't' && state.detail) {
+    if (state.detail.subtree) return {
+      state: { ...state, overlayScroll: 0, detail: { ...state.detail, subtree: undefined } },
+    }
+    return {
+      state: { ...state, overlayScroll: 0, detail: { ...state.detail, subtree: { status: 'loading' } } },
+      effect: { loadSubtree: state.detail.pid },
+    }
+  }
+  if (key.name === 'g' && pid && !state.detail?.subtree) return {
     state: { ...state, detail: { ...state.detail, pid, loaded: state.detail?.loaded ?? false, cgroup: { status: 'loading' } } },
     effect: { loadCgroup: pid },
   }
-  if (key.name === 'e' && pid) return { state, effect: { loadEnv: pid } }
-  if (key.name === 'o' && pid) return { state, effect: { loadFiles: pid } }
+  if (key.name === 'e' && pid && !state.detail?.subtree) return { state, effect: { loadEnv: pid } }
+  if (key.name === 'o' && pid && !state.detail?.subtree) return { state, effect: { loadFiles: pid } }
   if (key.name === 'escape' || key.name === 'esc' || key.name === 'q' || key.name === 'return' || key.name === 'enter') {
     return { state: { ...state, overlay: 'none' } }
   }

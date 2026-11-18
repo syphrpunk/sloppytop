@@ -7,6 +7,7 @@ import { defaultProbes } from './src/monitor/probes.ts'
 import type { Sample } from './src/sample.ts'
 import { insertSample, openDb } from './src/store/db.ts'
 import { updateProbes } from './src/store/config.ts'
+import { summarizeTree } from './src/monitor/workload.ts'
 
 const rows = Number(process.env.ST_FIXTURE_ROWS ?? 24)
 if (!Number.isInteger(rows) || rows < 1 || rows > 5_000) throw new Error('fixture rows must be 1–5000')
@@ -23,6 +24,8 @@ const sample: Sample = {
     electrical_sensors: [{ channel: 'hwmon0/in0', name: 'fixture rail', unit: 'volts', value: 0 }],
     powercap_packages: [{ zone: 'package-0', name: 'fixture package', watts: 0 }],
     network_interfaces: [{ name: 'eth0', rx_bytes_per_s: 0 }],
+    nvidia_devices: [{ uuid: 'GPU-00000000-0000-0000-0000-000000000001', driver_version: 'fixture',
+      utilization_percent: 0, vram_used_bytes: 0, vram_total_bytes: 8 * 2 ** 30 }],
   },
   processes: Array.from({ length: rows }, (_, i) => ({
     pid: 200 + i, ppid: i ? 200 : 1, name: i === 0 ? 'fixture-worker' : i === 1 ? '界-fixture' : `fixture-child-${i}`,
@@ -99,4 +102,4 @@ await runTui(loaders, async () => {
   scheduler: 'systemd', installed: true, loaded: true, scheduler_state: 'armed', recorder_state: 'idle',
   last_run: { outcome: 'failed', exit_code: 7 }, last_successful_sample_at: '2026-11-18T04:00:00.000Z',
   sample_age_seconds: 0,
-}))
+}), pid => summarizeTree([{ pid: 200, ppid: 1, cpu: 0, rss: 0 }, { pid: 201, ppid: 200, rss: 0 }], pid))

@@ -71,6 +71,7 @@ export async function runTui(
   sampleTick?: SampleTick,
   loadDiscoveryDetail?: (section: 'connections' | 'dns') => Promise<DiscoveryDetail>,
   loadRecorder?: () => RecorderHealth,
+  loadSubtree?: (pid: number) => ReturnType<typeof import('../monitor/workload.ts').summarizeTree>,
 ): Promise<void> {
   const started = performance.now()
   const trace = startTuiTrace()
@@ -108,7 +109,7 @@ export async function runTui(
   let metricsStarting = false
   const sampler = sampleTick ? undefined : createTuiSampler()
   const discoveryWorker = createCollectorWorker()
-  const recorderWorker = createCollectorWorker()
+  const onDemandWorker = createCollectorWorker()
   let discoveryQueue = Promise.resolve()
 
   const theme = getTheme(state.theme)
@@ -176,7 +177,7 @@ export async function runTui(
     if (timer) clearTimeout(timer)
     sampler?.close()
     discoveryWorker.close()
-    recorderWorker.close()
+    onDemandWorker.close()
     if (metricsStop) {
       try {
         metricsStop()
@@ -206,7 +207,7 @@ export async function runTui(
         effect.openNet || effect.openListen || effect.openHardware || effect.refreshHardware ||
         effect.openTopology || effect.loadCgroup != null) void fulfillAndApply(effect)
     if (effect.openHistory || effect.openDiscovery || effect.openReport || effect.openLog ||
-        effect.openSettings || effect.record) void fulfillStore(effect)
+        effect.openSettings || effect.record || effect.loadSubtree != null) void fulfillStore(effect)
   }
 
   const persistProbe = (toggle: { name: ProbeName; enabled: boolean }) => {
@@ -372,11 +373,19 @@ export async function runTui(
           ...(detail ? { detail } : data ? { data } : { message: 'network probe is off' }),
         } }
       } else if (effect.openSettings && state.overlay === 'settings') {
-        recorderWorker.close()
-        const reply = loadRecorder ? { recorder: loadRecorder() } : await recorderWorker.request({ kind: 'recorder' }, 8_000)
+        onDemandWorker.close()
+        const reply = loadRecorder ? { recorder: loadRecorder() } : await onDemandWorker.request({ kind: 'recorder' }, 8_000)
         if (stopped || token !== storeToken || state.overlay !== 'settings' || !state.settingsPage) return
         if (!reply || !('recorder' in reply)) throw new Error('recorder health unavailable')
         state = { ...state, settingsPage: { ...state.settingsPage, recorder: { status: 'ready', health: reply.recorder } } }
+      } else if (effect.loadSubtree != null && state.overlay === 'detail') {
+        const pid = effect.loadSubtree
+        onDemandWorker.close()
+        const reply = loadSubtree ? { subtree: loadSubtree(pid) }
+          : await onDemandWorker.request({ kind: 'subtree', pid, ms: sampleMs }, sampleMs + 10_000)
+        if (stopped || token !== storeToken || state.overlay !== 'detail' || state.detail?.pid !== pid || !state.detail.subtree) return
+        const totals = reply && 'subtree' in reply ? reply.subtree : undefined
+        state = { ...state, detail: { ...state.detail, subtree: totals ? { status: 'ready', totals } : { status: 'unavailable' } } }
       } else {
         const store = await import('./store.ts')
         if (stopped || token !== storeToken) return
@@ -410,6 +419,9 @@ export async function runTui(
       }
       if (effect.openSettings && state.overlay === 'settings' && state.settingsPage) {
         state = { ...state, settingsPage: { ...state.settingsPage, recorder: { status: 'error', message } } }
+      }
+      if (effect.loadSubtree != null && state.overlay === 'detail' && state.detail?.pid === effect.loadSubtree && state.detail.subtree) {
+        state = { ...state, detail: { ...state.detail, subtree: { status: 'unavailable' } } }
       }
     }
     if (!stopped) paint()

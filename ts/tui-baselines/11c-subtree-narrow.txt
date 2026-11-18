@@ -1,0 +1,12 @@
+sloppytop  Charm
+╭─ process ────────────────────────────────────────────╮
+│ subtree PID 200 · 2 visible                          │
+│ membership may be incomplete                         │
+│ CPU 0.0% of one core                                 │
+│   measured 1/2 visible                               │
+│ summed RSS 0.0 B                                     │
+│   measured 2/2 visible                               │
+│ RSS can count shared pages more than once            │
+╰──────────────────────────────────────────────────────╯
+
+q close   t process details

@@ -1,0 +1,18 @@
+sloppytop  Charm
+╭─ hardware ───────────────────────────────────────────╮
+│ latest sample readings                               │
+│ hwmon electrical                                     │
+│   fixture rail  0 V                                  │
+│ package power (experimental)                         │
+│   fixture package  0 W                               │
+│ network interfaces                                   │
+│   eth0  rx 0 B/s  tx —                               │
+│ NVIDIA devices (experimental)                        │
+│   GPU-00000000-0000-0000-0000-000000000001           │
+│   driver fixture                                     │
+│   utilization 0.0%                                   │
+│   VRAM used 0.0 B                                    │
+│   VRAM total 8.0 GB                                  │
+╰──────────────────────────────────────────────────────╯
+
+q close   d disks   s inventory

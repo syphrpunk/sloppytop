@@ -211,7 +211,7 @@ export function compose(
     : state.overlay === 'discovery' ? '←/→ tab   ↑/↓ scroll   r refresh'
     : state.overlay === 'hardware' ? state.page?.hardwareTab === 'readings' ? 'd disks   s inventory'
       : state.page?.hardwareTab === 'topology' ? 'd inventory   s readings   r refresh' : 'd disks   s readings   r refresh'
-    : state.overlay === 'detail' ? 'g cgroup   e env   o files'
+    : state.overlay === 'detail' ? state.detail?.subtree ? 't process details' : 't subtree   g cgroup   e env   o files'
     : state.overlay === 'columns' ? '↑/↓ select   Space toggle'
     : state.overlay === 'theme' ? '↑/↓ preview   Enter use'
     : state.overlay === 'settings' ? '↑/↓ select   Space toggle   m listener'
@@ -1426,6 +1426,22 @@ function killLines(state: ScreenState, processes: ProcessInfo[]): string[] {
 
 function detailLines(state: ScreenState, processes: ProcessInfo[]): string[] {
   const pid = state.detail?.pid ?? state.selectedPid
+  const subtree = state.detail?.subtree
+  if (subtree) {
+    if (subtree.status !== 'ready') return [`subtree PID ${pid}`, subtree.status === 'loading' ? 'sampling…' : 'visible subtree unavailable']
+    const { totals } = subtree
+    const cpu = totals.cpu.percent_of_one_core
+    const rss = totals.memory.summed_rss_bytes
+    return [
+      `subtree PID ${totals.root_pid} · ${totals.visible_processes} visible`,
+      'membership may be incomplete',
+      `CPU ${cpu === undefined ? 'unmeasured' : `${formatPercent(cpu)} of one core`}`,
+      `  measured ${totals.cpu.measured_processes}/${totals.visible_processes} visible`,
+      `summed RSS ${rss === undefined ? 'unmeasured' : formatBytes(rss)}`,
+      `  measured ${totals.memory.measured_processes}/${totals.visible_processes} visible`,
+      'RSS can count shared pages more than once',
+    ]
+  }
   const proc = processes.find((row) => row.pid === pid)
   if (!proc) return ['process left the list', 'esc  close']
   const detail = state.detail?.pid === proc.pid ? state.detail : null
@@ -1496,6 +1512,14 @@ function pageLines(state: ScreenState, system: Partial<SystemStats>): string[] {
       'network interfaces',
       ...(interfaces.length ? interfaces.map(row =>
         `  ${plain(row.name)}  rx ${discoveryRate(row.rx_bytes_per_s)}  tx ${discoveryRate(row.tx_bytes_per_s)}`) : ['  not measured']),
+      'NVIDIA devices (experimental)',
+      ...(system.nvidia_devices?.length ? system.nvidia_devices.flatMap(device => [
+        `  ${plain(device.uuid)}`,
+        `  driver ${plain(device.driver_version)}`,
+        `  utilization ${device.utilization_percent === undefined ? '—' : formatPercent(device.utilization_percent)}`,
+        `  VRAM used ${device.vram_used_bytes === undefined ? '—' : formatBytes(device.vram_used_bytes)}`,
+        `  VRAM total ${device.vram_total_bytes === undefined ? '—' : formatBytes(device.vram_total_bytes)}`,
+      ]) : ['  not measured (Linux opt-in)']),
     ]
   }
   if (page.hardwareTab === 'topology') {

@@ -24,6 +24,14 @@ the query finishes. Missing values are omitted; a measured 0 is not.
 OpenMetrics (labeled by device UUID), not SQLite history. Other GPU
 backends and their metrics are unchanged.
 
+In the TUI, open Hardware and press `s` for sample readings, then scroll
+to NVIDIA devices. The same opt-in applies when starting the TUI. Missing
+device counters are shown as `—`; “not measured” means the latest sample
+had no device rows. The view is live (or frozen when paused), not inventory
+or history. A synthetic 56×18 PTY test verifies zero and VRAM rendering;
+an initial assertion expected `GiB` and `0 B`, but the shared formatter
+produces `GB` (binary scale) and `0.0 B`. This is not hardware validation.
+
 An unprivileged Linux arm64 container without a driver or `nvidia-smi`
 produced a normal CPU and network sample with the opt-in enabled and no
 NVIDIA fields. Helper fixtures cover success, missing binary, nonzero

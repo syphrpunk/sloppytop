@@ -72,7 +72,7 @@ def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
             if all(marker in frame for marker in markers):
                 return
             time.sleep(0.05)
-        raise RuntimeError(f"missing terminal markers: {markers}")
+        raise RuntimeError(f"missing terminal markers: {markers}\n{frame}")
 
     try:
         command = f"exec env XDG_CONFIG_HOME={shlex.quote(config)} {shlex.quote(binary)} tui"
@@ -91,8 +91,18 @@ def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
                    service["last_successful_sample_at"], "(any insert)")
         tmux("send-keys", "-t", "smoke", "q")
         wait_frame("q quit")
+        pid = int(tmux("display-message", "-p", "-t", "smoke", "#{pane_pid}").stdout)
+        tmux("send-keys", "-t", "smoke", "-l", f"/pid:{pid}")
+        tmux("send-keys", "-t", "smoke", "Enter")
+        wait_frame("1/", f"PID {pid}")
+        tmux("send-keys", "-t", "smoke", "i")
+        wait_frame(f"pid {pid}", "t subtree")
+        tmux("send-keys", "-t", "smoke", "t")
+        wait_frame("membership may be incomplete", "summed RSS", "t process details")
         tmux("send-keys", "-t", "smoke", "q")
-        print("compiled diagnosis smoke ok: one recording reached history, report and TUI; Settings agrees with service status")
+        wait_frame("q quit")
+        tmux("send-keys", "-t", "smoke", "q")
+        print("compiled diagnosis smoke ok: recorded history/report, recorder health and live subtree")
         return 0
     finally:
         tmux("kill-server", check=False)

@@ -12,6 +12,19 @@ function key(name: string, extra: Partial<KeyPress> = {}): KeyPress {
   return { name, ctrl: false, shift: false, ...extra }
 }
 
+test('hardware readings distinguish unavailable NVIDIA devices and partial counters from zero', () => {
+  const state = screen({ overlay: 'hardware', width: 56, height: 20,
+    page: { kind: 'hardware', status: 'ready', message: '', hardwareTab: 'readings' } })
+  const input = { processes: [], history: emptyHistory() }
+  expect(compose(state, { ...input, system: {} }).text).toContain('not measured (Linux opt-in)')
+  const frame = compose(state, { ...input, system: { nvidia_devices: [{
+    uuid: 'GPU-fixture', driver_version: 'fixture', utilization_percent: 0, vram_total_bytes: 0,
+  }] } })
+  expect(frame.text).toContain('utilization 0.0%')
+  expect(frame.text).toContain('VRAM used —')
+  expect(frame.text).toContain('VRAM total 0.0 B')
+})
+
 function proc(partial: Partial<ProcessInfo> & Pick<ProcessInfo, 'pid' | 'name'>): ProcessInfo {
   return {
     ppid: 0,
