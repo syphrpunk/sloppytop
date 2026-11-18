@@ -997,6 +997,7 @@ function overlayLines(state: ScreenState, processes: ProcessInfo[]): string[] {
   if (state.overlay === 'theme') return themeLines(state)
   if (state.overlay === 'net' || state.overlay === 'listen' || state.overlay === 'hardware') return pageLines(state)
   if (state.overlay === 'history') return historyLines(state)
+  if (state.overlay === 'discovery') return discoveryLines(state)
   if (state.overlay === 'report') return reportLines(state)
   if (state.overlay === 'log') return logLines(state)
   if (state.overlay === 'settings') return settingsLines(state)
@@ -1024,6 +1025,8 @@ function overlayTitle(overlay: ScreenState['overlay']): string {
       return 'hardware'
     case 'history':
       return 'history'
+    case 'discovery':
+      return 'network discovery'
     case 'report':
       return 'report'
     case 'log':
@@ -1067,12 +1070,48 @@ function helpLines(): string[] {
     'up j  move        g G  ends        1-9 0  sort  T  tree',
     'p  pin   i  detail   k  kill   c  columns   t  theme   r  refresh',
     'e  env   o  files   n  connections   l  listen   h  hardware',
+    'D  local network discovery',
     'a  record   v  history   w  report   b  probe log   m  settings',
     'y  confirm a kill    n  cancel    hardware r  re-read',
   ]
 }
 
 const SETTINGS_WINDOW = 8
+
+function discoveryLines(state: ScreenState): string[] {
+  const page = state.discoveryPage
+  const data = page?.data
+  if (!page || !data) return [page?.message ?? 'reading local tables…', 'esc  close']
+  const section = (['overview', 'interfaces', 'routes', 'neighbors', 'listeners'] as const)[page.tab] ?? 'overview'
+  const lines: string[] = []
+  const provider = (p: { source: string; status: string; observed_at: string; issues: string[]; rows: unknown[] }) =>
+    `${p.source}: ${p.status} (${p.rows.length}) ${p.observed_at.slice(11, 19)}Z ${p.issues.join(', ')}`
+  if (section === 'overview') {
+    lines.push(`${data.counts.tcp_listeners} TCP listens / ${data.counts.udp_bound} UDP bound (visible)`,
+      `${data.counts.cached_neighbors} cached peers (not online status)`)
+    lines.push(...data.default_routes.map((r) => `default v${r.family} ${r.interface ?? '—'} via ${r.gateway ?? 'on-link or unknown'}`))
+    lines.push(...[...data.interfaces, ...data.routes, ...data.neighbors, ...data.listeners].map(provider))
+  } else if (section === 'interfaces') {
+    for (const p of data.interfaces) {
+      lines.push(provider(p))
+      for (const row of p.rows) {
+        lines.push(`${row.name} ${row.link_state ?? '—'} rx ${row.rx_bytes_per_s ?? '—'} tx ${row.tx_bytes_per_s ?? '—'} B/s`)
+        for (const a of row.addresses) lines.push(`  ${a.address}${a.prefix === undefined ? '' : `/${a.prefix}`}`)
+      }
+    }
+  } else if (section === 'routes') {
+    for (const p of data.routes) lines.push(provider(p), ...p.rows.map((r) => `${r.destination} ${r.interface ?? '—'} ${r.gateway ?? ''}`))
+  } else if (section === 'neighbors') {
+    for (const p of data.neighbors) lines.push(provider(p), ...p.rows.map((r) => `${r.interface} ${r.address} ${r.state}`))
+  } else {
+    for (const p of data.listeners) lines.push(provider(p), ...p.rows.map((r) => `${r.protocol}${r.family} ${r.scope} ${r.address}:${r.port} ${r.owner_visibility}`))
+  }
+  const size = Math.max(1, state.height - 7)
+  const offset = Math.min(page.offset, Math.max(0, lines.length - size))
+  return [`${section} · ${data.collected_at.slice(11, 19)}Z${page.refreshed ? ' refreshed' : ''}`,
+    ...lines.slice(offset, offset + size).map((line) => plain(line)),
+    '←/→ tab  ↑/↓ scroll  r refresh  esc close']
+}
 
 function historyChart(label: string, values: readonly SparklinePoint[], width: number, max?: number, breaks: readonly number[] = []): string {
   const name = clip(plain(label), 18)

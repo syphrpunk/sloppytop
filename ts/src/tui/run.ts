@@ -76,7 +76,10 @@ export async function runSampleTick(opts: { paused: boolean; sampleMs: number })
   return takeSample(opts.sampleMs)
 }
 
-export async function runTui(loaders: PageLoaders = defaultPageLoaders()): Promise<void> {
+export async function runTui(
+  loaders: PageLoaders = defaultPageLoaders(),
+  loadDiscovery = async () => (await import('../discovery/overview.ts')).discoverOverview(),
+): Promise<void> {
   const config = ensureTuiConfig()
   const sampleMs = config.record.sampleMs
   let probes: ProbeSet = config.probes
@@ -309,6 +312,13 @@ export async function runTui(loaders: PageLoaders = defaultPageLoaders()): Promi
         const result = await recordWithStore()
         if (stopped || token !== storeToken || state.overlay !== 'record') return
         state = { ...state, recordPage: { message: result.message } }
+      } else if (effect.openDiscovery) {
+        const enabled = state.probes.network
+        const data = enabled ? await loadDiscovery() : undefined
+        if (stopped || token !== storeToken || state.overlay !== 'discovery' || !state.discoveryPage) return
+        state = { ...state, discoveryPage: { ...state.discoveryPage,
+          ...(data ? { data } : { message: 'network probe is off' }),
+        } }
       } else if (effect.openHistory) {
         const view = loadHistory()
         if (stopped || token !== storeToken || state.overlay !== 'history') return
@@ -332,6 +342,9 @@ export async function runTui(loaders: PageLoaders = defaultPageLoaders()): Promi
       if (effect.record && state.overlay === 'record') state = { ...state, recordPage: { message } }
       if (effect.openHistory && state.overlay === 'history') {
         state = { ...state, historyPage: emptyHistoryPage('error', message) }
+      }
+      if (effect.openDiscovery && state.overlay === 'discovery' && state.discoveryPage) {
+        state = { ...state, discoveryPage: { ...state.discoveryPage, message: 'local discovery unavailable' } }
       }
       if (effect.openReport && state.overlay === 'report' && state.reportPage) {
         state = { ...state, reportPage: { ...state.reportPage, status: 'error', message } }

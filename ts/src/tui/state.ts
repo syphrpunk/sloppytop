@@ -20,6 +20,7 @@ export type Overlay =
   | 'listen'
   | 'hardware'
   | 'history'
+  | 'discovery'
   | 'report'
   | 'log'
   | 'settings'
@@ -228,6 +229,7 @@ export interface ScreenState {
   metricsHost: string
   metricsPort: number
   historyPage: HistoryView | null
+  discoveryPage: { tab: number; offset: number; refreshed?: boolean; data?: import('../discovery/overview.ts').Overview; message?: string } | null
   /** Null is the overview; otherwise an index into available disk metrics. */
   historyDiskIndex: number | null
   reportPage: ReportView | null
@@ -248,6 +250,7 @@ export interface ScreenEffect {
   openHardware?: boolean
   refreshHardware?: boolean
   openHistory?: boolean
+  openDiscovery?: boolean
   openReport?: boolean
   openLog?: boolean
   openSettings?: boolean
@@ -324,6 +327,7 @@ export function initialState(
     metricsHost: '127.0.0.1',
     metricsPort: 9464,
     historyPage: null,
+    discoveryPage: null,
     historyDiskIndex: null,
     reportPage: null,
     logPage: null,
@@ -420,6 +424,18 @@ function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
   if (state.overlay === 'detail') return reduceDetail(state, key)
   if (state.overlay === 'hardware') return reduceHardware(state, key)
   if (state.overlay === 'settings') return reduceSettings(state, key)
+  if (state.overlay === 'discovery' && state.discoveryPage) {
+    const page = state.discoveryPage
+    if (key.name === 'r') return {
+      state: { ...state, discoveryPage: { tab: page.tab, offset: 0, refreshed: true } }, effect: { openDiscovery: true },
+    }
+    if (key.name === 'left' || key.name === 'right') return {
+      state: { ...state, discoveryPage: { ...page, tab: (page.tab + (key.name === 'left' ? 4 : 1)) % 5, offset: 0 } },
+    }
+    if (key.name === 'up' || key.name === 'down') return {
+      state: { ...state, discoveryPage: { ...page, offset: Math.max(0, page.offset + (key.name === 'up' ? -1 : 1)) } },
+    }
+  }
   if (state.overlay === 'history' && state.historyPage?.status === 'ready') {
     if (key.name === 'd') {
       return { state: { ...state, historyDiskIndex: state.historyDiskIndex === null ? 0 : null } }
@@ -563,6 +579,10 @@ function reduceMain(state: ScreenState, key: KeyPress, rows: DisplayRow[]): Redu
   if (key.name === 'l') return openPage(state, 'listen')
   if (key.name === 'h') return openPage(state, 'hardware')
   if (key.name === 'v') return openHistory(state)
+  if (key.name === 'D' || (key.name === 'd' && key.shift)) return {
+    state: { ...state, overlay: 'discovery', discoveryPage: { tab: 0, offset: 0 } },
+    effect: { openDiscovery: true },
+  }
   if (key.name === 'w') return openReport(state)
   if (key.name === 'b') return openLog(state)
   if (key.name === 'a') return openRecord(state)

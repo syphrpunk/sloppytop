@@ -5,6 +5,8 @@ import type { ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { DEFAULT_TUI } from '../store/config.ts'
 import { applyPointer, compose, emptyHistory, pushHistory } from './frame.ts'
 import { initialState, reduce, visibleRows, wantsQuit, type KeyPress, type ScreenState } from './state.ts'
+import { composeOverview } from '../discovery/overview.ts'
+import { observe } from '../discovery/provider.ts'
 
 function key(name: string, extra: Partial<KeyPress> = {}): KeyPress {
   return { name, ctrl: false, shift: false, ...extra }
@@ -74,6 +76,29 @@ function screen(over: Partial<ScreenState> = {}): ScreenState {
     ...over,
   }
 }
+
+test('discovery navigation renders denied and partial coverage at narrow and wide widths', () => {
+  const at = new Date('2026-01-01T12:34:56Z')
+  const denied = observe('ip address', { issue: 'denied' }, () => ({ rows: [] as never[] }), 'linux', at)
+  const partial = observe('ARP cache', { text: '' }, () => ({
+    rows: [{ interface: 'eth0', family: 6 as const, address: 'fe80::1%eth0', state: 'stale' }],
+    issues: ['visibility'],
+  }), 'linux', at)
+  const data = composeOverview([denied], [], [partial], [], 'test', at)
+  for (const width of [56, 110]) {
+    const open = reduce(screen({ width }), key('D'), [])
+    expect(open.effect?.openDiscovery).toBe(true)
+    let state: ScreenState = { ...open.state, discoveryPage: { tab: 0, offset: 0, data } }
+    const draw = () => compose(state, { processes: [], system: {}, history: emptyHistory() }).text
+    expect(draw()).toContain('12:34:56Z')
+    expect(draw()).toContain('ip address: unavailable (0) 12:34:56Z denied')
+    for (let i = 0; i < 3; i++) state = reduce(state, key('right'), []).state
+    expect(draw()).toContain('ARP cache: partial')
+    expect(draw()).toContain('fe80::1%eth0')
+    expect(reduce(state, key('r'), []).effect?.openDiscovery).toBe(true)
+    expect(reduce(state, key('escape'), []).state.overlay).toBe('none')
+  }
+})
 
 describe('stats strip', () => {
   test('renders missing network intervals as gaps, not as zeros', () => {

@@ -289,6 +289,7 @@ export function bindMetricsListener(
 export function hasStoreEffect(effect: ScreenEffect): boolean {
   return (
     effect.openHistory === true ||
+    effect.openDiscovery === true ||
     effect.openReport === true ||
     effect.openLog === true ||
     effect.openSettings === true ||
