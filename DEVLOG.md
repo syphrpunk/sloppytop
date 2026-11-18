@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## NVIDIA hardware validation deferred — 2026-11-18
+
+- Filed `nht-f456db` and recorded the Linux cloud GPU validation procedure in the Slice 07 notes. No cloud setup, tests, or runtime changes in this checkpoint.
+
+
 ## Network, hwmon, battery and workload slices verified — 2026-11-18
 
 - Closed `nht-4e0e0e`; verified legacy network rows, zero vs. absent rates, HTTP metrics and recorded history. Verified hwmon fixtures and Linux omission, live macOS battery inventory and recorder isolation, and verified process-subtree summaries on Linux and macOS.

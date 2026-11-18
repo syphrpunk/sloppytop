@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 30d2fa4 feat: add workload summaries and experimental NVIDIA sampling
+HEAD: 4d2b4a5 docs: checkpoint slices 4–8 and NVIDIA validation blocker
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -44,7 +44,7 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 
 [Slices 04](docs/research/slices/04-live-network-rates.md), [05](docs/research/slices/05-linux-hwmon-electrical.md), [06](docs/research/slices/06-macos-battery-capacity.md), and [08](docs/research/slices/08-workload-resource-use.md) are implemented and verified locally: host network rate validity (`nht-4e0e0e` closed), Linux hwmon electrical readings, macOS raw battery capacity on demand, and visible process-subtree summaries. All changes are committed locally; nothing was pushed.
 
-[Slice 07](docs/research/slices/07-nvidia-telemetry.md) has a bounded experimental Linux probe. Fixtures and the driver-free Linux smoke passed. The five-slice goal remains incomplete until the probe reports utilization and VRAM on a real Linux NVIDIA host with its device and driver recorded. The slice document contains the validation commands.
+[Slice 07](docs/research/slices/07-nvidia-telemetry.md) has a bounded experimental Linux probe. Fixtures and the driver-free Linux smoke passed. Real hardware validation is intentionally deferred to a Linux cloud GPU and tracked as `nht-f456db`. The slice document contains the commands and evidence checklist. The five-slice goal remains blocked on that evidence.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -57,10 +57,11 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 
 <!-- handoff:next -->
 
-**Slice 07 validation:** Obtain a Linux host with a real NVIDIA GPU and working `nvidia-smi`. Run the comparison in the slice document and record device, driver, utilization and VRAM. Do not mark the five-slice goal complete before verification.
+**Deferred:** Run the [Slice 07 cloud GPU checklist](docs/research/slices/07-nvidia-telemetry.md) when a Linux NVIDIA machine is available. Track results in `nht-f456db`.
 
 **Queue: Memento is the source of truth.**
 
+- `nht-f456db` (todo): Validate experimental NVIDIA telemetry on a real cloud GPU
 - `nht-9de7a2` (todo): Apple Silicon energy sample
 - `nht-cb0edf` (todo): Expand the CLI past process-table parity
 - `nht-2613eb` (todo): Harvest faculties from the _repos monitor corpus
