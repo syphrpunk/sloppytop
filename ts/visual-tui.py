@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
@@ -88,8 +89,8 @@ def run(fixture, output):
         def tmux(*args, check=True):
             return subprocess.run([*base, *args], check=check, text=True, capture_output=True, timeout=10).stdout
 
-        def capture(label, expected, width, height, *, compare=False):
-            deadline = time.monotonic() + 8
+        def capture(label, expected, width, height, *, compare=False, timeout=8):
+            deadline = time.monotonic() + timeout
             while time.monotonic() < deadline:
                 plain = tmux("capture-pane", "-p", "-t", "visual")
                 if all(token in plain for token in expected):
@@ -111,9 +112,11 @@ def run(fixture, output):
                 time.sleep(.06)
             raise RuntimeError(f"{label}: expected {expected!r}\n{plain}")
 
+        pid = None
         try:
-            tmux("new-session", "-d", "-s", "visual", "-x", "112", "-y", "30", command)
-            capture("01-wide", ["PID", "fixture-worker"], 112, 30)
+            pid = int(tmux("new-session", "-d", "-s", "visual", "-x", "112", "-y", "30",
+                           "-P", "-F", "#{pane_pid}", command))
+            capture("01-wide", ["PID", "fixture-worker"], 112, 30, timeout=20)
             tmux("resize-window", "-t", "visual", "-x", "56", "-y", "18")
             capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0"], 56, 18)
             tmux("send-keys", "-t", "visual", "D")
@@ -172,6 +175,26 @@ def run(fixture, output):
             capture("17-history-overview", ["d disks", "unobserved time"], 56, 12)
             tmux("send-keys", "-t", "visual", "q")
             capture("18-history-return", ["PID", "fixture-worker", "q quit"], 56, 12)
+            tmux("send-keys", "-t", "visual", "Home")
+            for key, label, markers in [
+                ("?", "help", ["local network discovery"]),
+                ("k", "kill-cancel", ["kill 200 fixture-worker?", "n cancel"]),
+                ("c", "columns", ["[x] pid"]),
+                ("t", "theme", ["Charm"]),
+                ("m", "settings", ["metrics", "stopped"]),
+                ("n", "connections", ["127.0.0.1:8080"]),
+                ("l", "listeners", ["8080", "fixture-worker"]),
+                ("b", "probe-log", ["probe proc", "probe listen"]),
+                ("w", "report", ["cpu 32.0 avg"]),
+                ("a", "record-refused", ["PROBE_DISABLED"]),
+            ]:
+                tmux("send-keys", "-t", "visual", key)
+                capture(f"19-{label}", ["q close", *markers], 56, 12, compare=label == "columns")
+                if key == "c":
+                    tmux("send-keys", "-t", "visual", "-l", "\x1b[<65;9;7M" * 20)
+                    capture("19-columns-bottom", ["> [ ] cgroup", "Space toggle"], 56, 12)
+                tmux("send-keys", "-t", "visual", "q")
+                capture(f"20-{label}-return", ["PID", "fixture-worker", "q quit"], 56, 12)
             tmux("send-keys", "-t", "visual", "q")
             for _ in range(30):
                 if not tmux("list-sessions", check=False):
@@ -180,7 +203,16 @@ def run(fixture, output):
             else:
                 raise RuntimeError("q did not exit from the main view")
         finally:
-            tmux("kill-server", check=False)
+            try:
+                # A native renderer that hangs on startup can survive tmux's HUP.
+                if pid is not None and tmux("display-message", "-p", "-t", "visual", "#{pane_pid}",
+                                            check=False).strip() == str(pid):
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+            finally:
+                tmux("kill-server", check=False)
 
 
 if __name__ == "__main__":

@@ -212,6 +212,9 @@ export function compose(
     : state.overlay === 'hardware' ? state.page?.hardwareTab === 'readings' ? 'd disks   s inventory'
       : state.page?.hardwareTab === 'topology' ? 'd inventory   s readings   r refresh' : 'd disks   s readings   r refresh'
     : state.overlay === 'detail' ? 'g cgroup   e env   o files'
+    : state.overlay === 'columns' ? '↑/↓ select   Space toggle'
+    : state.overlay === 'theme' ? '↑/↓ preview   Enter use'
+    : state.overlay === 'settings' ? '↑/↓ select   Space toggle   m listener'
     : state.overlay === 'history' && state.historyPage?.status === 'ready'
       ? state.historyDiskIndex === null ? (state.historyPage.diskMetrics.length ? 'd disks' : '') : 'd overview   ←/→ metric' : ''
   const scrollHint = overlayScrollMax ? '   ↑/↓ scroll' : ''
@@ -1313,13 +1316,12 @@ function settingsLines(state: ScreenState): string[] {
   if (!page) return ['settings', 'esc  close']
   const lines = ['settings', page.serviceLine, `metrics  ${page.host}:${page.port}  ${page.listening ? 'listening' : 'stopped'}`]
   if (page.metricsMessage) lines.push(page.metricsMessage)
-  const start = Math.max(0, Math.min(state.panelIndex - 3, PROBE_NAMES.length - SETTINGS_WINDOW))
-  for (const name of PROBE_NAMES.slice(start, start + SETTINGS_WINDOW)) {
+  const room = Math.max(1, Math.min(SETTINGS_WINDOW, state.height - 5 - lines.length))
+  for (const name of pickerWindow(PROBE_NAMES, state.panelIndex, room)) {
     const mark = name === PROBE_NAMES[state.panelIndex] ? '>' : ' '
     const box = page.probes[name] ? '[x]' : '[ ]'
     lines.push(`${mark} ${box} ${name}`)
   }
-  lines.push('space  toggle    m  listener    esc  close')
   lines.push('service install stays a command')
   return lines
 }
@@ -1526,22 +1528,25 @@ function more(count: number): string[] {
 }
 
 function columnLines(state: ScreenState): string[] {
-  const lines = ['columns', ...TUI_COLUMNS.map((id, index) => {
+  const selected = TUI_COLUMNS[state.panelIndex]
+  return ['columns', ...pickerWindow(TUI_COLUMNS, state.panelIndex, Math.max(1, state.height - 5)).map(id => {
     const on = state.columns.includes(id) ? 'x' : ' '
-    const cursor = index === state.panelIndex ? '>' : ' '
+    const cursor = id === selected ? '>' : ' '
     return `${cursor} [${on}] ${id}`
   })]
-  lines.push('space  toggle    esc  close')
-  return lines
 }
 
 function themeLines(state: ScreenState): string[] {
-  const lines = ['theme', ...THEME_NAMES.map((name, index) => {
-    const cursor = index === state.panelIndex ? '>' : ' '
+  const selected = THEME_NAMES[state.panelIndex]
+  return ['theme', ...pickerWindow(THEME_NAMES, state.panelIndex, Math.max(1, state.height - 5)).map(name => {
+    const cursor = name === selected ? '>' : ' '
     return `${cursor} ${getTheme(name).label}`
   })]
-  lines.push('enter  use    esc  cancel')
-  return lines
+}
+
+function pickerWindow<T>(options: readonly T[], selected: number, room: number): readonly T[] {
+  const start = Math.max(0, Math.min(selected - Math.floor(room / 2), options.length - room))
+  return options.slice(start, start + room)
 }
 
 function toolbarText(state: ScreenState, rows: DisplayRow[], total: number, error: string): string {

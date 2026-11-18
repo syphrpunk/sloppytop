@@ -6,6 +6,7 @@ import { defaultPageLoaders } from './src/tui/pages.ts'
 import { defaultProbes } from './src/monitor/probes.ts'
 import type { Sample } from './src/sample.ts'
 import { insertSample, openDb } from './src/store/db.ts'
+import { updateProbes } from './src/store/config.ts'
 
 const rows = Number(process.env.ST_FIXTURE_ROWS ?? 24)
 if (!Number.isInteger(rows) || rows < 1 || rows > 5_000) throw new Error('fixture rows must be 1–5000')
@@ -32,6 +33,8 @@ const sample: Sample = {
 }
 
 if (process.env.ST_VISUAL_HISTORY === '1') {
+  if (!process.env.XDG_CONFIG_HOME) throw new Error('visual fixture requires a disposable XDG_CONFIG_HOME')
+  updateProbes(['cpu'], false)
   const db = openDb()
   const now = Date.now()
   for (const hours of [4, 1, 0]) {
@@ -49,6 +52,9 @@ if (process.env.ST_VISUAL_HISTORY === '1') {
 const loaders = {
   ...defaultPageLoaders(),
   processDetail: async () => ({}),
+  sampleNet: async () => [{ proto: 'tcp', local: '127.0.0.1:8080', remote: '127.0.0.1:1234',
+    pid: 200, name: 'fixture-worker', rx_bytes_per_s: 0, tx_bytes_per_s: 0 }],
+  listeningSockets: () => [{ protocol: 'tcp', port: 8080, pid: 200, name: 'fixture-worker' }],
   summarizeCgroup: async (pid: number) => ({ pid, cgroup: '/fixture', scope: 'cgroup_and_descendants', charged_memory_bytes: 0 }),
   hardwareInventory: () => ({
     collected_at: '2026-11-18T04:00:00Z', chip: 'Fixture CPU', displays: [],
