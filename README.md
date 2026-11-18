@@ -194,16 +194,16 @@ Press `?` inside the TUI to see every keybinding.
 | **Process** | `i` · `Enter` | Inspect details |
 | | `k` · `x` · `Del` | Kill (with confirmation) |
 | | `p` | Pin / unpin |
-| **Display** | `0`–`9` | Sort by column |
+| **Display** | `0`–`9` | Sort by column (flat view only) |
 | | `f` | Filter panel |
 | | `c` | Column visibility |
-| | `T` | Tree view |
+| | `T` | Toggle tree: pins first, then parents before children; roots and siblings in PID order. Return to flat view to restore its sort. |
 | | `←` / `→` | Tree: fold or select parent / expand or select first child (`+N` hidden rows) |
 | | `t` | Theme selector |
-| | `r` | Cycle refresh rate |
+| | `r` | Cycle the saved screen refresh interval, including while frozen. Does not change the recorder schedule. |
 | **Mouse** | Click row | Select process |
 | | Double-click | Open details |
-| | Click header | Sort by column |
+| | Click header | Sort by column (flat view only) |
 | | Scroll wheel | Navigate list |
 
 <br/>
@@ -274,7 +274,10 @@ From a selected process, press `i` for details and `t` to sample its visible
 subtree with the same collector as `tree --summary-pid`. Press `t` again
 to return. Coverage is shown per metric; the subtree may omit processes,
 and summed RSS can count shared pages more than once. This is separate from
-the `g` cgroup view.
+the `g` cgroup view. `e` and `o` independently show or hide environment
+**names only** and open files. Both start hidden for each process inspection;
+hide a section and reopen it to retry an unavailable reading. Neither list
+is written to the probe log.
 Press `v`, then `i`, to scroll through anomaly evidence, interfaces, and
 stored top processes for each of the five newest History samples. Process
 arguments are not shown. In Report (`w` from the main screen), `c` compares

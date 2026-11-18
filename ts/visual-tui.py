@@ -82,10 +82,10 @@ def svg(ansi, width, height):
 def run(fixture, output, review_only=False):
     output.mkdir(parents=True, exist_ok=True)
     style_baselines = {
-        "01-wide": "1e99e3bfff23def73010d6cf7a965f8ae07394dda00a4a8a566b4ecb864695b7",
-        "01b-tree-fold-wide": "0e9f89b69c21587c9c18186023e49b5e489abac7b3702123eb39cb45fe9faf80",
-        "01c-tree-fold-narrow": "ecb90f9b92182a1cb28ebfb4363af91fd8852ae4c06d4789b9a8cee5480e064b",
-        "02-narrow": "b9384ebaae3724131e44abf007240fc674974aef6e958490f526912ef4939475",
+        "01-wide": "a03407720678cff6c02f5c7c43fe1bece7f4e145b138466d5b3e1c65ac06e36b",
+        "01b-tree-fold-wide": "b445ec9f0f8dfc245b929ae37a7f0699e7d3851d000fac56cbe6b7add9aeb38d",
+        "01c-tree-fold-narrow": "33a31806c13bf7b7d59ef4e71b12f57ea715f4c7b420772a768081333952ea63",
+        "02-narrow": "7fc0f001801d24fbe6dc580704678baf9ca12a2bbb054ab35e3136ff95c1e48a",
         "04b-neighbors-bottom": "b6de05e3450d43b04b9d806ba463b518622174194dd83af0830e9ca351d621ab",
         "19-settings": "09130eedc89d077a20473368537d1b9824c2abb79cef754cf73ac809886ff422",
         "19-settings-recorder-wide": "a3b0eb1dd93c946cf2b83d32b25a786839ed83458a14c2525aca2e25d34889f1",
@@ -139,11 +139,11 @@ def run(fixture, output, review_only=False):
                            "-P", "-F", "#{pane_pid}", *command))
             capture("01-wide", ["PID", "fixture-worker"], 112, 30, timeout=20)
             tmux("send-keys", "-t", "visual", "T", "Right", "Left")
-            capture("01b-tree-fold-wide", ["+2 界-fixture", "PID 201", "22/24"], 112, 30, compare=True)
+            capture("01b-tree-fold-wide", ["+2 界-fixture", "Tree: PID/family order", "PID 201", "22/24", "r 1000ms"], 112, 30, compare=True)
             tmux("resize-window", "-t", "visual", "-x", "56", "-y", "18")
-            tmux("send-keys", "-t", "visual", "Left", "Left")
-            capture("01c-tree-fold-narrow", ["+23 fixture-", "PID 200", "1/24"], 56, 18, compare=True)
-            tmux("send-keys", "-t", "visual", "Right")
+            tmux("send-keys", "-t", "visual", "Left", "Left", "Space", "r")
+            capture("01c-tree-fold-narrow", ["+23 fixture-", "Tree: PID/family order", "PID 200", "1/24", "FROZEN", "r 2000ms"], 56, 18, compare=True)
+            tmux("send-keys", "-t", "visual", "Space", "Right")
             capture("01d-tree-reopen", ["+2 界-fixture", "22/24"], 56, 18)
             tmux("send-keys", "-t", "visual", "T")
             capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0", "D discover",
@@ -203,6 +203,10 @@ def run(fixture, output, review_only=False):
             capture("10-hardware-return", ["PID", "fixture-worker", "q quit"], 112, 30)
             tmux("send-keys", "-t", "visual", "Home", "i", "g")
             capture("11-cgroup", ["cgroup v2 (including descendants)", "CPU: unmeasured", "charged memory: 0 B"], 112, 30)
+            tmux("send-keys", "-t", "visual", "e", "o")
+            capture("11a-detail-sections", ["Environment (names only)", "FIXTURE_MODE", "fixture-output"], 112, 30, compare=True)
+            tmux("send-keys", "-t", "visual", "e", "o")
+            capture("11aa-detail-hidden", ["e show env names", "o show files"], 112, 30)
             tmux("send-keys", "-t", "visual", "t")
             capture("11b-subtree-wide", ["subtree PID 200", "membership may be incomplete", "measured 1/2 visible"], 112, 30)
             tmux("resize-window", "-t", "visual", "-x", "56", "-y", "12")
@@ -237,7 +241,7 @@ def run(fixture, output, review_only=False):
             capture("18-history-return", ["PID", "fixture-worker", "q quit"], 56, 12)
             tmux("send-keys", "-t", "visual", "Home")
             for key, label, markers in [
-                ("?", "help", ["local network discovery"]),
+                ("?", "help", ["parent first; roots and siblings by PID", "toggle env names"]),
                 ("k", "kill-cancel", ["kill 200 fixture-worker?", "n cancel"]),
                 ("c", "columns", ["[x] pid"]),
                 ("t", "theme", ["Charm"]),
@@ -320,6 +324,11 @@ def run(fixture, output, review_only=False):
                 time.sleep(.05)
             else:
                 raise RuntimeError("q did not exit from the main view")
+            # Reuse only the disposable fixture config: r survives a restart, pause does not.
+            pid = int(tmux("new-session", "-d", "-s", "visual", "-x", "56", "-y", "18",
+                           "-P", "-F", "#{pane_pid}", *command))
+            capture("21-saved-screen-interval", ["fixture-worker", "live", "r 2000ms"], 56, 18)
+            tmux("send-keys", "-t", "visual", "q")
         finally:
             try:
                 # A native renderer that hangs on startup can survive tmux's HUP.

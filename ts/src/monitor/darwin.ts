@@ -1,6 +1,7 @@
 // macOS collector — port of monitor/*_darwin.go, using shell interfaces
 // (ps, sysctl, vm_stat, netstat, df) instead of libproc/mach CGo.
 
+import type { EnvMode } from './environ.ts'
 import { execFileSync } from 'node:child_process'
 import { cpus, hostname, release } from 'node:os'
 import { basename } from 'node:path'
@@ -151,9 +152,11 @@ function collectProcs(): RawProc[] {
   return procs
 }
 
-export function detail(pid: number): ProcessDetail {
+export function detail(pid: number, mode: EnvMode = 'none'): ProcessDetail {
   const cwd = ffi.cwd(pid)
-  return { ...(cwd ? { cwd } : {}), environ: ffi.environ(pid) }
+  const result: ProcessDetail = cwd ? { cwd } : {}
+  if (mode !== 'none') result[mode === 'names' ? 'envNames' : 'environ'] = ffi.environ(pid, mode)
+  return result
 }
 
 function collectMemory(total: number, sysctl: Sysctl) {

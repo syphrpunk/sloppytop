@@ -1,0 +1,30 @@
+sloppytop  Charm
+╭─ process ────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ pid 200  fixture-worker  ppid 1                                                                              │
+│ Environment (names only)                                                                                     │
+│   FIXTURE_MODE                                                                                               │
+│ Open files                                                                                                   │
+│   1 fixture-output                                                                                           │
+│ cgroup v2 (including descendants)                                                                            │
+│   CPU: unmeasured                                                                                            │
+│   charged memory: 0 B                                                                                        │
+│ cpu     100.0%                                                                                               │
+│ memory  450.0 MB                                                                                             │
+│ read    0B/s                                                                                                 │
+│ write   0B/s                                                                                                 │
+│ user    fixture                                                                                              │
+│ status  Running                                                                                              │
+│ time    10m 0s                                                                                               │
+│ cwd                                                                                                          │
+│ children                                                                                                     │
+│   201 界-fixture                                                                                             │
+│   204 fixture-child-4                                                                                        │
+│   205 fixture-child-5                                                                                        │
+│   206 fixture-child-6                                                                                        │
+│   207 fixture-child-7                                                                                        │
+│   208 fixture-child-8                                                                                        │
+│   209 fixture-child-9                                                                                        │
+│   210 fixture-child-10                                                                                       │
+│   211 fixture-child-11                                                                                       │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+q close   e hide env names   o hide files   t subtree   g cgroup   ↑/↓ scroll

@@ -81,13 +81,14 @@ export interface HardwareView {
   from_cache?: boolean
 }
 
+export type DetailSection<T> = { status: 'loading' } | { status: 'unavailable'; message?: string } | { status: 'ready'; rows: T[] }
+
 export interface DetailState {
   pid: number
   loaded: boolean
   cwd?: string
-  env?: string[]
-  files?: FileRow[]
-  filesOmitted?: boolean
+  env?: DetailSection<string>
+  files?: DetailSection<FileRow>
   message?: string
   cgroup?: { status: 'loading' | 'ready' | 'unavailable'; cpu?: number; memory?: number }
   subtree?: { status: 'loading' | 'unavailable' } | {
@@ -678,10 +679,16 @@ function reduceDetail(state: ScreenState, key: KeyPress): ReduceResult {
     state: { ...state, detail: { ...state.detail, pid, loaded: state.detail?.loaded ?? false, cgroup: { status: 'loading' } } },
     effect: { loadCgroup: pid },
   }
-  if (key.name === 'e' && pid && !state.detail?.subtree) return { state, effect: { loadEnv: pid } }
-  if (key.name === 'o' && pid && !state.detail?.subtree) return { state, effect: { loadFiles: pid } }
+  if ((key.name === 'e' || key.name === 'o') && state.detail && !state.detail.subtree) {
+    const section = key.name === 'e' ? 'env' : 'files'
+    const opening = !state.detail[section]
+    return {
+      state: { ...state, overlayScroll: 0, detail: { ...state.detail, [section]: opening ? { status: 'loading' } : undefined } },
+      ...(opening ? { effect: section === 'env' ? { loadEnv: state.detail.pid } : { loadFiles: state.detail.pid } } : {}),
+    }
+  }
   if (key.name === 'escape' || key.name === 'esc' || key.name === 'q' || key.name === 'return' || key.name === 'enter') {
-    return { state: { ...state, overlay: 'none' } }
+    return { state: { ...state, overlay: 'none', detail: null } }
   }
   return { state }
 }
@@ -925,6 +932,7 @@ function treeArrow(state: ScreenState, rows: DisplayRow[], key: 'left' | 'right'
 }
 
 export function toggleSort(state: ScreenState, sortBy: SortKey): ScreenState {
+  if (state.tree) return state
   if (state.sortBy === sortBy) {
     return { ...state, sortOrder: state.sortOrder === 'asc' ? 'desc' : 'asc' }
   }
@@ -977,11 +985,9 @@ function openDetail(state: ScreenState, rows: DisplayRow[]): ReduceResult {
 function openProcPage(state: ScreenState, rows: DisplayRow[], kind: 'env' | 'files'): ReduceResult {
   const proc = selected(state, rows)
   if (!proc) return { state }
-  const detail = state.detail?.pid === proc.pid ? state.detail : { pid: proc.pid, loaded: false }
-  return {
-    state: { ...state, overlay: 'detail', selectedPid: proc.pid, detail },
-    effect: kind === 'env' ? { loadEnv: proc.pid } : { loadFiles: proc.pid },
-  }
+  // This shortcut has no separate cwd request to wait for if the section is cancelled.
+  return reduceDetail({ ...state, overlay: 'detail', selectedPid: proc.pid, detail: { pid: proc.pid, loaded: true } },
+    { name: kind === 'env' ? 'e' : 'o', ctrl: false, shift: false })
 }
 
 function openHistory(state: ScreenState): ReduceResult {

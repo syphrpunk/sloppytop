@@ -1,5 +1,6 @@
 // Linux collector — port of monitor/*_linux.go, reading /proc directly.
 
+import { readEnvBlock, type EnvMode } from './environ.ts'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, readlinkSync } from 'node:fs'
 import { hostname, release } from 'node:os'
@@ -410,19 +411,19 @@ export function isSupported(): boolean {
   return existsSync('/proc/stat')
 }
 
-export function detail(pid: number): ProcessDetail {
+export function detail(pid: number, mode: EnvMode = 'none'): ProcessDetail {
   const out: ProcessDetail = {}
   try {
     out.cwd = readlinkSync(`/proc/${pid}/cwd`)
   } catch {
     // permission denied
   }
-  try {
-    out.environ = readProc(`${pid}/environ`)
-      .split('\0')
-      .filter((s) => s.includes('='))
-  } catch {
-    out.environ = []
+  if (mode !== 'none') {
+    try {
+      out[mode === 'names' ? 'envNames' : 'environ'] = readEnvBlock(readFileSync(`/proc/${pid}/environ`), mode)
+    } catch {
+      // Permission denied or process exited: omit the unmeasured field.
+    }
   }
   return out
 }

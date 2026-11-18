@@ -160,7 +160,7 @@ export function compose(
     return true
   }
 
-  add(`sloppytop  ${getTheme(state.theme).label}`)
+  add(`sloppytop  ${state.overlay === 'none' && state.tree ? 'Tree: PID/family order  ' : ''}${getTheme(state.theme).label}`)
 
   let headerLine = -1
   let bodyStart = lines.length
@@ -218,7 +218,7 @@ export function compose(
     : state.overlay === 'discovery' ? '←/→ tab ↑/↓ scroll r refresh c diff e export'
     : state.overlay === 'hardware' ? state.page?.hardwareTab === 'readings' ? 'd disks   s inventory'
       : state.page?.hardwareTab === 'topology' ? 'd inventory   s readings   r refresh' : 'd disks   s readings   r refresh'
-    : state.overlay === 'detail' ? state.detail?.subtree ? 't process details' : 't subtree   g cgroup   e env   o files'
+    : state.overlay === 'detail' ? state.detail?.subtree ? 't process details' : `e ${state.detail?.env ? 'hide' : 'show'} env names   o ${state.detail?.files ? 'hide' : 'show'} files   t subtree   g cgroup`
     : state.overlay === 'columns' ? '↑/↓ select   Space toggle'
     : state.overlay === 'theme' ? '↑/↓ preview   Enter use'
     : state.overlay === 'settings' ? settingsHints(state)
@@ -238,7 +238,7 @@ export function compose(
     rows: view.rows,
     layout: {
       headerLine,
-      columns: spans(fitted),
+      columns: spans(fitted, !state.tree),
       bodyStart,
       bodyRows,
       discoveryMaxOffset,
@@ -950,10 +950,10 @@ function fitColumns(requested: TuiColumn[], width: number, sort: SortKey): { id:
   return cols.map((id) => ({ id, width: Math.max(1, widths.get(id) ?? 1) }))
 }
 
-function spans(fitted: { id: TuiColumn; width: number }[]): ColumnSpan[] {
+function spans(fitted: { id: TuiColumn; width: number }[], sortable: boolean): ColumnSpan[] {
   let x = MARKER
   return fitted.map((column, index) => {
-    const span: ColumnSpan = { id: column.id, x, width: column.width, sort: COLUMNS[column.id].sort }
+    const span: ColumnSpan = { id: column.id, x, width: column.width, sort: sortable ? COLUMNS[column.id].sort : undefined }
     x += column.width + (index < fitted.length - 1 ? COLUMN_GAP : 0)
     return span
   })
@@ -962,7 +962,7 @@ function spans(fitted: { id: TuiColumn; width: number }[]): ColumnSpan[] {
 function headerLineText(state: ScreenState, fitted: { id: TuiColumn; width: number }[]): string {
   const cells = fitted.map((column) => {
     const spec = COLUMNS[column.id]
-    const mark = state.sortBy === spec.sort ? (state.sortOrder === 'asc' ? '^' : 'v') : ''
+    const mark = !state.tree && state.sortBy === spec.sort ? (state.sortOrder === 'asc' ? '^' : 'v') : ''
     return headerCell(spec.label, column.width, mark)
   })
   return `  ${cells.join(' ')}`
@@ -1144,10 +1144,13 @@ function helpLines(): string[] {
   return [
     'sloppytop',
     '/ s f  search     space  pause     ?  help     q  quit',
-    'up j  move        g G  ends        1-9 0  sort  T  tree',
+    'up j  move   g G  ends   0-9/header  flat sort',
+    'T  tree: parent first; roots and siblings by PID',
     'tree: ← fold/parent   → expand/child   +N hidden rows',
-    'p  pin   i  detail   k  kill   c  columns   t  theme   r  refresh',
-    'e  env   o  files   n  connections   l  listen   h  hardware',
+    'p  pin   i  detail   k  kill   c  columns   t  theme',
+    'r  cycle saved screen interval (not recorder schedule)',
+    'e  toggle env names   o  toggle open files',
+    'n  connections   l  listen   h  hardware',
     'D  local network discovery',
     'a  record   v  history   w  report   b  probe log   m  settings',
     'y  confirm a kill    n  cancel    hardware r  re-read',
@@ -1581,15 +1584,12 @@ function detailLines(state: ScreenState, processes: ProcessInfo[]): string[] {
   const proc = processes.find((row) => row.pid === pid)
   if (!proc) return ['process left the list', 'esc  close']
   const detail = state.detail?.pid === proc.pid ? state.detail : null
-  if (detail?.message && detail.cwd === undefined && detail.env === undefined && detail.files === undefined && !detail.filesOmitted) {
-    return [`pid ${proc.pid}  ${plain(proc.name)}`, detail.message, 'esc  close']
-  }
   const cwdLine = !detail?.loaded ? 'cwd …' : detail.cwd ? `cwd ${plain(detail.cwd)}` : 'cwd'
   const children = processes.filter((row) => row.ppid === proc.pid)
   const lines = [
     `pid ${proc.pid}  ${plain(proc.name)}  ppid ${proc.ppid}`,
     ...processFactLines(proc),
-    cwdLine,
+    detail?.message ?? cwdLine,
     'children',
     ...(children.length === 0 ? ['  none'] : children.slice(0, 12).map((child) => `  ${child.pid} ${plain(child.name)}`)),
   ]
@@ -1601,28 +1601,22 @@ function detailLines(state: ScreenState, processes: ProcessInfo[]): string[] {
     ] : [`  ${cgroup.status === 'loading' ? 'sampling…' : 'unavailable'}`]
     lines.splice(1, 0, 'cgroup v2 (including descendants)', ...totals)
   }
-  if (detail?.env) {
-    lines.push('env')
-    if (detail.env.length === 0) lines.push('  none')
-    else {
-      for (const item of detail.env.slice(0, 8)) lines.push(`  ${plain(item)}`)
-      if (detail.env.length > 8) lines.push(`  +${detail.env.length - 8} more`)
-    }
-  }
-  if (detail?.files || detail?.filesOmitted) {
-    lines.push('files')
-    if (detail.filesOmitted) lines.push('  unavailable')
-    else if (!detail.files || detail.files.length === 0) lines.push('  none')
-    else {
-      for (const file of detail.files.slice(0, 8)) {
-        const type = file.type ? `${plain(file.type)} ` : ''
-        const protocol = file.protocol ? ` ${plain(file.protocol)}` : ''
-        lines.push(`  ${plain(file.fd)} ${type}${plain(file.name)}${protocol}`)
-      }
-      if (detail.files.length > 8) lines.push(`  +${detail.files.length - 8} more`)
-    }
-  }
+  const sections: string[] = []
+  if (detail?.env) sections.push('Environment (names only)', ...sectionRows(detail.env, plain))
+  if (detail?.files) sections.push('Open files', ...sectionRows(detail.files, file => {
+    const type = file.type ? `${plain(file.type)} ` : ''
+    const protocol = file.protocol ? ` ${plain(file.protocol)}` : ''
+    return `${plain(file.fd)} ${type}${plain(file.name)}${protocol}`
+  }))
+  lines.splice(1, 0, ...sections)
   return lines
+}
+
+function sectionRows<T>(section: import('./state.ts').DetailSection<T>, row: (value: T) => string): string[] {
+  if (section.status === 'loading') return ['  loading…']
+  if (section.status === 'unavailable') return [`  ${section.message ?? 'unavailable'}`]
+  if (!section.rows.length) return ['  none']
+  return [...section.rows.slice(0, PAGE_CAP).map(item => `  ${row(item)}`), ...more(section.rows.length)]
 }
 
 const PAGE_CAP = 8
@@ -1760,6 +1754,7 @@ function pickerWindow<T>(options: readonly T[], selected: number, room: number):
 function toolbarText(state: ScreenState, rows: DisplayRow[], total: number, error: string): string {
   const shown = rows.filter((row) => row.kind === 'process').length
   const mode = state.paused ? 'FROZEN' : 'live'
+  const interval = `r ${state.refreshMs}ms`
   const query = state.searching ? `/${state.draft}` : state.search ? `/${state.search}` : ''
   const notice = state.statusMessage || error
   const search = query || '/ search'
@@ -1768,7 +1763,7 @@ function toolbarText(state: ScreenState, rows: DisplayRow[], total: number, erro
     `${shown}/${total}`,
     mode,
     search,
-    `${state.refreshMs}ms`,
+    interval,
     'D discover',
     'p pin',
     'k kill',
@@ -1782,8 +1777,7 @@ function toolbarText(state: ScreenState, rows: DisplayRow[], total: number, erro
     .filter((part) => part !== '')
     .join('   ')
   if (widthOf(full) <= state.width) return full
-  const short = [notice, `${shown}/${total}`, mode, query, 'D discover', '? help', 'q quit'].filter((part) => part !== '').join('  ')
+  const short = [notice, `${shown}/${total}`, mode, query, interval, 'D discover', '? help', 'q quit'].filter((part) => part !== '').join('  ')
   if (widthOf(short) <= state.width) return short
-  if (widthOf('D discover  q quit') <= state.width) return 'D discover  q quit'
-  return 'q quit'
+  return [mode, interval, query, 'q quit'].filter(Boolean).join('  ')
 }

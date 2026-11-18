@@ -59,7 +59,8 @@ if (process.env.ST_VISUAL_HISTORY === '1') {
 
 const loaders = {
   ...defaultPageLoaders(),
-  processDetail: async () => ({}),
+  processDetail: async (_pid: number, mode: 'names' | 'none') => mode === 'names' ? { envNames: ['FIXTURE_MODE'] } : {},
+  openFiles: () => [{ fd: '1', name: 'fixture-output' }],
   sampleNet: async () => [{ proto: 'tcp', local: '127.0.0.1:8080', remote: '127.0.0.1:1234',
     pid: 200, name: 'fixture-worker', rx_bytes_per_s: 0, tx_bytes_per_s: 0 }],
   listeningSockets: () => [{ protocol: 'tcp', port: 8080, pid: 200, name: 'fixture-worker' }],

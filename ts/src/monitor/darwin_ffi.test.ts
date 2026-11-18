@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { readIdleWakeups, readPhysFootprint } from './darwin_ffi.ts'
+import { parseEnviron, readIdleWakeups, readPhysFootprint } from './darwin_ffi.ts'
 
 describe('readPhysFootprint', () => {
   test('reads the uint64 at offset 72, including a measured zero', () => {
@@ -37,4 +37,14 @@ describe('readIdleWakeups', () => {
     view.setBigUint64(32, BigInt(Number.MAX_SAFE_INTEGER) + 1n, true)
     expect(readIdleWakeups(view)).toBeUndefined()
   })
+})
+
+// A synthetic KERN_PROCARGS2 layout, not a process lookup.
+test('names skip executable padding and all argv, even arguments with equals', () => {
+  const text = new TextEncoder().encode('/fixture\0\0\0fixture\0--arg=\0FIXTURE_NAME=\0\0')
+  const data = new Uint8Array(4 + text.length)
+  new DataView(data.buffer).setInt32(0, 2, true)
+  data.set(text, 4)
+  expect(parseEnviron(data, 'names')).toEqual(['FIXTURE_NAME'])
+  expect(parseEnviron(data.subarray(0, 5), 'names')).toBeUndefined()
 })

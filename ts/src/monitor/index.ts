@@ -1,6 +1,7 @@
 // Monitor — port of monitor/monitor.go. Holds previous counters and turns
 // cumulative platform samples into rates and percentages.
 
+import type { EnvMode } from './environ.ts'
 import { platform } from 'node:os'
 import { diskRates } from './disk.ts'
 import { powerWatts } from './energy.ts'
@@ -40,7 +41,7 @@ interface PrevSample {
 
 interface PlatformImpl {
   collect: (flags?: CollectFlags) => PlatformSample
-  detail: (pid: number) => ProcessDetail
+  detail: (pid: number, mode: EnvMode) => ProcessDetail
 }
 
 async function loadPlatform(): Promise<PlatformImpl> {
@@ -184,8 +185,8 @@ export class Monitor {
     this.#sample = sample
   }
 
-  detail(pid: number): ProcessDetail {
-    return this.impl.detail(pid)
+  detail(pid: number, mode: EnvMode = 'none'): ProcessDetail {
+    return this.impl.detail(pid, mode)
   }
 
   workload(rootPid: number) {
@@ -368,9 +369,9 @@ export async function sampleWindow(mon: Monitor, sampleMs: number, gpu?: boolean
 }
 
 /** On-demand expensive fields (cwd, environ) — port of getProcessDetail */
-export async function processDetail(pid: number): Promise<ProcessDetail> {
+export async function processDetail(pid: number, mode: EnvMode = 'none'): Promise<ProcessDetail> {
   const impl = await loadPlatform()
-  return impl.detail(pid)
+  return impl.detail(pid, mode)
 }
 
 export type { ProcessDetail, ProcessInfo, SystemStats } from './types.ts'

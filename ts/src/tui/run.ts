@@ -470,12 +470,15 @@ export async function runTui(
 
   const fulfillAndApply = async (effect: ScreenEffect) => {
     const forCgroup = effect.loadCgroup != null
-    const token = forCgroup ? ++cgroupToken : ++pageToken
+    const section = effect.loadEnv != null ? 'env' : effect.loadFiles != null ? 'files' : undefined
+    const token = forCgroup ? ++cgroupToken : section ? pageToken : ++pageToken
+    const isCurrent = section ? pendingSection(state, section) : () => true
+    const stale = () => stopped || token !== (forCgroup ? cgroupToken : pageToken) || !isCurrent(state)
     try {
       const { fulfillPage, defaultPageLoaders } = await import('./pages.ts')
-      if (stopped || token !== (forCgroup ? cgroupToken : pageToken)) return
+      if (stale()) return
       const patch = await fulfillPage(effect, { probes, sampleMs, processes }, loaders ??= defaultPageLoaders())
-      if (stopped || token !== (forCgroup ? cgroupToken : pageToken)) return
+      if (stale()) return
       if (patch.detail && state.overlay === 'detail' && state.detail?.pid === patch.detail.pid) {
         state = { ...state, detail: mergeDetail(state.detail, patch.detail) }
       }
@@ -492,7 +495,10 @@ export async function runTui(
       }
       if (!stopped) paint()
     } catch {
-      // The page stays on its loading line. The next key can retry.
+      if (section && !stale() && state.detail) {
+        state = { ...state, detail: { ...state.detail, [section]: { status: 'unavailable' } } }
+        paint()
+      }
     }
   }
 
@@ -600,6 +606,14 @@ export async function runTui(
   })
 }
 
+// A new loading object is allocated on every open, even for the same PID.
+export function pendingSection(start: ScreenState, section: 'env' | 'files') {
+  const request = start.detail?.[section]
+  const pid = start.detail?.pid
+  return (now: ScreenState) => request?.status === 'loading' && now.overlay === 'detail' &&
+    now.detail?.pid === pid && now.detail?.[section] === request
+}
+
 function mergeDetail(prev: DetailState | null, next: DetailState): DetailState {
   if (!prev || prev.pid !== next.pid) return next
   return {
@@ -608,7 +622,6 @@ function mergeDetail(prev: DetailState | null, next: DetailState): DetailState {
     cwd: next.cwd ?? prev.cwd,
     env: next.env ?? prev.env,
     files: next.files ?? prev.files,
-    filesOmitted: next.filesOmitted ?? prev.filesOmitted,
     cgroup: next.cgroup ?? prev.cgroup,
     message: next.message ?? prev.message,
     loaded: next.loaded || prev.loaded,

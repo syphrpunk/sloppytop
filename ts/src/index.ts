@@ -475,7 +475,7 @@ Cli.create('sloppytop', {
       }
       const children = processes.filter((p) => p.ppid === proc.pid).map((p) => p.pid)
       const parent = processes.find((p) => p.pid === proc.ppid)
-      const detail = await processDetail(proc.pid)
+      const detail = await processDetail(proc.pid, c.options.env ? 'entries' : 'none')
       const files = c.options.files ? openFiles(proc.pid) : undefined
       appendProbeLog([
         procEntry({

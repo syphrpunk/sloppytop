@@ -1,4 +1,4 @@
-sloppytop  Charm
+sloppytop  Tree: PID/family order  Charm
 ╭─ cpu ───────────────────────────────────────────────╮ ╭─ mem ────────────────────────────────────────────────╮
 │ CPU  32.0%  ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣀ │ │ MEM  7.0 GB / 16.0 GB  ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣀  │
 │ c0 ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣀ 9  c1 ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣤ 58  │ │ free    9.0 GB                                       │
@@ -9,7 +9,7 @@ sloppytop  Charm
 │ free    320.0 GB                                    │ │ tx      ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣿ 5.9K/s              │
 ╰─────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────────────╯
 also  host
-  PID     Name             Command                  Thr   User       Memory   CPU%  v
+  PID     Name             Command                  Thr   User       Memory   CPU%
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────
       200 fixture-worker   fixture command                fixture        450M   100.0
 >     201 ├─ +2 界-fixture fixture command                fixture        440M    97.0
@@ -27,4 +27,4 @@ also  host
       215 ├─ fixture-chil… fixture command                fixture        300M    55.0
       216 ├─ fixture-chil… fixture command                fixture        290M    52.0
 fixture · test OS · 1                                                                        PID 201  界-fixture
-22/24  live  D discover  ? help  q quit
+22/24  live  r 1000ms  D discover  ? help  q quit

@@ -51,6 +51,7 @@ export interface ProcessInfo {
 /** Expensive per-process fields fetched on demand (port of ProcessDetail) */
 export interface ProcessDetail {
   cwd?: string
+  envNames?: string[]
   environ?: string[]
 }
 

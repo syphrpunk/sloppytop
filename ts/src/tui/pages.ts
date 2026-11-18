@@ -19,7 +19,7 @@ import type { ProcessInfo } from '../monitor/types.ts'
 import type { DetailState, HardwareView, PageState, ScreenEffect } from './state.ts'
 
 export interface PageLoaders {
-  processDetail: (pid: number) => Promise<{ cwd?: string; environ?: string[] }>
+  processDetail: (pid: number, mode: 'names' | 'none') => Promise<{ cwd?: string; envNames?: string[] }>
   openFiles: (pid: number) => { fd: string; type?: string; name: string; protocol?: string }[] | undefined
   sampleNet: (sampleMs: number) => Promise<PageState['net']>
   listeningSockets: () => PageState['listen']
@@ -92,19 +92,22 @@ async function loadProc(
   ctx: PageContext,
   loaders: PageLoaders,
 ): Promise<PagePatch> {
+  const unavailable = (message: string): PagePatch => {
+    const detail: DetailState = { pid, loaded: true }
+    if (wantEnv) detail.env = { status: 'unavailable', message }
+    else if (wantFiles) detail.files = { status: 'unavailable', message }
+    else detail.message = message
+    return { log: [], detail }
+  }
   const blocked = procBlocked(ctx.probes)
-  if (blocked) return { log: [], detail: { pid, loaded: true, message: blocked } }
+  if (blocked) return unavailable(blocked)
   try {
-    const detail = await loaders.processDetail(pid)
+    const detail = await loaders.processDetail(pid, wantEnv ? 'names' : 'none')
     const files = wantFiles ? loaders.openFiles(pid) : undefined
     const children = ctx.processes.filter((row) => row.ppid === pid).length
-    const next: DetailState = {
-      pid,
-      loaded: true,
-      ...(detail.cwd ? { cwd: detail.cwd } : {}),
-      ...(wantEnv ? { env: detail.environ ?? [] } : {}),
-      ...(wantFiles ? { files: files ?? undefined, filesOmitted: files === undefined } : {}),
-    }
+    const next: DetailState = { pid, loaded: true, cwd: detail.cwd }
+    if (wantEnv) next.env = detail.envNames ? { status: 'ready', rows: detail.envNames } : { status: 'unavailable' }
+    if (wantFiles) next.files = files ? { status: 'ready', rows: files } : { status: 'unavailable' }
     return {
       detail: next,
       log: [
@@ -117,7 +120,7 @@ async function loadProc(
       ],
     }
   } catch {
-    return { log: [], detail: { pid, loaded: true, message: 'detail unavailable' } }
+    return unavailable('unavailable')
   }
 }
 

@@ -2,6 +2,7 @@
 // mirror <sys/proc_info.h> and <sys/resource.h>; degrade gracefully
 // (nulls) if dlopen or a call fails.
 
+import { readEnvBlock, type EnvMode } from './environ.ts'
 import { dlopen, ptr } from 'bun:ffi'
 
 const PROC_PIDTASKINFO = 4
@@ -121,52 +122,36 @@ export function cwd(pid: number): string | null {
 
 /**
  * Environment variables via sysctl KERN_PROCARGS2 — same parse as the Go
- * port: int32 argc, exec path, argc argv strings, padding NULs, then env.
+ * port: int32 argc, exec path, padding NULs, argc argv strings, then env.
  * Only readable for same-user processes (root for others).
  */
-export function environ(pid: number): string[] {
-  if (!lib) return []
+export function environ(pid: number, mode: Exclude<EnvMode, 'none'>): string[] | undefined {
+  if (!lib) return undefined
   const mib = new Int32Array([CTL_KERN, KERN_PROCARGS2, pid])
   const sizeBuf = new BigUint64Array(1)
 
-  if (lib.symbols.sysctl(ptr(mib), 3, null, ptr(sizeBuf), null, 0n) !== 0) return []
+  if (lib.symbols.sysctl(ptr(mib), 3, null, ptr(sizeBuf), null, 0n) !== 0) return undefined
   let size = Number(sizeBuf[0])
-  if (size === 0) return []
+  if (size === 0) return undefined
   if (size > 1024 * 1024) size = 1024 * 1024
 
   const data = new Uint8Array(size)
   sizeBuf[0] = BigInt(size)
-  if (lib.symbols.sysctl(ptr(mib), 3, ptr(data.buffer), ptr(sizeBuf), null, 0n) !== 0) return []
+  if (lib.symbols.sysctl(ptr(mib), 3, ptr(data.buffer), ptr(sizeBuf), null, 0n) !== 0) return undefined
 
-  return parseEnviron(data.subarray(0, Number(sizeBuf[0])))
+  return parseEnviron(data.subarray(0, Number(sizeBuf[0])), mode)
 }
 
-export function parseEnviron(data: Uint8Array): string[] {
-  if (data.length < 4) return []
+export function parseEnviron(data: Uint8Array, mode: Exclude<EnvMode, 'none'>): string[] | undefined {
+  if (data.length < 4) return undefined
   const argc = new DataView(data.buffer, data.byteOffset).getInt32(0, true)
-  let pos = 4
-
-  // Skip exec path + argc argv strings (null-terminated)
-  let skipped = 0
-  while (pos < data.length && skipped <= argc) {
-    const nul = data.indexOf(0, pos)
-    if (nul < 0) return []
-    pos = nul + 1
-    skipped++
-  }
-  // Skip padding NULs between argv and environ
+  let pos = data.indexOf(0, 4) // exec path, padding, argv, then environment
+  if (pos < 0 || argc < 0) return undefined
   while (pos < data.length && data[pos] === 0) pos++
-
-  const env: string[] = []
-  const decoder = new TextDecoder()
-  while (pos < data.length) {
+  for (let i = 0; i < argc; i++) {
     const nul = data.indexOf(0, pos)
-    if (nul < 0) break
-    if (nul > pos) {
-      const str = decoder.decode(data.subarray(pos, nul))
-      if (str.includes('=')) env.push(str)
-    }
+    if (nul < 0) return undefined
     pos = nul + 1
   }
-  return env
+  return readEnvBlock(data.subarray(pos), mode)
 }

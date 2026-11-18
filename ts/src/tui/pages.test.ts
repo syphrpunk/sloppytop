@@ -5,7 +5,7 @@ import { fulfillPage, type PageLoaders } from './pages.ts'
 import type { HardwareView } from './state.ts'
 
 const CWD = '/tmp/sloppytop-secret-cwd'
-const ENV = 'SLOPPY_SECRET=hunter2'
+const ENV_NAME = 'FIXTURE_MODE'
 const ADDRESS = '203.0.113.10:9999'
 
 function proc(pid: number, ppid: number, name: string): ProcessInfo {
@@ -27,9 +27,9 @@ function proc(pid: number, ppid: number, name: string): ProcessInfo {
 function calls() {
   const seen = { detail: 0, files: 0, net: 0, listen: 0, hardware: 0, refresh: [] as boolean[] }
   const loaders: PageLoaders = {
-    processDetail: async () => {
+    processDetail: async (_pid, mode) => {
       seen.detail++
-      return { cwd: CWD, environ: [ENV] }
+      return mode === 'names' ? { cwd: CWD, envNames: [ENV_NAME] } : { cwd: CWD }
     },
     openFiles: () => {
       seen.files++
@@ -118,17 +118,28 @@ describe('on-demand pages', () => {
     expect(patch.log[0]).toMatchObject({ probe: 'proc', pid: 7, children: 1, has_cwd: true, file_count: null })
     const logged = JSON.stringify(patch.log)
     expect(logged).not.toContain(CWD)
-    expect(logged).not.toContain(ENV)
-    expect(logged).not.toContain('hunter2')
+    expect(logged).not.toContain(ENV_NAME)
   })
 
-  test('e keeps the environment on the page and still leaves it out of the log', async () => {
+  test('e keeps names only on the page and still leaves it out of the log', async () => {
     const { seen, loaders } = calls()
     const patch = await fulfillPage({ loadEnv: 7 }, ctx(), loaders)
     expect(seen.files).toBe(0)
-    expect(patch.detail?.env).toEqual([ENV])
-    expect(JSON.stringify(patch.log)).not.toContain(ENV)
+    expect(patch.detail?.env).toEqual({ status: 'ready', rows: [ENV_NAME] })
+    expect(JSON.stringify(patch.log)).not.toContain(ENV_NAME)
     expect(JSON.stringify(patch.log)).not.toContain(CWD)
+  })
+
+  test('env distinguishes measured empty, missing and failed without leaking the error', async () => {
+    const { loaders } = calls()
+    loaders.processDetail = async () => ({ envNames: [] })
+    expect((await fulfillPage({ loadEnv: 7 }, ctx(), loaders)).detail?.env).toEqual({ status: 'ready', rows: [] })
+    loaders.processDetail = async () => ({})
+    expect((await fulfillPage({ loadEnv: 7 }, ctx(), loaders)).detail?.env?.status).toBe('unavailable')
+    loaders.processDetail = async () => { throw Error('do not surface probe errors') }
+    const failed = await fulfillPage({ loadEnv: 7 }, ctx(), loaders)
+    expect(failed.detail?.env).toEqual({ status: 'unavailable', message: 'unavailable' })
+    expect(failed.log).toEqual([])
   })
 
   test('o asks for open files, and an unmeasured list is not stored as zero', async () => {
@@ -136,8 +147,7 @@ describe('on-demand pages', () => {
     const empty = await fulfillPage({ loadFiles: 7 }, ctx(), measured.loaders)
     expect(measured.seen.files).toBe(1)
     expect(measured.seen.net).toBe(0)
-    expect(empty.detail?.files).toEqual([])
-    expect(empty.detail?.filesOmitted).toBe(false)
+    expect(empty.detail?.files).toEqual({ status: 'ready', rows: [] })
     expect(empty.log[0]).toMatchObject({ file_count: 0, has_cwd: true })
     expect(JSON.stringify(empty.log)).not.toContain(CWD)
 
@@ -147,8 +157,7 @@ describe('on-demand pages', () => {
       return undefined
     }
     const missing = await fulfillPage({ loadFiles: 7 }, ctx(), omitted.loaders)
-    expect(missing.detail?.filesOmitted).toBe(true)
-    expect(missing.detail?.files).toBeUndefined()
+    expect(missing.detail?.files?.status).toBe('unavailable')
     expect(missing.log[0]).toMatchObject({ file_count: null })
   })
 
@@ -165,7 +174,7 @@ describe('on-demand pages', () => {
     expect(net.log).toEqual([])
     expect(listen.page?.message).toContain('probe listen is off')
     expect(hardware.page?.message).toContain('probe hardware is off')
-    expect(detail.detail?.message).toContain('probe proc is off')
+    expect(detail.detail?.files).toMatchObject({ status: 'unavailable', message: expect.stringContaining('probe proc is off') })
     expect(detail.log).toEqual([])
   })
 

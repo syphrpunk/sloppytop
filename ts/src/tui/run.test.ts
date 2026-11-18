@@ -4,10 +4,10 @@ import { TextRenderable } from '@opentui/core'
 import { createTestRenderer } from '@opentui/core/testing'
 import type { ProcessInfo } from '../monitor/types.ts'
 import { compose, emptyHistory } from './frame.ts'
-import { initialState } from './state.ts'
+import { initialState, reduce, type ScreenState } from './state.ts'
 import { styleFrame } from './style.ts'
 import { getTheme, THEME_NAMES } from './theme.ts'
-import { bindQuit, mountFrame, quitKey } from './run.ts'
+import { bindQuit, mountFrame, pendingSection, quitKey } from './run.ts'
 
 describe('theme', () => {
   test('fifteen palettes, and an unknown name is charm', () => {
@@ -20,6 +20,23 @@ describe('theme', () => {
 })
 
 describe('screen frame', () => {
+  test('only the still-open section on the original PID accepts a pending reply', () => {
+    const state: ScreenState = { ...initialState({ columns: ['pid'], theme: 'charm', refreshMs: 1000, pins: [] },
+      { width: 80, height: 24 }), overlay: 'detail', detail: { pid: 7, loaded: true } }
+    const press = (s: ScreenState, name: string) => reduce(s, { name, ctrl: false, shift: false }, []).state
+    for (const [key, section] of [['e', 'env'], ['o', 'files']] as const) {
+      const opened = press(state, key)
+      const current = pendingSection(opened, section)
+      const both = press(opened, key === 'e' ? 'o' : 'e')
+      expect(current(both)).toBe(true)
+      const hidden = press(both, key)
+      expect(current(hidden)).toBe(false)
+      expect(current(press(hidden, key))).toBe(false)
+      expect(current(press(both, 'q'))).toBe(false)
+      expect(current({ ...both, detail: { ...both.detail!, pid: 8 } })).toBe(false)
+    }
+  })
+
   test('paints the theme label, and q requests quit', async () => {
     await using setup = await createTestRenderer({ width: 80, height: 24 })
     const theme = getTheme('mocha')

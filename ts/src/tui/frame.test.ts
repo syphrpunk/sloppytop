@@ -673,6 +673,25 @@ describe('process table', () => {
     expect(second.state.sortOrder).toBe('asc')
   })
 
+  test('tree removes sorting affordances and returns to the unchanged flat preference', () => {
+    for (const width of [48, 112]) {
+      const processes = [proc({ pid: 12, name: 'fixture' })]
+      const flat = screen({ width, sortBy: 'memory', sortOrder: 'asc' })
+      const tree = reduce(flat, key('T'), []).state
+      const frozen = reduce(reduce(tree, key('space'), []).state, key('r'), [])
+      expect(frozen.effect?.tui).toEqual({ refreshMs: 2000 })
+      const frame = compose(frozen.state, { processes, system: {}, history: emptyHistory() })
+      expect(frame.text).toContain('Tree: PID/family order')
+      expect(frame.text).toContain('FROZEN')
+      expect(frame.text).toContain('r 2000ms')
+      expect(frame.text.split('\n')[frame.layout.headerLine]).not.toMatch(/[v^]/)
+      for (const digit of '0123456789') expect(reduce(frozen.state, key(digit), frame.rows).state).toBe(frozen.state)
+      const click = applyPointer(frozen.state, frame.layout, frame.rows, { kind: 'down', x: 3, y: frame.layout.headerLine })
+      expect(click.state).toBe(frozen.state)
+      expect(reduce(click.state, key('T'), frame.rows).state).toMatchObject({ tree: false, sortBy: 'memory', sortOrder: 'asc' })
+    }
+  })
+
   test('a tree child name cell contains the branch mark', () => {
     const frame = compose(screen({ tree: true }), {
       processes: [proc({ pid: 1, ppid: 0, name: 'parent' }), proc({ pid: 2, ppid: 1, name: 'child' })],
@@ -966,6 +985,24 @@ describe('on-demand pages', () => {
     expect(refresh.state.overlay).toBe('hardware')
   })
 
+  test('detail sections toggle independently and close drops both', () => {
+    const processes = [proc({ pid: 7, name: 'fixture' })]
+    const main = screen({ selectedPid: 7 })
+    const rows = visibleRows(main, processes).rows
+    const env = reduce(main, key('e'), rows).state
+    const both = reduce(env, key('o'), rows).state
+    const text = compose(both, { processes, system: {}, history: emptyHistory() }).text
+    expect(text).toContain('Environment (names only)')
+    expect(text).toContain('Open files')
+    expect(text.match(/loading…/g)).toHaveLength(2)
+    const hide = reduce(both, key('e'), rows)
+    expect(hide.effect).toBeUndefined()
+    expect(hide.state.detail?.env).toBeUndefined()
+    expect(hide.state.detail?.files).toBe(both.detail?.files)
+    expect(reduce(hide.state, key('o'), rows).state.detail?.files).toBeUndefined()
+    expect(reduce(both, key('q'), rows).state.detail).toBeNull()
+  })
+
   test('the detail page shows env and files only after they are loaded', () => {
     const processes = [proc({ pid: 7, ppid: 1, name: 'app' }), proc({ pid: 8, ppid: 7, name: 'child' })]
     const closed = compose(screen({ selectedPid: 7, overlay: 'detail', detail: { pid: 7, loaded: true, cwd: '/tmp/work' } }), {
@@ -988,20 +1025,20 @@ describe('on-demand pages', () => {
           pid: 7,
           loaded: true,
           cwd: '/tmp/work',
-          env: ['MODE=1'],
-          files: [{ fd: '1', type: 'CHR', name: '/dev/null' }],
+          env: { status: 'ready', rows: ['FIXTURE_MODE'] },
+          files: { status: 'ready', rows: [{ fd: '1', type: 'CHR', name: '/dev/null' }] },
         },
       }),
       { processes, system: {}, history: emptyHistory() },
     )
-    expect(open.text).toContain('MODE=1')
+    expect(open.text).toContain('FIXTURE_MODE')
     expect(open.text).toContain('/dev/null')
 
     const omitted = compose(
       screen({
         selectedPid: 7,
         overlay: 'detail',
-        detail: { pid: 7, loaded: true, cwd: '/tmp/work', filesOmitted: true },
+        detail: { pid: 7, loaded: true, cwd: '/tmp/work', files: { status: 'unavailable' } },
       }),
       { processes, system: {}, history: emptyHistory() },
     )

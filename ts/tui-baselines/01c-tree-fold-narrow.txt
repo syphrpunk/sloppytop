@@ -1,10 +1,10 @@
-sloppytop  Charm
+sloppytop  Tree: PID/family order  Charm
 ╭─ system ─────────────────────────────────────────────╮
 CPU  32.0%  ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣀  MEM  7.0 GB / 16.0 GB  ⠤⠤⠤⣀
 DSK  180.0 GB / 500.0 GB  ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣀
 rx      ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣿ 17.6K/s
 tx      ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣿ 5.9K/s
-  PID     Name             Command      Memory   CPU%  v
+  PID     Name             Command      Memory   CPU%
 ────────────────────────────────────────────────────────
 >     200 +23 fixture-wor… fixture com…     450M   100.0
 
@@ -15,4 +15,4 @@ tx      ⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⣿
 
 
 fixture · test OS · 1            PID 200  fixture-worker
-1/24  live  D discover  ? help  q quit
+1/24  FROZEN  r 2000ms  D discover  ? help  q quit
