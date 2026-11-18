@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## TUI Unicode alignment and styled baselines — 2026-11-18
+
+- Fixed truncated values beside wide-character names and checked four reviewed styled frames. A deliberate color mutation failed verification.
+
+
 ## TUI completion audit and longer benchmark — 2026-11-18
 
 - Recorded memory reclamation, repeated Escape latency tests, retained session-wide stall maxima, and reproduced fresh launch delay with a minimal Bun executable. Goal remains open.
