@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## All-overlay PTY coverage and demand-driven rendering — 2026-11-18
+
+- Covered every overlay at a short viewport, measured paused CPU after enabling demand-driven rendering, and reproduced fresh macOS startup delay without entering the TUI.
+
+
 ## Scrollable TUI history and discovery worker — 2026-11-18
 
 - Added scrollable history and checked disk charts, Unicode search and discovery cancellation through the PTY harness. Moved discovery collection off the input thread.
