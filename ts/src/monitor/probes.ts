@@ -60,7 +60,7 @@ const SYSTEM_KEYS: Record<ProbeName, (keyof SystemStats)[]> = {
   network: ['network_rx_bytes', 'network_tx_bytes', 'network_interfaces'],
   host: ['uptime_secs', 'load_avg', 'hostname', 'os_version', 'kernel_version', 'process_count'],
   processes: [],
-  power: ['cpu_power_watts', 'gpu_power_watts', 'ane_power_watts', 'dram_power_watts'],
+  power: ['cpu_power_watts', 'gpu_power_watts', 'ane_power_watts', 'dram_power_watts', 'powercap_packages'],
   gpu: [
     'gpu_utilization_percent',
     'gpu_renderer_utilization_percent',
@@ -209,6 +209,7 @@ export function probeEntries(
     gpu_power_watts: system.gpu_power_watts ?? null,
     ane_power_watts: system.ane_power_watts ?? null,
     dram_power_watts: system.dram_power_watts ?? null,
+    ...(system.powercap_packages ? { powercap_packages: system.powercap_packages } : {}),
   })
   push('gpu', {
     gpu_utilization_percent: system.gpu_utilization_percent ?? null,

@@ -8,6 +8,7 @@ import { gpuTimeDeltas } from './gpu.ts'
 import { pageRates, type PageRates } from './memory.ts'
 import { interfaceRates, networkRate, type NetworkCounters } from './network.ts'
 import { startNvidiaSample } from './nvidia.ts'
+import { packageWatts } from './powercap.ts'
 import { summarizeTree } from './workload.ts'
 import type { CollectFlags } from './probes.ts'
 import type { EnergyNj } from './energy.ts'
@@ -63,6 +64,7 @@ export class Monitor {
   #netTxRate: number | undefined
   #interfaces: SystemStats['network_interfaces']
   #power: Partial<Record<'cpu' | 'gpu' | 'ane' | 'dram', number>> = {}
+  #packagePower: NonNullable<SystemStats['powercap_packages']> = []
   #diskDevices: DiskDevice[] = []
   #procGpuMs = new Map<number, number>()
   #procCpu = new Map<number, number>()
@@ -97,6 +99,7 @@ export class Monitor {
     this.#netTxRate = networkRate(prev?.network, sample.network, 'tx', elapsed)
     this.#interfaces = interfaceRates(prev?.network, sample.network, elapsed)
     this.#power = powerWatts(prev?.energyNj, sample.energyNj, elapsed)
+    this.#packagePower = packageWatts(this.#sample?.packageEnergy, sample.packageEnergy)
     this.#diskDevices = diskRates(prev?.disks, sample.disks ?? [], elapsed)
     this.#procGpuMs = gpuTimeDeltas(prev?.gpuTimeNs, sample.gpuTimeNs, elapsed)
     this.#pageRates = pageRates(prev?.pageCounters, sample.pageCounters, elapsed)
@@ -229,6 +232,7 @@ export class Monitor {
       process_count: s.procs.length,
       ...optionalSystemStats(s),
       ...powerFields(this.#power),
+      ...(this.#packagePower.length ? { powercap_packages: this.#packagePower } : {}),
       ...this.#pageRates,
       ...(s.cpuCoreKinds && s.cpuCoreKinds.length === perCore.length
         ? { cpu_core_kinds: s.cpuCoreKinds }

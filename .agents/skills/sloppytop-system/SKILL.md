@@ -21,6 +21,10 @@ Experimental NVIDIA live sampling on Linux is opt-in via
 `SLOPPYTOP_NVIDIA=1`, requires `nvidia-smi` on `PATH` and the `gpu` probe on,
 and is not yet validated on NVIDIA hardware.
 
+Experimental Linux package energy sampling is opt-in via
+`SLOPPYTOP_POWERCAP=1` with the `power` probe enabled. It requires readable
+RAPL package counters and is pending real hardware validation.
+
 ## Options
 
 | Flag | Type | Default | Description |

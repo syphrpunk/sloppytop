@@ -110,6 +110,7 @@ export interface SystemStats {
    * Omitted when IOReport has no reading. A measured 0 is an idle rail.
    */
   cpu_power_watts?: number
+  powercap_packages?: PowercapPackage[]
   gpu_power_watts?: number
   ane_power_watts?: number
   dram_power_watts?: number
@@ -223,6 +224,12 @@ export interface NetworkInterfaceRate {
   tx_bytes_per_s?: number
 }
 
+export interface PowercapPackage {
+  zone: string
+  name: string
+  watts: number
+}
+
 export interface NvidiaDevice {
   uuid: string
   driver_version: string
@@ -311,6 +318,7 @@ export interface PlatformSample {
   memoryPressureLevel?: MemoryPressureLevel
   /** Cumulative package energy in nanojoules. Monitor turns the delta into watts. */
   energyNj?: EnergyNj
+  packageEnergy?: import('./powercap.ts').PackageEnergy[]
   /**
    * Cumulative per-device counters. Absent when the platform could not
    * read them. Monitor turns the delta into `disk_devices`.

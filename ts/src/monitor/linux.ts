@@ -7,6 +7,7 @@ import { parseCgroupPath } from './cgroup.ts'
 import { parseDiskstats } from './disk.ts'
 import { memoryFromMeminfo, pagingFromVmstat } from './memory.ts'
 import { parseProcNetDev } from './network.ts'
+import { readPackageEnergy } from './powercap.ts'
 import { flagOn, type CollectFlags } from './probes.ts'
 import { parseGpuBusyPercent, parseGpuMemoryBytes, parseHwmonElectrical, parseHwmonInput } from './sensors.ts'
 import type { CoreTicks, ElectricalReading, FanReading, GpuActivity, PlatformSample, ProcessDetail, RawProc, TemperatureReading } from './types.ts'
@@ -362,6 +363,9 @@ export function collect(flags?: CollectFlags): PlatformSample {
   const bootId = oomKills === undefined ? undefined : readText('/proc/sys/kernel/random/boot_id')?.trim()
   const sensors = flagOn(flags, 'sensors') ? collectHwmon() : {}
   const gpuActivity = flagOn(flags, 'gpu') ? collectDrm() : undefined
+  const packageEnergy = flagOn(flags, 'power') && process.env['SLOPPYTOP_POWERCAP'] === '1'
+    ? readPackageEnergy()
+    : []
 
   return {
     cpuBrand: cpuBrand(),
@@ -397,6 +401,7 @@ export function collect(flags?: CollectFlags): PlatformSample {
       : {}),
     ...(disks ? { disks } : {}),
     ...sensors,
+    ...(packageEnergy.length ? { packageEnergy } : {}),
     ...(gpuActivity ? { gpuActivity } : {}),
   }
 }
