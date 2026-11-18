@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## TUI metric parity and direct PTY resize — 2026-11-18
+
+- Added hardware and cgroup views with visual checks. Measured direct kernel PTY resize and shortened the renderer debounce; cold startup and broader visual/performance acceptance remain open.
+
+
 ## TUI discovery interactions and collector isolation — 2026-11-18
 
 - Added checked discovery scrolling frames, DNS/connection drill-downs, event-loop timing and a retained sampling worker. Startup and resize still need work.
