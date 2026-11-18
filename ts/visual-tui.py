@@ -81,7 +81,7 @@ def svg(ansi, width, height):
 def run(fixture, output):
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="st-visual-") as folder:
-        command = f"exec env XDG_CONFIG_HOME={shlex.quote(folder)} {shlex.quote(str(fixture))}"
+        command = f"exec env ST_VISUAL_HISTORY=1 XDG_CONFIG_HOME={shlex.quote(folder)} {shlex.quote(str(fixture))}"
         base = ["tmux", "-S", f"{folder}/tmux.sock", "-f", "/dev/null"]
 
         def tmux(*args, check=True):
@@ -101,8 +101,9 @@ def run(fixture, output):
                     baseline = Path(__file__).with_name("tui-baselines") / f"{label}.txt"
                     if compare:
                         expected_frame = baseline.read_text(encoding="utf-8")
-                        if plain != expected_frame:
-                            diff = difflib.unified_diff(expected_frame.splitlines(True), plain.splitlines(True),
+                        actual_frame = re.sub(r"(?m)(^disk  .+ · latest )\d+[sm]( ago$)", r"\1<age>\2", plain)
+                        if actual_frame != expected_frame:
+                            diff = difflib.unified_diff(expected_frame.splitlines(True), actual_frame.splitlines(True),
                                                         fromfile=str(baseline), tofile=str(output / f"{label}.txt"))
                             raise RuntimeError("terminal frame changed:\n" + "".join(diff))
                     return
@@ -147,6 +148,19 @@ def run(fixture, output):
             capture("11-cgroup", ["cgroup v2 (including descendants)", "CPU: unmeasured", "charged memory: 0 B"], 112, 30)
             tmux("send-keys", "-t", "visual", "q")
             capture("12-detail-return", ["PID", "fixture-worker", "q quit"], 112, 30)
+            tmux("resize-window", "-t", "visual", "-x", "56", "-y", "12")
+            tmux("send-keys", "-t", "visual", "v")
+            capture("13-history", ["unobserved time", "d disks", "↑/↓ scroll"], 56, 12)
+            tmux("send-keys", "-t", "visual", "-l", "\x1b[<65;9;7M" * 12)
+            capture("14-history-scroll", ["recent", "unobserved time", "q close"], 56, 12)
+            tmux("send-keys", "-t", "visual", "d")
+            capture("15-disk-history", ["read B/s", "fixture-disk", "d overview", "⠂"], 56, 12, compare=True)
+            tmux("send-keys", "-t", "visual", "Right")
+            capture("16-disk-metric", ["write B/s", "fixture-disk", "d overview"], 56, 12)
+            tmux("send-keys", "-t", "visual", "d")
+            capture("17-history-overview", ["d disks", "unobserved time"], 56, 12)
+            tmux("send-keys", "-t", "visual", "q")
+            capture("18-history-return", ["PID", "fixture-worker", "q quit"], 56, 12)
             tmux("send-keys", "-t", "visual", "q")
             for _ in range(30):
                 if not tmux("list-sessions", check=False):

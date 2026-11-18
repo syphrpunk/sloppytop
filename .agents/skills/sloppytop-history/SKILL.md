@@ -21,6 +21,7 @@ infer whether a recorder was scheduled or failed.
 `--charts` compares up to four recorded disk device names by peak combined throughput. Read and write share a scale per unit; missing samples are gaps, and latency is an interval average, not a percentile. Raw samples still include all recorded devices.
 
 In `sloppytop tui`, press `v` then `d` for the same disk comparison. Use left/right to change metrics and `d` to return to the history overview.
+Use up/down or the mouse wheel to scroll, and `q` to close the overlay.
 
 ## Options
 

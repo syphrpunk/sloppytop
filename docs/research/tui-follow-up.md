@@ -23,6 +23,9 @@ sample's electrical, experimental package-power and network-interface readings.
 The inventory displays raw battery mAh when available. In process detail,
 `g` requests Linux cgroup v2 totals for the selected PID; undefined CPU or
 charged memory stays unmeasured, and the cgroup path is not shown or logged.
+In history (`v`), use up/down or the mouse wheel to reach offscreen charts
+without losing the coverage legend. Press `d` for disk charts, left/right
+to change the metric, `d` to return to the overview, and `q` to close.
 
 Run `just tui-visual` with Bun, Python 3 and `tmux`. It compiles the actual
 OpenTUI runner with a deterministic synthetic sample, opens an isolated
@@ -39,8 +42,8 @@ that the tmux session exits. It never captures the real process list.
   Diff the text and **open the affected images**, checking clipping, balance,
   key hints, selection, status/freshness and overlay return. Check a real
   terminal too for emulator-specific issues.
-- Checked frames under `ts/tui-baselines/` compare the visible terminal text
-  exactly. A mismatch prints a unified diff and leaves the actual frame and
+- Checked frames under `ts/tui-baselines/` compare visible terminal text
+  after normalizing the fixture's relative disk sample age. A mismatch prints a unified diff and leaves the actual frame and
   image in the output directory. Review both before updating a baseline.
   The discovery bottom frame exercises mouse overscroll and pinned controls;
   the next frame checks that one Up moves immediately.

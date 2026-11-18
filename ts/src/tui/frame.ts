@@ -191,7 +191,9 @@ export function compose(
     bodyStart = lines.length
     const discovery = state.overlay === 'discovery' ? discoveryLines(state) : undefined
     discoveryMaxOffset = discovery?.maxOffset
-    let body = discovery?.lines ?? overlayLines(state, input.processes, input.system)
+    const historical = state.overlay === 'history' ? historyLines(state) : undefined
+    overlayScrollMax = historical?.maxOffset
+    let body = discovery?.lines ?? historical?.lines ?? overlayLines(state, input.processes, input.system)
     if (['hardware', 'detail', 'net', 'listen', 'report', 'log', 'help'].includes(state.overlay)) {
       const room = Math.max(0, height - 4)
       overlayScrollMax = Math.max(0, body.length - room)
@@ -209,7 +211,9 @@ export function compose(
     : state.overlay === 'discovery' ? '←/→ tab   ↑/↓ scroll   r refresh'
     : state.overlay === 'hardware' ? state.page?.hardwareTab === 'readings' ? 'd disks   s inventory'
       : state.page?.hardwareTab === 'topology' ? 'd inventory   s readings   r refresh' : 'd disks   s readings   r refresh'
-    : state.overlay === 'detail' ? 'g cgroup   e env   o files' : ''
+    : state.overlay === 'detail' ? 'g cgroup   e env   o files'
+    : state.overlay === 'history' && state.historyPage?.status === 'ready'
+      ? state.historyDiskIndex === null ? (state.historyPage.diskMetrics.length ? 'd disks' : '') : 'd overview   ←/→ metric' : ''
   const scrollHint = overlayScrollMax ? '   ↑/↓ scroll' : ''
   const toolbar = fit(state.overlay === 'none' ? toolbarText(state, view.rows, input.processes.length, view.error)
     : [close, overlayHints].filter(Boolean).join('   ') + scrollHint, width)
@@ -1029,7 +1033,6 @@ function overlayLines(state: ScreenState, processes: ProcessInfo[], system: Part
   if (state.overlay === 'columns') return columnLines(state)
   if (state.overlay === 'theme') return themeLines(state)
   if (state.overlay === 'net' || state.overlay === 'listen' || state.overlay === 'hardware') return pageLines(state, system)
-  if (state.overlay === 'history') return historyLines(state)
   if (state.overlay === 'report') return reportLines(state)
   if (state.overlay === 'log') return logLines(state)
   if (state.overlay === 'settings') return settingsLines(state)
@@ -1208,23 +1211,21 @@ function historyChart(label: string, values: readonly SparklinePoint[], width: n
 }
 
 /** Title and toolbar sit outside this list, and the frame adds two bands. */
-function fitHistory(height: number, lines: string[], tail: string[]): string[] {
-  const budget = Math.max(1, height - 4)
+function fitHistory(state: ScreenState, lines: string[], tail: string[] = []) {
+  const budget = Math.max(0, state.height - 4)
   const head = lines[0] ?? 'history'
   const middle = lines.slice(1)
-  const keptTail = tail.slice(0, Math.max(0, budget - 1))
-  const room = budget - 1 - keptTail.length
-  if (room <= 0) return [head, ...keptTail].slice(0, budget)
-  if (middle.length <= room) return [head, ...middle, ...keptTail]
-  if (room === 1) return [head, `+${middle.length} more`, ...keptTail]
-  const shown = middle.slice(0, room - 1)
-  return [head, ...shown, `+${middle.length - shown.length} more`, ...keptTail]
+  const keptTail = tail.slice(0, Math.max(0, budget - 2))
+  const room = Math.max(0, budget - 1 - keptTail.length)
+  const maxOffset = room > 0 ? Math.max(0, middle.length - room) : 0
+  const offset = Math.min(state.overlayScroll ?? 0, maxOffset)
+  return { lines: budget ? [head, ...middle.slice(offset, offset + room), ...keptTail] : [], maxOffset }
 }
 
-function historyLines(state: ScreenState): string[] {
+function historyLines(state: ScreenState) {
   const page = state.historyPage
-  if (!page || page.status === 'loading') return fitHistory(state.height, ['history …'], ['esc  close'])
-  if (page.status !== 'ready') return fitHistory(state.height, ['history', ...wrapWords(page.message, state.width)], ['esc  close'])
+  if (!page || page.status === 'loading') return fitHistory(state, ['history …'])
+  if (page.status !== 'ready') return fitHistory(state, ['history', ...wrapWords(page.message, state.width)])
   const width = chartWidth(state.width)
   const breaks = page.timeline?.breaks ?? []
   const coverage = page.timeline?.coverage
@@ -1233,7 +1234,7 @@ function historyLines(state: ScreenState): string[] {
   const legend = breaks.length ? `${coverage!.unobserved_interval_marker} unobserved time   ⠂ missing reading` : '⠂ missing reading'
   if (state.historyDiskIndex !== null) {
     const metric = page.diskMetrics[state.historyDiskIndex]
-    if (!metric) return fitHistory(state.height, ['disk history', 'no recorded device readings'], ['d  overview  esc  close'])
+    if (!metric) return fitHistory(state, ['disk history', 'no recorded device readings'])
     const labelWidth = Math.min(32, Math.floor(width / 2))
     const chartSize = Math.max(1, width - labelWidth - 2)
     const lines = [`disk  ${metric.title}  ${state.historyDiskIndex + 1}/${page.diskMetrics.length}${titleSuffix}`]
@@ -1241,8 +1242,7 @@ function historyLines(state: ScreenState): string[] {
       const label = padRight(clip(`${index + 1} ${plain(name)}`, labelWidth), labelWidth)
       lines.push(`${label}  ${sparkline(values, { width: chartSize, max: metric.max, breaks })}`)
     }
-    const controls = page.diskMetrics.length > 1 ? '←/→  metric  d  overview  esc  close' : 'd  overview  esc  close'
-    return fitHistory(state.height, lines, [legend, controls])
+    return fitHistory(state, lines, [legend])
   }
   const lines = [`history${titleSuffix}`]
   if (page.cpu.length > 0) lines.push(historyChart('cpu', page.cpu, width, 100, breaks))
@@ -1259,7 +1259,7 @@ function historyLines(state: ScreenState): string[] {
       lines.push(`  ${point.at}  cpu ${point.cpu.toFixed(1)}  mem ${formatBytesCompact(point.memory)}  load ${point.load.toFixed(2)}`)
     }
   }
-  return fitHistory(state.height, lines, [page.diskMetrics.length ? 'd  disks  esc  close' : 'esc  close', ...(breaks.length ? [legend] : [])])
+  return fitHistory(state, lines, breaks.length ? [legend] : [])
 }
 
 function reportLines(state: ScreenState): string[] {

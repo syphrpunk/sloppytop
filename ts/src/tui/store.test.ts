@@ -107,13 +107,13 @@ describe('history and report pages', () => {
     ])
     const input = { processes: [], system: {}, history: emptyHistory() }
     let state = screen({ overlay: 'history', historyPage: view, width: 52, height: 12 })
-    expect(compose(state, input).text).toContain('d  disks')
+    expect(compose(state, input).text).toContain('d disks')
     state = reduce(state, key('d'), []).state
     const throughput = compose(state, input).text
     expect(throughput).toContain('read B/s')
     expect(throughput).toMatch(/1 disk-alpha +⠤*⣿⣤/)
     expect(throughput).toMatch(/2 disk-beta +⠤*⠂⠀/)
-    expect(throughput).toContain('esc  close')
+    expect(throughput).toContain('q close')
     state = reduce(state, key('left'), []).state
     const latency = compose(state, input).text
     expect(latency).toContain('read avg ms')
@@ -127,7 +127,7 @@ describe('history and report pages', () => {
     const view = historyView([{ at: '2026-10-23T00:00:01Z', cpu_usage_total: 1, memory_used: 1, load_1: 0 }])
     const state = screen({ overlay: 'history', historyPage: view })
     const input = { processes: [], system: {}, history: emptyHistory() }
-    expect(compose(state, input).text).not.toContain('d  disks')
+    expect(compose(state, input).text).not.toContain('d disks')
     const disk = reduce(state, key('d'), []).state
     expect(compose(disk, input).text).toContain('no recorded device readings')
     expect(reduce(disk, key('right'), []).state).toBe(disk)
@@ -226,7 +226,7 @@ describe('history and report pages', () => {
     expect(frame.text).toContain('pressure  normal')
     expect(frame.text).toContain('pkg headroom')
     expect(frame.text).not.toContain('nvme headroom')
-    expect(frame.text).toContain('esc  close')
+    expect(frame.text).toContain('q close')
     expect(frame.text).not.toContain('system W')
   })
 
@@ -264,8 +264,11 @@ describe('history and report pages', () => {
       system: {},
       history: emptyHistory(),
     })
-    expect(frame.text).toContain('esc  close')
-    expect(frame.text).toContain(' more')
+    expect(frame.text).toContain('q close')
+    expect(frame.text).toContain('↑/↓ scroll')
+    const scrolled = reduce({ ...screen({ overlay: 'history', historyPage: view, width: 80, height: 12 }),
+      overlayScrollMax: frame.layout.overlayScrollMax }, key('down'), []).state
+    expect(scrolled.overlayScroll).toBe(1)
   })
 
   test('one recorded rate is chartable and zero is still a measurement', () => {

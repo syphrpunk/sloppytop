@@ -469,12 +469,12 @@ function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
   }
   if (state.overlay === 'history' && state.historyPage?.status === 'ready') {
     if (key.name === 'd') {
-      return { state: { ...state, historyDiskIndex: state.historyDiskIndex === null ? 0 : null } }
+      return { state: { ...state, overlayScroll: 0, historyDiskIndex: state.historyDiskIndex === null ? 0 : null } }
     }
     const count = state.historyPage.diskMetrics.length
     if (state.historyDiskIndex !== null && count > 0 && (key.name === 'left' || key.name === 'right')) {
       const step = key.name === 'left' ? -1 : 1
-      return { state: { ...state, historyDiskIndex: (state.historyDiskIndex + step + count) % count } }
+      return { state: { ...state, overlayScroll: 0, historyDiskIndex: (state.historyDiskIndex + step + count) % count } }
     }
   }
   if (key.name === 'escape' || key.name === 'esc' || key.name === 'q' || key.name === 'return' || key.name === 'enter') {

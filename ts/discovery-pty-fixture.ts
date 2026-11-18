@@ -5,6 +5,7 @@ import { runTui } from './src/tui/run.ts'
 import { defaultPageLoaders } from './src/tui/pages.ts'
 import { defaultProbes } from './src/monitor/probes.ts'
 import type { Sample } from './src/sample.ts'
+import { insertSample, openDb } from './src/store/db.ts'
 
 const rows = Number(process.env.ST_FIXTURE_ROWS ?? 24)
 if (!Number.isInteger(rows) || rows < 1 || rows > 5_000) throw new Error('fixture rows must be 1–5000')
@@ -28,6 +29,21 @@ const sample: Sample = {
     cpu_usage: Math.max(0, 100 - i * 3), memory_bytes: Math.max(0, 450 - i * 10) * 2 ** 20,
     runtime_secs: 600, disk_read_bytes: 0, disk_write_bytes: 0,
   })),
+}
+
+if (process.env.ST_VISUAL_HISTORY === '1') {
+  const db = openDb()
+  const now = Date.now()
+  for (const hours of [4, 1, 0]) {
+    insertSample(db, new Date(now - hours * 3_600_000).toISOString(), {
+      ...sample.system,
+      disk_devices: hours === 1 ? [] : [{
+        name: 'fixture-disk', read_bytes_per_s: hours ? 100 : 0, write_bytes_per_s: 50,
+        read_iops: 2, write_iops: 1,
+      }],
+    }, [], { processLimit: 0, retentionDays: 30 })
+  }
+  db.close()
 }
 
 const loaders = {
