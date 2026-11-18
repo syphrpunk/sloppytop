@@ -112,6 +112,8 @@ def run(fixture, output):
                     if compare:
                         expected_frame = baseline.read_text(encoding="utf-8")
                         actual_frame = re.sub(r"(?m)(^disk  .+ · latest )\d+[sm]( ago$)", r"\1<age>\2", plain)
+                        if label.startswith("17"):
+                            actual_frame = re.sub(r"(?m)^\d{4}-\d\d-\d\dT[\d:.]+Z$", "<sample time>", actual_frame).rstrip() + "\n"
                         if actual_frame != expected_frame:
                             diff = difflib.unified_diff(expected_frame.splitlines(True), actual_frame.splitlines(True),
                                                         fromfile=str(baseline), tofile=str(output / f"{label}.txt"))
@@ -186,6 +188,15 @@ def run(fixture, output):
             capture("16-disk-metric", ["write B/s", "fixture-disk", "d overview"], 56, 12)
             tmux("send-keys", "-t", "visual", "d")
             capture("17-history-overview", ["d disks", "unobserved time"], 56, 12)
+            tmux("send-keys", "-t", "visual", "i")
+            capture("17a-history-inspect-narrow", ["history sample 1/", "io_pressure", "recorded interfaces"], 56, 12, compare=True)
+            tmux("send-keys", "-t", "visual", "Down")
+            capture("17aa-history-inspect-scroll", ["history sample 1/", "fixture-eth", "rx 0 B/s", "tx —"], 56, 12, compare=True)
+            tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")
+            capture("17b-history-inspect-wide", ["history sample 1/", "anomaly evidence", "recorded interfaces", "fixture-eth", "─" * 90], 112, 30, compare=True)
+            tmux("send-keys", "-t", "visual", "Left")
+            capture("17c-history-inspect-previous", ["history sample 2/", "preceding gap", "cause unknown"], 112, 30)
+            tmux("resize-window", "-t", "visual", "-x", "56", "-y", "12")
             tmux("send-keys", "-t", "visual", "q")
             capture("18-history-return", ["PID", "fixture-worker", "q quit"], 56, 12)
             tmux("send-keys", "-t", "visual", "Home")

@@ -7,6 +7,7 @@ import {
   reportTopConsumers, reportWindow, reportWorkloadHistory,
 } from './report.ts'
 import { LEAK_DEFAULTS } from './footprint.ts'
+import { diagnosticReport } from './diagnostics.ts'
 
 const baseSystem: SystemStats = {
   cpu_brand: 'test',
@@ -64,6 +65,29 @@ describe('report', () => {
 
   test('reportWindow is null with no samples in range', () => {
     expect(reportWindow(db, '2026-01-01T00:00:00Z')).toBeNull()
+  })
+
+  test('diagnostic JSON contains findings without leaking local identifiers', () => {
+    const since = '2026-08-17T00:00:00.000Z'
+    const at = '2026-08-17T01:00:00.000Z'
+    record(db, at, {
+      hostname: 'private-host-sentinel',
+      cpu_usage_total: 99,
+      network_interfaces: [{ name: 'private-interface-sentinel', rx_bytes_per_s: 7 }],
+    }, [{ ...proc('private-process-sentinel', 30), command: 'private-command-sentinel' }], 'private-boot-sentinel')
+    const artifact = diagnosticReport(db, since, {
+      scheduler: 'launchd', installed: true, loaded: true, files: ['/private/path-sentinel'],
+      recorder_state: 'idle', scheduler_state: 'armed', last_run: { outcome: 'failed', exit_code: 7 },
+    })
+    const json = JSON.stringify(artifact)
+    for (const value of ['private-', '/private/', 'command', 'environment', 'network_interfaces']) {
+      expect(json).not.toContain(value)
+    }
+    expect(artifact).toMatchObject({
+      redacted: true, coverage: { from: since, samples: 1 },
+      recorder: { last_successful_sample_at: at, last_run: { outcome: 'failed', exit_code: 7 } },
+      findings: { anomalies: { cpu_saturation: 1 }, rss_growth_flags: 0 },
+    })
   })
 
   test('compares half-open windows, labels coverage and does not invent empty-window deltas', () => {

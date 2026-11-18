@@ -216,7 +216,9 @@ export function compose(
     : state.overlay === 'theme' ? '↑/↓ preview   Enter use'
     : state.overlay === 'settings' ? '↑/↓ select   Space toggle   m listener'
     : state.overlay === 'history' && state.historyPage?.status === 'ready'
-      ? state.historyDiskIndex === null ? (state.historyPage.diskMetrics.length ? 'd disks' : '') : 'd overview   ←/→ metric' : ''
+      ? state.historyPointIndex !== null ? 'i overview   ←/→ sample'
+        : state.historyDiskIndex === null ? (state.historyPage.diskMetrics.length ? 'd disks   i inspect' : 'i inspect')
+          : 'd overview   ←/→ metric' : ''
   const scrollHint = overlayScrollMax ? '   ↑/↓ scroll' : ''
   const toolbar = fit(state.overlay === 'none' ? toolbarText(state, view.rows, input.processes.length, view.error)
     : [close, overlayHints].filter(Boolean).join('   ') + scrollHint, width)
@@ -1235,6 +1237,30 @@ function historyLines(state: ScreenState) {
   const age = coverage?.latest_sample_age_seconds
   const titleSuffix = age === undefined ? '' : ` · latest ${age < 60 ? `${age}s` : `${Math.floor(age / 60)}m`} ago`
   const legend = breaks.length ? `${coverage!.unobserved_interval_marker} unobserved time   ⠂ missing reading` : '⠂ missing reading'
+  if (state.historyPointIndex !== null) {
+    const point = page.recent[state.historyPointIndex]
+    if (!point) return fitHistory(state, ['history sample', 'no recorded sample'])
+    const lines = [
+      `history sample ${state.historyPointIndex + 1}/${page.recent.length}`,
+      plain(point.timestamp),
+      `cpu ${point.cpu.toFixed(1)}%  mem ${formatBytesCompact(point.memory)}  load ${point.load.toFixed(2)}`,
+      point.gapSeconds ? `preceding gap ${point.gapSeconds}s · ${point.bootChange ? 'boot change observed' : 'cause unknown'}` : 'sample recorded · no gap flagged',
+      'anomaly evidence',
+    ]
+    if (!point.anomalies?.length) lines.push('  no flags at this sample')
+    for (const finding of point.anomalies ?? []) {
+      lines.push(...wrapWords(`${finding.type}: ${finding.detail}`, state.width))
+      for (const item of finding.evidence) {
+        lines.push(...wrapWords(`  ${item.metric} ${item.observed} ${item.operator} ${item.threshold}`, state.width))
+      }
+    }
+    lines.push('recorded interfaces')
+    if (!point.interfaces?.length) lines.push('  no recorded interface readings')
+    for (const link of point.interfaces ?? []) {
+      lines.push(`  ${plain(link.name)}  rx ${discoveryRate(link.rx_bytes_per_s)}  tx ${discoveryRate(link.tx_bytes_per_s)}`)
+    }
+    return fitHistory(state, lines)
+  }
   if (state.historyDiskIndex !== null) {
     const metric = page.diskMetrics[state.historyDiskIndex]
     if (!metric) return fitHistory(state, ['disk history', 'no recorded device readings'])

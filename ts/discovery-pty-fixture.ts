@@ -40,6 +40,7 @@ if (process.env.ST_VISUAL_HISTORY === '1') {
   for (const hours of [4, 1, 0]) {
     insertSample(db, new Date(now - hours * 3_600_000).toISOString(), {
       ...sample.system,
+      ...(hours === 0 ? { psi_io_some_avg10: 12, network_interfaces: [{ name: 'fixture-eth', rx_bytes_per_s: 0 }] } : {}),
       disk_devices: hours === 1 ? [] : [{
         name: 'fixture-disk', read_bytes_per_s: hours ? 100 : 0, write_bytes_per_s: 50,
         read_iops: 2, write_iops: 1,

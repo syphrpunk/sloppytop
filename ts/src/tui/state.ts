@@ -95,6 +95,11 @@ export interface PageState {
 
 export interface HistoryPoint {
   at: string
+  timestamp: string
+  bootChange?: boolean
+  gapSeconds?: number
+  interfaces?: import('../monitor/types.ts').NetworkInterfaceRate[]
+  anomalies?: import('../store/report.ts').Anomaly[]
   cpu: number
   memory: number
   load: number
@@ -248,6 +253,7 @@ export interface ScreenState {
   } | null
   /** Null is the overview; otherwise an index into available disk metrics. */
   historyDiskIndex: number | null
+  historyPointIndex: number | null
   reportPage: ReportView | null
   logPage: LogView | null
   settingsPage: SettingsView | null
@@ -347,6 +353,7 @@ export function initialState(
     historyPage: null,
     discoveryPage: null,
     historyDiskIndex: null,
+    historyPointIndex: null,
     reportPage: null,
     logPage: null,
     settingsPage: null,
@@ -468,8 +475,16 @@ function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
     }
   }
   if (state.overlay === 'history' && state.historyPage?.status === 'ready') {
+    const points = state.historyPage.recent.length
+    if (key.name === 'i' && points) return {
+      state: { ...state, overlayScroll: 0, historyDiskIndex: null, historyPointIndex: state.historyPointIndex === null ? 0 : null },
+    }
+    if (state.historyPointIndex !== null && points && (key.name === 'left' || key.name === 'right')) {
+      const step = key.name === 'left' ? 1 : -1
+      return { state: { ...state, overlayScroll: 0, historyPointIndex: Math.max(0, Math.min(points - 1, state.historyPointIndex + step)) } }
+    }
     if (key.name === 'd') {
-      return { state: { ...state, overlayScroll: 0, historyDiskIndex: state.historyDiskIndex === null ? 0 : null } }
+      return { state: { ...state, overlayScroll: 0, historyPointIndex: null, historyDiskIndex: state.historyDiskIndex === null ? 0 : null } }
     }
     const count = state.historyPage.diskMetrics.length
     if (state.historyDiskIndex !== null && count > 0 && (key.name === 'left' || key.name === 'right')) {
@@ -723,6 +738,7 @@ function openHistory(state: ScreenState): ReduceResult {
       overlay: 'history',
       historyPage: emptyHistoryPage('loading', 'loading…'),
       historyDiskIndex: null,
+      historyPointIndex: null,
     },
     effect: { openHistory: true },
   }

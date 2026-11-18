@@ -17,6 +17,7 @@ Aggregate report over the metrics store: hourly avg/peak series, top consumers, 
 | `--compare` | `boolean` | `false` | Compare the look-back window with the immediately preceding equal-length window |
 | `--workloads` | `boolean` | `false` | Include per-sample CPU and RSS totals for configured workload groups |
 | `--interfaces` | `boolean` | `false` | Include per-sample network interface RX/TX rates in bytes per second |
+| `--diagnostic` | `boolean` | `false` | Emit a local, shareable report of recorder state, coverage, and finding counts |
 | `--top` | `number` | `10` | Top consumers to include |
 | `--charts` | `boolean` | `true` | Include braille sparkline trend charts (oldest → newest hour) |
 
@@ -39,3 +40,8 @@ arguments or environment values.
 Interface rates are observations for a single sample, not a time series keyed
 by device identity. A reused name does not prove continuity. An absent rate
 is unmeasured; zero is a measured rate.
+
+Save a diagnostic artifact with `sloppytop report --diagnostic --format json >
+diagnostics.json`. It deliberately omits identifiers, paths, process names,
+command lines, environment, and network observations. It includes timestamps;
+review those before sharing if the timing itself is sensitive.

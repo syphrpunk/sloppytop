@@ -114,7 +114,7 @@ function readingValue(list: TemperatureReading[] | undefined, name: string, fiel
   return value !== undefined && Number.isFinite(value) ? value : undefined
 }
 
-export function historyView(rows: HistoryInput[]): HistoryView {
+export function historyView(rows: HistoryInput[], findings: ReturnType<typeof reportAnomalies> = []): HistoryView {
   if (rows.length === 0) {
     return { status: 'empty', message: EMPTY_WINDOW, cpu: [], memory: [], load: [], series: [], diskMetrics: [], notes: [], recent: [] }
   }
@@ -170,9 +170,10 @@ export function historyView(rows: HistoryInput[]): HistoryView {
       }),
     )
   }
+  const timeline = historyCoverage(chrono)
   return {
     status: 'ready',
-    timeline: historyCoverage(chrono),
+    timeline,
     message: '',
     cpu: chrono.map((row) => row.cpu_usage_total),
     memory: chrono.map((row) => row.memory_used),
@@ -182,6 +183,11 @@ export function historyView(rows: HistoryInput[]): HistoryView {
     notes,
     recent: rows.slice(0, 5).map((row) => ({
       at: row.at.slice(11, 19),
+      timestamp: row.at,
+      bootChange: row.boot_changed_since_previous,
+      gapSeconds: timeline.coverage.unobserved_intervals.find((gap) => gap.before === row.at)?.seconds,
+      interfaces: row.network_interfaces,
+      anomalies: findings.filter((finding) => finding.at === row.at),
       cpu: row.cpu_usage_total,
       memory: row.memory_used,
       load: row.load_1,
@@ -305,7 +311,8 @@ export async function recordWithStore(): Promise<{ recorded: boolean; message: s
 export function loadHistory(): HistoryView {
   return withDb((db) => {
     const since = new Date(Date.now() - HISTORY_HOURS * 3_600_000).toISOString()
-    return historyView(queryHistory(db, since, HISTORY_LIMIT))
+    const rows = queryHistory(db, since, HISTORY_LIMIT)
+    return historyView(rows, rows.length ? reportAnomalies(db, rows.at(-1)!.at) : [])
   })
 }
 

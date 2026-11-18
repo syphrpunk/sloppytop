@@ -158,7 +158,9 @@ describe('history and report pages', () => {
     expect(view.cpu).toEqual([1, 2])
     expect(view.memory).toEqual([10, 20])
     expect(view.load).toEqual([0.1, 0.2])
-    expect(view.recent[0]).toEqual({ at: '00:00:02', cpu: 2, memory: 20, load: 0.2 })
+    expect(view.recent[0]).toMatchObject({
+      at: '00:00:02', timestamp: '2026-10-23T00:00:02.000Z', cpu: 2, memory: 20, load: 0.2,
+    })
     expect(view.series).toEqual([])
     expect(view.notes).toEqual([])
   })

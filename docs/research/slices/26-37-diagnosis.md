@@ -9,9 +9,14 @@
 | 30 — Workload history | `report --workloads` summarizes recorded CPU and RSS per sample and configured group. Tests cover full, truncated and missing process lists, and verify command text used by existing group matching does not appear in the output. No storage changes. |
 | 31 — Interface history | `history` and `report --interfaces` carry sample-local observations without assuming continuity across rows. Tests cover zeros, unmeasured directions, renames, name reuse, and old rows. Compiled macOS smoke read back one recording with 22 interface observations. |
 | 32 — Discovery comparison | `discover --before FILE --after FILE` accepts two full or two redacted overview exports. A partial full snapshot does not imply removal; a redacted comparison exposes only visible count changes and coverage. Comparison reads saved local files without invoking live providers, even with the network probe off. |
+| 33 — Thermal headroom | The existing Linux hwmon implementation uses kernel `temp*_crit`; fixtures verify positive, zero, negative and absent differences and the scrape emits the measured limit/headroom. Compiled macOS showed `nominal`, 38 temperatures and no Celsius limits; do not infer a limit from that state. |
+| 34 — Apple Silicon energy | On the M3, compiled live sampling returned CPU 4.011 W, GPU 0.047 W, ANE 0 W, DRAM 0.855 W and 4 GiB swap. A separate recording preserved the readings and 38 temperature rows. Unit/delta tests pass. `nht-9de7a2` remains open: no fan tachometer on the fanless host and no verified rootless cluster-frequency source; no substitute readings added. |
+| 35 — Diagnostic bundle | `report --diagnostic --format json` returns a local allowlisted artifact, including health, coverage and finding counts. The regression fixture uses sensitive process, command, interface, hostname, boot and path sentinels and asserts they are not serialized. |
+| 36 — History drill-down | Press `v`, then `i` to inspect a recent point; arrows move through samples. Coverage, anomaly evidence and recorded interface readings are rendered in narrow and wide PTY captures, with a narrow scroll check and zero-vs-missing test. |
+| 37 — Release checks | macOS compiled build, PTY live smoke, SQLite fixtures, visual checks and interaction benchmark ran. The concurrent macOS benchmark had all ordinary interaction p95 values below 100 ms, but startup and tmux resize were above the retained thresholds; rerun serially and use the documented direct PTY resize method. Linux compiled end-to-end evidence is still required. |
 
 Run `just test`, `just ts-check`, and `just build`. On macOS ARM64 the
 initial diagnostics changes passed 294 tests, with one Linux-only skip.
 After Slices 29–30, type-check, 19 focused tests, and a compiled build passed.
-Next: audit existing thermal and Apple Silicon energy providers in Slices
-33–34; revisit the Linux scheduler gate independently.
+After Slices 31–36, macOS ran 298 passing tests and one Linux-only skip.
+Next: verify the remaining runtime gates and audit the batch.

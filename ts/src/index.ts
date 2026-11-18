@@ -40,6 +40,7 @@ import { metricsResponse } from './store/metrics.ts'
 import { appendProbeLog, probeLogPath, readProbeLog } from './store/probe-log.ts'
 import { dbInfo, openDb, queryHistory, queryTopProcesses } from './store/db.ts'
 import { renderOpenMetrics } from './store/openmetrics.ts'
+import { diagnosticReport } from './store/diagnostics.ts'
 import {
   compareReportWindows,
   reportAnomalies,
@@ -657,6 +658,7 @@ Cli.create('sloppytop', {
       compare: z.boolean().default(false).describe('Compare with the immediately preceding equal-length window'),
       workloads: z.boolean().default(false).describe('Include per-sample history for configured process groups'),
       interfaces: z.boolean().default(false).describe('Include recorded network interface rates by sample'),
+      diagnostic: z.boolean().default(false).describe('Emit a shareable diagnostic report with no local identifiers'),
       top: z.coerce.number().int().min(1).default(10).describe('Top consumers to include'),
       charts: z
         .boolean()
@@ -666,12 +668,16 @@ Cli.create('sloppytop', {
     run(c) {
       const db = openDb()
       try {
+        const since = new Date(Date.now() - c.options.hours * 3_600_000).toISOString()
+        if (c.options.diagnostic) {
+          const status = process.platform === 'darwin' || process.platform === 'linux' ? service.status() : undefined
+          return diagnosticReport(db, since, status)
+        }
         if (c.options.compare) {
           const comparison = compareReportWindows(db, c.options.hours)
           note('report', `comparison: ${comparison.coverage}`)
           return comparison
         }
-        const since = new Date(Date.now() - c.options.hours * 3_600_000).toISOString()
         const window = reportWindow(db, since)
         if (!window) {
           note('report', `no samples in the last ${c.options.hours}h`, 'error')

@@ -24,6 +24,9 @@ of the whole gap. Current job state is not evidence of a past failure.
 
 In `sloppytop tui`, press `v` then `d` for the same disk comparison. Use left/right to change metrics and `d` to return to the history overview.
 Use up/down or the mouse wheel to scroll, and `q` to close the overlay.
+Press `i` to inspect a recent sample, then left/right to step through the
+five most recent points. The detail shows preceding gaps, anomaly evidence
+and recorded interface observations.
 
 ## Options
 
