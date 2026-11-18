@@ -151,3 +151,20 @@ build and all 288 tests; the compiled TUI passed both direct PTY smokes as
 UID 1000. One timed run observed 148 ms to the first frame, 682 ms to a
 populated table and 23 ms to shrink. The raw PTY check matches the selected
 row, not the footer PID, which Linux can emit as separate updates.
+
+### Longer macOS control runs
+
+- A 105-second live soak showed RSS growing to 132 MiB at 60 seconds, then
+  dropping to 107 MiB at 70 seconds and ending at 123 MiB. This shows
+  reclamation, not sustained monotonic growth, over the observed interval.
+  Live search, Escape and scroll p95 were 16, 37 and 19 ms. The trace from
+  that run only proves the maximum over its final 3,600 lag observations
+  (149 ms). The trace now retains a session-wide maximum separately from
+  its rolling percentile window, with a wraparound regression test.
+- A repeat with 5,000 fixture rows and 24 trials measured Escape p95 of
+  45 ms live and 41 ms frozen; maxima were 49 and 53 ms. The earlier
+  102 ms live p95 remains a recorded miss rather than being discarded.
+- A fresh standalone Bun program containing only `console.log` took
+  1.31 s to launch, versus under 0.01 s on its second launch. This
+  reproduces the fresh-build delay without any Sloppytop dependencies or
+  code. It is not evidence that the cold-start target has been met.
