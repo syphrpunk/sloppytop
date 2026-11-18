@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: f641143 chore(handoff): append checkpoint tui-controls-audit
+HEAD: cd9f83e Show read-only recorder status and scoped controls in Settings
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -82,6 +82,7 @@ CLI-to-TUI coverage review: recorder health detail, report window comparisons, r
 The [CLI-to-TUI parity audit](docs/research/tui-parity.md) now maps the delivered recorder health, subtree summary, History and Report evidence, local JSON workflows, and experimental NVIDIA rendering to their checks. macOS arm64 validation passed: 302 tests, one Linux-only skip, type-check, build, visual checks and both compiled smokes. Real NVIDIA acceptance still requires an authorized Linux host with a working NVIDIA driver (`nht-f456db`); no live GPU support is claimed. Nothing installed or pushed.
 The [TUI controls audit](docs/research/tui-controls-audit.md) covers tree readability, recorder UX, visual CI and current performance measurements. Repeat population exceeded 2 s twice on macOS; investigate before adding hot-path work. No scheduler state was changed.
 Audit dispatch is tracked under Memento epic nht-f4dce9: one completed evidence record and nine follow-ups. Parallelize sampler tracing, benchmark harness development and the isolated picker prototype; reserve exclusive measurement slots and a single production-screen integrator.
+First wave integrated locally through cd9f83e. The 12-repeat macOS baseline/candidate PTY comparison after warmup measured populated-table p95 2443/1988 ms, with 3/0 misses. Recorder Settings is read-only; focused picker remains prototype-only. Fixed-host macOS/Linux release-gate reports are still pending (nht-bee39c).
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -99,7 +100,7 @@ Audit dispatch is tracked under Memento epic nht-f4dce9: one completed evidence 
 Open tasks:
 (task manager: memento)
 {
-  "count": 17,
+  "count": 14,
   "items": [
     {
       "id": "nht-9de7a2",
@@ -156,7 +157,7 @@ Open tasks:
       "uuid": "01a1efcf-a170-7000-8077-31f34c6b54cf",
       "slug": "nht-bee39c-enforce-interactive-and-soak-budgets-on-fixed-hosts",
       "title": "Enforce interactive and soak budgets on fixed hosts",
-      "status": "todo",
+      "status": "in-progress",
       "type": "task",
       "parent": "nht-f4dce9",
       "blockedBy": [],
@@ -164,24 +165,8 @@ Open tasks:
       "priority": "high",
       "attention": null,
       "attentionReason": null,
-      "updatedAt": "2026-11-18T17:58:44.336Z",
+      "updatedAt": "2026-11-18T18:13:50.379Z",
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-bee39c-enforce-interactive-and-soak-budgets-on-fixed-hosts.md"
-    },
-    {
-      "id": "nht-1a1d21",
-      "uuid": "01a1efcf-a23c-7000-9965-2834cc27fedc",
-      "slug": "nht-1a1d21-evaluate-a-focused-opentui-picker-off-the-production-path",
-      "title": "Evaluate a focused OpenTUI picker off the production path",
-      "status": "todo",
-      "type": "task",
-      "parent": "nht-f4dce9",
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "medium",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-11-18T17:58:44.540Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-1a1d21-evaluate-a-focused-opentui-picker-off-the-production-path.md"
     },
     {
       "id": "nht-7bd44a",
@@ -198,6 +183,22 @@ Open tasks:
       "attentionReason": null,
       "updatedAt": "2026-11-18T17:58:46.197Z",
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-7bd44a-expand-and-collapse-process-branches-without-losing-focus.md"
+    },
+    {
+      "id": "nht-cb0edf",
+      "uuid": "01a0d7da-f744-7000-953d-f33b5e5bdcd9",
+      "slug": "nht-cb0edf-expand-the-cli-past-process-table-parity",
+      "title": "Expand the CLI past process-table parity",
+      "status": "todo",
+      "type": "milestone",
+      "parent": null,
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "high",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-09-25T09:17:26.726Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-cb0edf-expand-the-cli-past-process-table-parity.md"
 
 <!-- /handoff:next -->
 

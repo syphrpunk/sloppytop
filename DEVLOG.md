@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Integrated all four TUI audit lanes. 311 Bun tests passed (one Linux-only skip), 10 Python gate tests passed, and type-check, compiled diagnosis and visual comparisons passed. Fixed-host soak certification remains open.
+
+
+## Session digest — 2026-11-18
+
 - Filed the TUI audit in Memento with ownership boundaries, acceptance checks and recorder dependencies. No agents launched or runtime changes made.
 
 
