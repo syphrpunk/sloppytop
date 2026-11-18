@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## macOS loader timing control — 2026-11-18
+
+- Timed spawn, first dyld diagnostic and version output across five fresh/repeat pairs. The delay largely precedes the first loader message.
+
+
 ## TUI lazy loading — 2026-11-18
 
 - Deferred optional TUI handlers and worker imports; validated compiled and visual behavior and recorded comparable fresh-copy launch measurements.
