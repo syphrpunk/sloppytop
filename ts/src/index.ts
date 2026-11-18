@@ -51,6 +51,7 @@ import {
 import { takeSample } from './sample.ts'
 import { RecordBlocked, recordSample } from './store/record.ts'
 import * as service from './store/service.ts'
+import { diskHistoryCharts } from './view/disk-history.ts'
 import { sparkline } from './view/sparkline.ts'
 
 const listOptions = z.object({
@@ -553,6 +554,7 @@ Cli.create('sloppytop', {
           ? rows.map((r) => ({ ...r, top_processes: queryTopProcesses(db, r.id) }))
           : rows
         const chrono = [...rows].reverse() // queryHistory returns newest-first
+        const diskCharts = c.options.charts ? diskHistoryCharts(chrono) : []
         const charts = c.options.charts
           ? {
               cpu_pct: sparkline(
@@ -561,6 +563,7 @@ Cli.create('sloppytop', {
               ),
               memory_used: sparkline(chrono.map((r) => r.memory_used)),
               load_1: sparkline(chrono.map((r) => r.load_1)),
+              ...(diskCharts.length ? { disk_devices: diskCharts } : {}),
             }
           : undefined
         note('history', `${rows.length} samples`)
