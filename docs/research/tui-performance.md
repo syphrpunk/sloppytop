@@ -181,3 +181,20 @@ row, not the footer PID, which Linux can emit as separate updates.
   CPU/RSS were 0.4%/106 MiB. RSS rose from 93 to 145 MiB during the live
   soak without a captured drop; the earlier longer run showed reclamation,
   but this run alone does not establish a steady-state plateau.
+
+### Final soak and direct-PTY repeat
+
+At `2b90cba` on the same Mac, the 180-second live soak peaked at 130 MiB
+and ended at 107 MiB, with multiple drops exceeding 8 MiB. The 90-second
+5,000-row fixture soak peaked at 73 MiB and ended at 62 MiB. Paused CPU
+was 0.4% live and 0.6% for the fixture; paused RSS was 103 and 97 MiB.
+Session-wide worst loop lag was 58 ms live and 57 ms for the fixture.
+Live search/Escape/scroll p95 was 28/41/19 ms; the 5,000-row fixture
+measured 34/46/19 ms. Every interaction in both runs stayed below 250 ms.
+
+Across twelve direct PTY starts of the already-executed binary, first
+frame p95 was 207 ms, populated table p95 was 1,285 ms, and shrink p95
+was 25 ms. Those are repeat-launch numbers, not fresh-file acceptance.
+The existing source launcher (`./st`) took 545 ms to first frame and
+1,592 ms to populate in a single control. It requires Bun and is not a
+drop-in replacement for the standalone distribution.
