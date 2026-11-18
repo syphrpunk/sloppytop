@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: d6c3e63 feat: chart recorded metrics with gaps and Linux thermal headroom
+HEAD: dd12a5b feat(linux): report kernel OOM kills separately from pressure
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -38,7 +38,7 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 
 [Deep dive 01](docs/research/slices/01-sampling-gaps.md) is complete and committed with the pending chart and Linux headroom work in `d6c3e63` (`nht-62c980`). Recorder and Homebrew cask edits are in `e42bb2b`. Verified 236 tests, type-check, compiled build, and TUI smoke on macOS arm64; the cask parsed in Homebrew and its digest matched the release asset. No live cask install or scheduler was run. Live rate validity is tracked separately (`nht-4e0e0e`).
 
-[Deep dive 02](docs/research/slices/02-linux-memory-pressure-and-oom.md) is underway: traced PSI and OOM semantics in Headroom and Below. The first implementation (`nht-9f5f15`) is a read-only Linux kernel count, not a journal parser or an oomd policy detector.
+[Deep dive 02](docs/research/slices/02-linux-memory-pressure-and-oom.md) is complete (`nht-9f5f15`): the optional Linux kernel count appears in system samples, history and OpenMetrics. Reports compare adjacent same-boot samples and keep kills separate from pressure. Verified read-only against live Linux procfs. Next research candidate: per-device disk history and topology.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -56,7 +56,7 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 Open tasks:
 (task manager: memento)
 {
-  "count": 5,
+  "count": 6,
   "items": [
     {
       "id": "nht-9de7a2",
@@ -73,6 +73,22 @@ Open tasks:
       "attentionReason": null,
       "updatedAt": "2026-11-01T08:26:19.378Z",
       "path": ".memento/items/nht-9de7a2-apple-silicon-energy-sample.md"
+    },
+    {
+      "id": "nht-4e0e0e",
+      "uuid": "01a1ec48-f44c-7000-8847-f43809aa41a2",
+      "slug": "nht-4e0e0e-carry-live-network-rate-validity-through-collection-and-storage",
+      "title": "Carry live network rate validity through collection and storage",
+      "status": "todo",
+      "type": "bug",
+      "parent": "nht-2613eb",
+      "blockedBy": [],
+      "blocking": [],
+      "priority": null,
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-11-18T01:32:46.541Z",
+      "path": ".memento/items/nht-4e0e0e-carry-live-network-rate-validity-through-collection-and-storage.md"
     },
     {
       "id": "nht-cb0edf",
@@ -139,7 +155,6 @@ Open tasks:
       "path": ".memento/items/nht-9bd745-stall-pressure-thermal-headroom-and-battery.md"
     }
   ]
-}
 
 <!-- /handoff:next -->
 

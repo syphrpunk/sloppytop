@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Linux pressure and OOM slice completed — 2026-11-18
+
+- Implemented the optional Linux kernel OOM count and same-boot report deltas (`dd12a5b`); closed `nht-9f5f15`.
+- macOS: 241 tests passed, plus type-check, build and TUI smoke. Linux aarch64: 36 targeted tests passed, including the live procfs check as an unprivileged user. No OOM induced.
+
 ## Pending work committed; OOM deep dive started — 2026-11-18
 
 - Committed the recorder and cask (`e42bb2b`) and recorded charts with Linux thermal headroom (`d6c3e63`). Re-ran 236 tests, type-check, build, and TUI smoke. Parsed the cask and checked its asset digest, without installing it.
