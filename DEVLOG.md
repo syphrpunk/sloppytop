@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Instruments first-launch trace — 2026-11-18
+
+- Identified a 537 ms wait ending in an endpoint protection daemon wakeup in the fresh trace, absent on repeat.
+
+
 ## OpenTUI 0.9.2 upgrade — 2026-11-18
 
 - Upgraded the pinned renderer and verified the ARM64 build, live sampling and unchanged visual baselines. The fresh-copy startup target remains unmet.
