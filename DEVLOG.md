@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## TUI completion audit and longer benchmark — 2026-11-18
+
+- Recorded memory reclamation, repeated Escape latency tests, retained session-wide stall maxima, and reproduced fresh launch delay with a minimal Bun executable. Goal remains open.
+
+
 ## TUI sustained workloads and Linux standalone smoke — 2026-11-18
 
 - Measured sustained live and 5,000-row fixture workloads, verified the Linux arm64 build and runtime, and corrected the PTY selected-row assertion for differential rendering.
