@@ -2,15 +2,16 @@
 // The table tick does not call these. Tests pass probes and samples in;
 // the defaults below open the real store and are only for the screen.
 
-import type { Database } from 'bun:sqlite'
+import { statSync } from 'node:fs'
+import { Database } from 'bun:sqlite'
 import { disabledRecordProbes, type ProbeSet } from '../monitor/probes.ts'
 import type { FanReading, ProcessInfo, SystemStats, TemperatureReading } from '../monitor/types.ts'
 import { takeSample, type RecordableSample } from '../sample.ts'
 import { diskHistory } from '../view/disk-history.ts'
 import { historyCoverage } from '../view/history-coverage.ts'
-import { loadConfig } from '../store/config.ts'
+import { dbPath, loadConfig } from '../store/config.ts'
 import { diagnosticReport } from '../store/diagnostics.ts'
-import { dbInfo, insertSample, openDb, queryHistory, queryTopProcesses, type HistoryRow } from '../store/db.ts'
+import { insertSample, openDb, queryHistory, queryTopProcesses, type HistoryRow } from '../store/db.ts'
 import { metricsResponse } from '../store/metrics.ts'
 import { readProbeLog } from '../store/probe-log.ts'
 import {
@@ -264,16 +265,46 @@ export function logView(entries: readonly unknown[]): { lines: string[] } {
   return { lines }
 }
 
-export function readService(
-  load: () => StatusResult = status,
-  last: () => string | undefined = () => withDb(db => dbInfo(db).last),
-  now = Date.now(),
-) {
-  const { files: _, ...health } = load()
-  return { ...health, ...sampleFreshness(last(), now) }
+/** Unlike openDb(), inspecting Settings must not create or migrate the destination. */
+function latestInsert(path: string): string | undefined {
+  if (!statSync(path, { throwIfNoEntry: false })) return
+  const db = new Database(path, { readonly: true })
+  try {
+    return db.query<{ at: string }, []>('SELECT at FROM system_samples ORDER BY at DESC LIMIT 1').get()?.at
+  } finally {
+    db.close()
+  }
 }
 
-export type RecorderHealth = ReturnType<typeof readService>
+export interface RecorderHealth {
+  databasePath: string
+  service?: Omit<StatusResult, 'files'>
+  schedulerError?: string
+  insertError?: string
+  last_successful_sample_at?: string
+  sample_age_seconds?: number
+}
+
+export function readService(
+  load: () => StatusResult = status,
+  last: (path: string) => string | undefined = latestInsert,
+  now = Date.now(),
+  path = dbPath(),
+): RecorderHealth {
+  const health: RecorderHealth = { databasePath: path }
+  try {
+    const { files: _, ...service } = load()
+    health.service = service
+  } catch (err) {
+    health.schedulerError = err instanceof Error ? err.message : 'scheduler unavailable'
+  }
+  try {
+    Object.assign(health, sampleFreshness(last(path), now))
+  } catch (err) {
+    health.insertError = err instanceof Error ? err.message : 'database unavailable'
+  }
+  return health
+}
 
 export function bindMetricsListener(
   opts: { host: string; port: number; sample: () => Promise<Partial<SystemStats>> },

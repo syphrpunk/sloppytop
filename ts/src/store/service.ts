@@ -209,10 +209,11 @@ export interface StatusResult {
   files: string[]
   scheduler_state: 'armed' | 'inactive' | 'unknown'
   recorder_state: 'running' | 'idle' | 'unknown'
+  cadence?: string
   last_run?: { outcome: 'success' | 'failed'; exit_code?: number }
 }
 
-type JobHealth = Pick<StatusResult, 'loaded' | 'scheduler_state' | 'recorder_state' | 'last_run'>
+type JobHealth = Pick<StatusResult, 'loaded' | 'scheduler_state' | 'recorder_state' | 'last_run' | 'cadence'>
 
 export function launchdHealth(print: CommandResult): JobHealth {
   if (!print.ok) {
@@ -225,10 +226,12 @@ export function launchdHealth(print: CommandResult): JobHealth {
   // Only read top-level job properties (resource and event sections also contain state).
   const state = /^\tstate = (.+)$/m.exec(print.output)?.[1]
   const exit = /^\tlast exit code = (-?\d+)$/m.exec(print.output)?.[1]
+  const interval = /^\trun interval = ([1-9]\d*) seconds?$/m.exec(print.output)?.[1]
   const signalled = /^\tlast terminating signal = \S/m.test(print.output)
   return {
     loaded: true,
     scheduler_state: 'armed',
+    ...(interval ? { cadence: `${interval}s` } : {}),
     recorder_state: state === 'running' ? 'running' : state ? 'idle' : 'unknown',
     ...(exit != null
       ? { last_run: { outcome: Number(exit) === 0 ? 'success' : 'failed', exit_code: Number(exit) } }
@@ -244,8 +247,25 @@ function properties(result: CommandResult) {
   }))
 }
 
+// systemctl show prints one property per timer expression. The startup trigger
+// is not the recurring interval. Do not guess for mixed or unrecognized timers.
+function systemdCadence(timer: CommandResult): string | undefined {
+  if (!timer.ok || /^TimersCalendar=.+$/m.test(timer.output)) return
+  const entries = timer.output.split('\n').filter(line => line.startsWith('TimersMonotonic='))
+  let cadence: string | undefined
+  for (const entry of entries) {
+    const match = /^TimersMonotonic=\{ (OnStartupUSec|OnUnitActiveUSec)=([^;{}]+?) ; next_elapse=[^{}]* \}$/.exec(entry)
+    if (!match) return
+    if (match[1] === 'OnStartupUSec') continue
+    if (cadence || !/^\d+(?:\.\d+)?(?:us|ms|s|min|h|d|w)(?: \d+(?:\.\d+)?(?:us|ms|s|min|h|d|w))*$/.test(match[2]!)) return
+    cadence = match[2]
+  }
+  return cadence
+}
+
 export function systemdHealth(timer: CommandResult, service: CommandResult): JobHealth {
   const timerState = properties(timer).get('ActiveState')
+  const cadence = systemdCadence(timer)
   const job = properties(service)
   const jobState = job.get('ActiveState')
   const result = job.get('Result')
@@ -254,6 +274,7 @@ export function systemdHealth(timer: CommandResult, service: CommandResult): Job
   const hasRun = /^[1-9]\d*$/.test(job.get('ExecMainStartTimestampMonotonic') ?? '')
   return {
     loaded: timerState === 'active',
+    ...(cadence ? { cadence } : {}),
     scheduler_state: timerState === 'active' ? 'armed'
       : timerState === 'inactive' || timerState === 'failed' ? 'inactive' : 'unknown',
     recorder_state: jobState === 'activating' || jobState === 'active' ? 'running'
@@ -282,7 +303,7 @@ export function status(): StatusResult {
     return { scheduler: 'launchd', installed: existsSync(path), ...launchdHealth(print), files: [path] }
   }
   if (process.platform === 'linux') {
-    const timer = run('systemctl', ['--user', 'show', '-p', 'ActiveState', `${UNIT}.timer`], 3000)
+    const timer = run('systemctl', ['--user', 'show', '-p', 'ActiveState,TimersMonotonic,TimersCalendar', `${UNIT}.timer`], 3000)
     const job = run('systemctl', ['--user', 'show', '-p', 'ActiveState,Result,ExecMainCode,ExecMainStatus,ExecMainStartTimestampMonotonic', `${UNIT}.service`], 3000)
     return {
       scheduler: 'systemd',

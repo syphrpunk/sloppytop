@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync, statSync } from 'node:fs'
+import { Database } from 'bun:sqlite'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir, homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -407,60 +408,91 @@ describe('probe log and settings', () => {
     expect(line).toContain('children 2')
   })
 
-  test('settings shows a stopped listener and leaves install as a command', () => {
-    const readHealth = () => ({
-      scheduler: 'launchd', installed: false, loaded: false, files: [],
-      scheduler_state: 'inactive', recorder_state: 'unknown',
-    } as const)
-    const service = readService(() => ({ ...readHealth(), files: [] }), () => undefined)
-    expect(service.sample_age_seconds).toBeUndefined()
-    expect(() => readService(() => {
-      throw new Error('service status is not supported on win32')
-    })).toThrow('service status is not supported on win32')
+  const inactive = () => ({ scheduler: 'launchd' as const, installed: false, loaded: false, files: [],
+    scheduler_state: 'inactive' as const, recorder_state: 'unknown' as const })
+  const input = { processes: [], system: {}, history: emptyHistory() }
+  const press = (s: ScreenState, name: string) => reduce(s, key(name), []).state
+  function settings(health: ReturnType<typeof readService>, overrides: Partial<ScreenState> = {}) {
+    const s = press(screen(overrides), 'm')
+    return { ...s, settingsPage: { ...s.settingsPage!, recorder: { status: 'ready' as const, health } } }
+  }
 
-    const frame = compose(
-      screen({
-        overlay: 'settings',
-        panelIndex: 0,
-        settingsPage: {
-          probes: defaultProbes(),
-          metricsEnabled: false,
-          host: '127.0.0.1',
-          port: 9464,
-          listening: false,
-          metricsMessage: '',
-          recorder: { status: 'ready', health: service },
-        },
-      }),
-      { processes: [], system: {}, history: emptyHistory() },
-    )
-    expect(frame.text).toContain('not installed')
-    expect(frame.text).toContain('last run  unknown')
-    expect(frame.text).toContain('sample age  unavailable')
-    expect(frame.text).toContain('127.0.0.1:9464  stopped')
-    expect(frame.text).toContain('> [x] cpu')
-    expect(frame.text).toContain('cpu (needed to record)')
-    expect(frame.text).toContain('schedule: sloppytop service --help')
+  test('inspecting a missing or legacy destination does not create or migrate it', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'recorder-settings-'))
+    const before = process.env.XDG_CONFIG_HOME
+    process.env.XDG_CONFIG_HOME = tmp
+    try {
+      const missing = readService(inactive)
+      expect(missing.databasePath).toBe(join(tmp, 'sloppytop', 'sloppytop.db'))
+      expect(missing.insertError).toBeUndefined()
+      expect(existsSync(join(tmp, 'sloppytop'))).toBe(false)
+      mkdirSync(join(tmp, 'neohtop'))
+      const path = join(tmp, 'neohtop', 'neohtop.db')
+      const db = new Database(path)
+      db.run("CREATE TABLE system_samples(at TEXT); INSERT INTO system_samples VALUES ('2026-11-18T12:00:00Z')")
+      db.close()
+      const bytes = readFileSync(path)
+      const legacy = readService(() => { throw new Error('scheduler unsupported') })
+      expect(legacy.databasePath).toBe(path)
+      expect(legacy.last_successful_sample_at).toBe('2026-11-18T12:00:00Z')
+      expect(readFileSync(path)).toEqual(bytes)
+      const details = compose(press(settings(legacy), 'enter'), input).text
+      expect(details).toContain('Recorder: unknown · cadence unknown')
+      expect(details).toContain('scheduler unsupported')
+      expect(details).toContain('latest insert  2026-11-18T12:00:00Z')
+    } finally {
+      if (before === undefined) delete process.env.XDG_CONFIG_HOME
+      else process.env.XDG_CONFIG_HOME = before
+      rmSync(tmp, { recursive: true, force: true })
+    }
   })
 
-  test('recorder health keeps a failed run separate from a fresh successful insert', () => {
+  test('a failed history read leaves the scheduler and destination visible', () => {
+    const health = readService(inactive, () => { throw new Error('read denied') }, 0, '/fixture/db')
+    const details = compose(press(settings(health), 'enter'), input).text
+    for (const token of ['Recorder: off · cadence unknown', 'not installed', 'last run  unknown', 'latest insert  unavailable',
+      'database error: read denied', 'database  /fixture/db', 'schedule: sloppytop service --help']) expect(details).toContain(token)
+  })
+
+  test('compact status, read-only evidence and probe disclosure retain keyboard focus across resize', () => {
     const last = '2026-11-18T04:00:00.000Z'
-    const health = readService(() => ({
-      scheduler: 'systemd', installed: true, loaded: true, files: ['private'],
-      scheduler_state: 'armed', recorder_state: 'idle', last_run: { outcome: 'failed', exit_code: 7 },
-    }), () => last, Date.parse(last))
-    expect(health).not.toHaveProperty('files')
-    const settings = reduce(screen({ width: 56, height: 12 }), key('m'), []).state
-    const page = settings.settingsPage!
-    const input = { processes: [], system: {}, history: emptyHistory() }
-    const text = compose({ ...settings, settingsPage: { ...page, recorder: { status: 'ready', health } } }, input).text
-    expect(text).toContain('recorder  idle')
-    expect(text).toContain('failed (exit 7)')
-    expect(text).toContain(last)
-    expect(text).toContain('sample age  0 s')
-    expect(text).toContain('> [x] cpu')
-    expect(compose({ ...settings, settingsPage: { ...page, recorder: { status: 'error', message: 'status failed' } } }, input).text)
-      .toContain('recorder unavailable: status failed')
+    const path = '/fixture/long-directory-name-for-wrapped-paths/neohtop/neohtop.db'
+    const health = readService(() => ({ ...inactive(), installed: true, loaded: true, scheduler_state: 'armed',
+      cadence: '90s', recorder_state: 'idle', last_run: { outcome: 'failed', exit_code: 7 },
+    }), () => last, Date.parse(last), path)
+    const menu = settings(health, { width: 56, height: 12, selectedPid: 42, probes: { ...defaultProbes(), cpu: false } })
+    const overview = compose(menu, input).text
+    expect(overview).toContain('Recorder: on · cadence 90s · last run failed')
+    expect(overview).toContain('> Recorder details')
+    expect(overview).not.toContain('[ ] cpu')
+    const opened = reduce(menu, key('space'), [])
+    expect(opened.effect).toBeUndefined()
+    expect(reduce(opened.state, key('space'), []).effect).toBeUndefined()
+    expect(reduce(opened.state, key('m'), []).effect).toBeUndefined()
+    let detail = opened.state
+    let frame = compose(detail, input)
+    expect(frame.text).toContain('last run  failed (exit 7)')
+    expect(frame.text).toContain('latest insert  ' + last)
+    expect(frame.text).toContain('sample age  0 s (any insert)')
+    for (let i = 0; i < (frame.layout.overlayScrollMax ?? 0); i++) {
+      detail = press({ ...detail, overlayScrollMax: frame.layout.overlayScrollMax }, 'down')
+    }
+    frame = compose(detail, input)
+    expect(frame.text).toContain('neohtop.db')
+    expect(frame.text).toContain('required probes off: cpu')
+    const probes = press(press(press(detail, 'esc'), 'down'), 'return')
+    expect(compose(probes, input).text).toContain('> [ ] cpu (required for recording)')
+    let selected = probes
+    for (let i = 0; i < 6; i++) selected = press(selected, 'down')
+    for (const [width, height] of [[36, 7], [112, 30]] as const) {
+      selected = { ...selected, width, height }
+      expect(compose(selected, input).text).toContain('> [x] power (optional')
+    }
+    const back = press(selected, 'esc')
+    expect(compose(back, input).text).toContain('> Global probe switches')
+    expect(compose(press(back, 'enter'), input).text).toContain('> [x] power')
+    expect(press(back, 'q').selectedPid).toBe(42)
+    expect(press(back, 'q').overlay).toBe('none')
   })
 
   test('store keys open pages, and q on a page does not quit', () => {
@@ -483,7 +515,7 @@ describe('probe log and settings', () => {
 
     const settings = reduce(screen(), key('m'), [])
     expect(settings.effect?.openSettings).toBe(true)
-    const toggled = reduce(settings.state, key('space'), [])
+    const toggled = reduce(press(press(settings.state, 'down'), 'enter'), key('space'), [])
     expect(toggled.state.paused).toBe(false)
     expect(toggled.state.settingsPage?.probes.cpu).toBe(false)
     expect(toggled.effect?.toggleProbe).toEqual({ name: 'cpu', enabled: false })

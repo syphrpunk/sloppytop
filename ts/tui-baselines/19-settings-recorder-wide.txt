@@ -1,0 +1,30 @@
+sloppytop  Charm
+╭─ settings ───────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Recorder: on · cadence 30min · last run failed                                                               │
+│ service  systemd  installed                                                                                  │
+│ scheduler  armed   recorder  idle                                                                            │
+│ last run  failed (exit 7)                                                                                    │
+│ latest insert  2026-11-18T04:00:00.000Z                                                                      │
+│ sample age  0 s (any insert)                                                                                 │
+│ database  /fixture/neohtop/neohtop.db                                                                        │
+│ recording blocked: required probes off: cpu                                                                  │
+│ schedule: sloppytop service --help                                                                           │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+q close   Esc back

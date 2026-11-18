@@ -20,6 +20,24 @@ export function widthOf(text: string): number {
   return Bun.stringWidth(text)
 }
 
+/** Keep the full value, including long paths with no word breaks. */
+export function wrapCells(text: string, width: number): string[] {
+  if (widthOf(text) <= width) return [text]
+  const lines: string[] = []
+  let row = '', used = 0
+  for (const { segment } of graphemes.segment(text)) {
+    const cells = widthOf(segment)
+    if (row && used + cells > width) {
+      lines.push(row)
+      row = ''
+      used = 0
+    }
+    row += segment
+    used += cells
+  }
+  return [...lines, row]
+}
+
 export function clip(text: string, width: number): string {
   if (width <= 0) return ''
   if (widthOf(text) <= width) return text

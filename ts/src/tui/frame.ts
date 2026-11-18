@@ -17,10 +17,12 @@ import {
   padRight,
   plain,
   widthOf,
+  wrapCells,
   skipCells,
 } from './format.ts'
 import {
   DISCOVERY_TABS,
+  SETTINGS_SECTIONS,
   reduce,
   toggleSort,
   visibleRows,
@@ -195,7 +197,8 @@ export function compose(
     const historical = state.overlay === 'history' ? historyLines(state) : undefined
     overlayScrollMax = historical?.maxOffset
     let body = discovery?.lines ?? historical?.lines ?? overlayLines(state, input.processes, input.system)
-    if (['hardware', 'detail', 'net', 'listen', 'report', 'log', 'help', 'artifact'].includes(state.overlay)) {
+    if (['hardware', 'detail', 'net', 'listen', 'report', 'log', 'help', 'artifact'].includes(state.overlay) ||
+        (state.overlay === 'settings' && state.settingsPage?.section === 'recorder')) {
       const room = Math.max(0, height - 4)
       overlayScrollMax = Math.max(0, body.length - room)
       const offset = Math.min(state.overlayScroll ?? 0, overlayScrollMax)
@@ -215,7 +218,7 @@ export function compose(
     : state.overlay === 'detail' ? state.detail?.subtree ? 't process details' : 't subtree   g cgroup   e env   o files'
     : state.overlay === 'columns' ? '↑/↓ select   Space toggle'
     : state.overlay === 'theme' ? '↑/↓ preview   Enter use'
-    : state.overlay === 'settings' ? '↑/↓ select   Space toggle   m listener'
+    : state.overlay === 'settings' ? settingsHints(state)
     : state.overlay === 'report' ? 'c compare  w workloads  l RSS  e export'
     : state.overlay === 'artifact' && state.artifact?.status === 'input' ? 'Tab field   Enter submit'
     : state.overlay === 'artifact' && state.artifact?.kind === 'compare' && state.artifact.status === 'ready' ? '←/→ pan'
@@ -1146,8 +1149,6 @@ function helpLines(): string[] {
   ]
 }
 
-const SETTINGS_WINDOW = 8
-
 function discoveryCount(
   count: number,
   label: string,
@@ -1423,37 +1424,63 @@ function logLines(state: ScreenState): string[] {
   return ['probe log', ...page.lines.slice(-12), 'esc  close']
 }
 
-function settingsLines(state: ScreenState): string[] {
-  const page = state.settingsPage
-  if (!page) return ['settings', 'esc  close']
-  const lines = recorderLines(page.recorder)
-  lines.push(`metrics  ${page.host}:${page.port}  ${page.listening ? 'listening' : 'stopped'}`)
-  if (page.metricsMessage) lines.push(page.metricsMessage)
-  const room = Math.max(1, Math.min(SETTINGS_WINDOW, state.height - 5 - lines.length))
-  for (const name of pickerWindow(PROBE_NAMES, state.panelIndex, room)) {
-    const mark = name === PROBE_NAMES[state.panelIndex] ? '>' : ' '
-    const box = page.probes[name] ? '[x]' : '[ ]'
-    const required = RECORD_PROBES.some(probe => probe === name)
-    lines.push(`${mark} ${box} ${name}${required ? ' (needed to record)' : ''}`)
+function settingsHints(state: ScreenState): string {
+  switch (state.settingsPage?.section) {
+    case 'probes': return 'Esc back   ↑/↓ select   Space toggle'
+    case 'recorder': return 'Esc back'
+    case 'metrics': return 'Esc back   m toggle listener'
+    default: return '↑/↓ select   Enter open   m listener'
   }
-  lines.push('schedule: sloppytop service --help')
-  return lines
 }
 
-function recorderLines(recorder: NonNullable<ScreenState['settingsPage']>['recorder']): string[] {
-  if (recorder.status === 'loading') return ['recorder health …']
-  if (recorder.status === 'error') return [`recorder unavailable: ${plain(recorder.message)}`]
-  const health = recorder.health
-  const run = health.last_run
-  const exit = run?.exit_code === undefined ? '' : ` (exit ${run.exit_code})`
-  const age = health.sample_age_seconds
-  return [
-    `service  ${health.scheduler}  ${health.installed ? 'installed' : 'not installed'}`,
-    `scheduler  ${health.scheduler_state}   recorder  ${health.recorder_state}`,
-    `last run  ${run ? run.outcome + exit : 'unknown'}`,
-    `last sample  ${health.last_successful_sample_at ?? 'unavailable'}`,
-    `sample age  ${age === undefined ? 'unavailable' : `${age} s`} (any insert)`,
+function settingsLines(state: ScreenState): string[] {
+  const page = state.settingsPage
+  if (!page) return []
+  if (page.section === 'probes') {
+    const room = Math.max(1, state.height - 5) // framed panel, plus the scope line
+    return ['Global probes · affect all collection', ...pickerWindow(PROBE_NAMES, page.probeIndex, room).map(name => {
+      const mark = name === PROBE_NAMES[page.probeIndex] ? '>' : ' '
+      const box = page.probes[name] ? '[x]' : '[ ]'
+      const required = RECORD_PROBES.some(probe => probe === name)
+      return `${mark} ${box} ${name} (${required ? 'required' : 'optional'} for recording)`
+    })]
+  }
+  if (page.section === 'metrics') return [
+    `metrics  ${page.host}:${page.port}  ${page.listening ? 'listening' : 'stopped'}`, plain(page.metricsMessage),
   ]
+  const { recorder } = page
+  const health = recorder.status === 'ready' ? recorder.health : undefined
+  const service = health?.service
+  const on = service?.scheduler_state === 'armed' ? 'on' : service?.scheduler_state === 'inactive' ? 'off' : 'unknown'
+  const summary = recorder.status === 'loading' ? 'Recorder: checking…' : recorder.status === 'error' ? 'Recorder: unavailable'
+    : `Recorder: ${on} · cadence ${service?.cadence ?? 'unknown'} · last run ${service?.last_run?.outcome ?? 'unknown'}`
+  if (page.section === 'overview') {
+    const labels = {
+      recorder: 'Recorder details', probes: 'Global probe switches',
+      metrics: `Metrics listener (${page.listening ? 'listening' : 'stopped'})`,
+    }
+    const compact = state.height <= 12
+    const choices = compact ? [SETTINGS_SECTIONS[state.panelIndex]!] : SETTINGS_SECTIONS
+    const position = compact ? ` (${state.panelIndex + 1}/${SETTINGS_SECTIONS.length})` : ''
+    return [summary, ...choices.map(section => `${section === SETTINGS_SECTIONS[state.panelIndex] ? '>' : ' '} ${labels[section]}${position}`)]
+  }
+  if (!health) return [summary, ...(recorder.status === 'error' ? wrapCells(plain(recorder.message), panelWidth(state.width)) : [])]
+  const run = service?.last_run
+  const exit = run?.exit_code === undefined ? '' : ` (exit ${run.exit_code})`
+  const disabled = RECORD_PROBES.filter(name => !page.probes[name])
+  const details = [
+    summary,
+    service ? `service  ${service.scheduler}  ${service.installed ? 'installed' : 'not installed'}` : `scheduler: ${health.schedulerError ?? 'unavailable'}`,
+    `scheduler  ${service?.scheduler_state ?? 'unknown'}   recorder  ${service?.recorder_state ?? 'unknown'}`,
+    `last run  ${run ? run.outcome + exit : 'unknown'}`,
+    `latest insert  ${health.last_successful_sample_at ?? (health.insertError ? 'unavailable' : 'none')}`,
+    ...(health.insertError ? [`database error: ${health.insertError}`] : []),
+    `sample age  ${health.sample_age_seconds === undefined ? 'unavailable' : `${health.sample_age_seconds} s`} (any insert)`,
+    `database  ${health.databasePath}`,
+    disabled.length ? `recording blocked: required probes off: ${disabled.join(', ')}` : 'required probes: all enabled',
+    'schedule: sloppytop service --help',
+  ]
+  return details.flatMap(line => wrapCells(plain(line), panelWidth(state.width)))
 }
 
 function recordLines(state: ScreenState): string[] {

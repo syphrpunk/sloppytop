@@ -76,6 +76,18 @@ describe('recorder health', () => {
     })
   })
 
+  test('cadence comes from the recurring scheduler trigger, never the startup delay', () => {
+    expect(launchdHealth(ok('\trun interval = 45 seconds\n')).cadence).toBe('45s')
+    expect(launchdHealth(ok('\t\trun interval = 45 seconds\n')).cadence).toBeUndefined()
+    const startup = 'TimersMonotonic={ OnStartupUSec=5s ; next_elapse=0 }\n'
+    const repeat = 'TimersMonotonic={ OnUnitActiveUSec=1min 30s ; next_elapse=12h }\n'
+    const cadence = (text: string) => systemdHealth(ok(startup + text), ok('')).cadence
+    expect(cadence(repeat)).toBe('1min 30s')
+    for (const text of ['', repeat + repeat, repeat + 'TimersCalendar=weekly', repeat.replace('1min 30s', 'infinity')]) {
+      expect(cadence(text)).toBeUndefined()
+    }
+  })
+
   test('database freshness preserves zero without inventing an age for missing or future samples', () => {
     const last = '2026-11-18T12:00:00.000Z'
     const now = Date.parse(last)

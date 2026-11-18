@@ -135,6 +135,8 @@ def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
         tmux("send-keys", "-t", "smoke", "q", "q")
         wait_frame("q quit")
         tmux("send-keys", "-t", "smoke", "m")
+        wait_frame("> Recorder details")
+        tmux("send-keys", "-t", "smoke", "Enter")
         last_run = service.get("last_run", {})
         wait_frame(f"scheduler  {service['scheduler_state']}",
                    f"last run  {last_run.get('outcome', 'unknown')}",

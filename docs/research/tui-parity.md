@@ -8,7 +8,7 @@ status but does not install, start, or stop the recorder.
 
 | Audit gap | Implementation and verification |
 |---|---|
-| Recorder health | Settings uses the CLI scheduler parser and sample freshness helper. `19-settings` shows a failed scheduler run with a zero-age DB insert; the compiled smoke compares Settings with `service status` against the same temporary DB. Reopen Settings to refresh. |
+| Recorder health | Settings uses the CLI scheduler parser and sample freshness helper. `19-settings` shows compact status; `19-settings-recorder-wide` shows a failed scheduler run with a zero-age DB insert; the compiled smoke compares Settings with `service status` against the same temporary DB. Reopen Settings to refresh. |
 | Report comparisons | `c` calls `compareReportWindows`. `19-report-compare` and the compiled smoke show the insufficient-coverage case. Sample deltas are not time-weighted. |
 | Workload history | `w` calls `reportWorkloadHistory`; `19-report-workloads` shows one stored match out of 24 observed processes. A sampled zero with incomplete coverage is not evidence of absence. |
 | Visible subtree | `i`, then `t` uses the same sampler as `tree --summary-pid`. `11b`/`11c` verify full and partial metric coverage, `11d` returns to the separate cgroup view, and the compiled smoke samples the live TUI process. |

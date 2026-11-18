@@ -38,7 +38,7 @@ const sample: Sample = {
 
 if (process.env.ST_VISUAL_HISTORY === '1') {
   if (!process.env.XDG_CONFIG_HOME) throw new Error('visual fixture requires a disposable XDG_CONFIG_HOME')
-  updateProbes(['cpu'], false)
+  sample.probes = updateProbes(['cpu'], false).probes
   saveConfig({ ...loadConfig(), groups: [{ name: 'fixture group', patterns: ['fixture-worker'] }] })
   const db = openDb()
   const now = Date.now()
@@ -101,7 +101,8 @@ await runTui(loaders, async () => {
       scope: 'system' as const, servers: ['192.0.2.53'], search: ['fixture.test'],
     }] }), 'linux', time)] }
 }, () => ({
-  scheduler: 'systemd', installed: true, loaded: true, scheduler_state: 'armed', recorder_state: 'idle',
-  last_run: { outcome: 'failed', exit_code: 7 }, last_successful_sample_at: '2026-11-18T04:00:00.000Z',
+  service: { scheduler: 'systemd', installed: true, loaded: true, scheduler_state: 'armed', recorder_state: 'idle',
+    cadence: '30min', last_run: { outcome: 'failed', exit_code: 7 } },
+  databasePath: '/fixture/neohtop/neohtop.db', last_successful_sample_at: '2026-11-18T04:00:00.000Z',
   sample_age_seconds: 0,
 }), pid => summarizeTree([{ pid: 200, ppid: 1, cpu: 0, rss: 0 }, { pid: 201, ppid: 200, rss: 0 }], pid), loadReport)

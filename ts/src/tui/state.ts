@@ -213,7 +213,11 @@ export interface LogView {
   lines: string[]
 }
 
+export const SETTINGS_SECTIONS = ['recorder', 'probes', 'metrics'] as const
+
 export interface SettingsView {
+  section: 'overview' | (typeof SETTINGS_SECTIONS)[number]
+  probeIndex: number
   probes: ProbeSet
   metricsEnabled: boolean
   host: string
@@ -631,15 +635,26 @@ function reduceHardware(state: ScreenState, key: KeyPress): ReduceResult {
 
 function reduceSettings(state: ScreenState, key: KeyPress): ReduceResult {
   const page = state.settingsPage
-  if (key.name === 'up' || key.name === 'k') {
-    return { state: { ...state, panelIndex: Math.max(0, state.panelIndex - 1) } }
+  if (!page) return { state: { ...state, overlay: 'none' } }
+  const section = page.section
+  if (key.name === 'q') return { state: { ...state, overlay: 'none' } }
+  if (key.name === 'escape' || key.name === 'esc') {
+    return section === 'overview' ? { state: { ...state, overlay: 'none' } }
+      : { state: { ...state, overlayScroll: 0, overlayScrollMax: 0, settingsPage: { ...page, section: 'overview' } } }
   }
-  if (key.name === 'down' || key.name === 'j') {
-    return { state: { ...state, panelIndex: Math.min(PROBE_NAMES.length - 1, state.panelIndex + 1) } }
+  const delta = key.name === 'up' || key.name === 'k' ? -1 : key.name === 'down' || key.name === 'j' ? 1 : 0
+  if (section === 'overview') {
+    if (delta) return { state: { ...state, panelIndex: Math.min(SETTINGS_SECTIONS.length - 1, Math.max(0, state.panelIndex + delta)) } }
+    if (key.name === 'enter' || key.name === 'return' || key.name === 'space') {
+      return { state: { ...state, settingsPage: { ...page, section: SETTINGS_SECTIONS[state.panelIndex]! } } }
+    }
   }
-  if (key.name === 'space' && page) {
-    const name = PROBE_NAMES[state.panelIndex]
-    if (!name) return { state }
+  if (section === 'probes' && delta) {
+    const probeIndex = Math.min(PROBE_NAMES.length - 1, Math.max(0, page.probeIndex + delta))
+    return { state: { ...state, settingsPage: { ...page, probeIndex } } }
+  }
+  if (section === 'probes' && key.name === 'space') {
+    const name = PROBE_NAMES[page.probeIndex]!
     const enabled = !page.probes[name]
     const probes: ProbeSet = { ...page.probes, [name]: enabled }
     return {
@@ -647,14 +662,13 @@ function reduceSettings(state: ScreenState, key: KeyPress): ReduceResult {
       effect: { toggleProbe: { name, enabled } },
     }
   }
-  if (key.name === 'm' && page) {
+  if (key.name === 'm' && (section === 'overview' || section === 'metrics')) {
     return {
-      state: { ...state, settingsPage: { ...page, metricsMessage: state.metricsListening ? 'stopping…' : 'starting…' } },
+      state: { ...state, panelIndex: SETTINGS_SECTIONS.indexOf('metrics'), settingsPage: {
+        ...page, section: 'metrics', metricsMessage: state.metricsListening ? 'stopping…' : 'starting…',
+      } },
       effect: { toggleMetrics: true },
     }
-  }
-  if (key.name === 'escape' || key.name === 'esc' || key.name === 'q' || key.name === 'return' || key.name === 'enter') {
-    return { state: { ...state, overlay: 'none' } }
   }
   return { state }
 }
@@ -878,6 +892,8 @@ function openSettings(state: ScreenState): ReduceResult {
       overlay: 'settings',
       panelIndex: 0,
       settingsPage: {
+        section: 'overview',
+        probeIndex: 0,
         probes: { ...state.probes },
         metricsEnabled: state.metricsEnabled,
         host: state.metricsHost,

@@ -1,12 +1,12 @@
 sloppytop  Charm
 ╭─ settings ───────────────────────────────────────────╮
-│ service  systemd  installed                          │
-│ scheduler  armed   recorder  idle                    │
-│ last run  failed (exit 7)                            │
-│ last sample  2026-11-18T04:00:00.000Z                │
-│ sample age  0 s (any insert)                         │
-│ metrics  127.0.0.1:9464  stopped                     │
-│ > [x] cpu (needed to record)                         │
-│ schedule: sloppytop service --help                   │
+│ Recorder: on · cadence 30min · last run failed       │
+│ > Recorder details (1/3)                             │
 ╰──────────────────────────────────────────────────────╯
-q close   ↑/↓ select   Space toggle   m listener
+
+
+
+
+
+
+q close   ↑/↓ select   Enter open   m listener

@@ -86,6 +86,8 @@ def run(fixture, output, review_only=False):
         "01-wide": "1e99e3bfff23def73010d6cf7a965f8ae07394dda00a4a8a566b4ecb864695b7",
         "02-narrow": "b9384ebaae3724131e44abf007240fc674974aef6e958490f526912ef4939475",
         "04b-neighbors-bottom": "b6de05e3450d43b04b9d806ba463b518622174194dd83af0830e9ca351d621ab",
+        "19-settings": "09130eedc89d077a20473368537d1b9824c2abb79cef754cf73ac809886ff422",
+        "19-settings-recorder-wide": "f198ce0f5c3a1751b43e71ca925b91e4c5992bf8a6d8a304975144275efc56b0",
         "19-columns": "35207b7faf7de99beaee036f1dcb3fbca371a31a3b966e27a9d93622660e5084",
     }
     with tempfile.TemporaryDirectory(prefix="st-visual-") as folder:
@@ -230,7 +232,7 @@ def run(fixture, output, review_only=False):
                 ("k", "kill-cancel", ["kill 200 fixture-worker?", "n cancel"]),
                 ("c", "columns", ["[x] pid"]),
                 ("t", "theme", ["Charm"]),
-                ("m", "settings", ["metrics", "stopped", "recorder  idle", "failed (exit 7)", "sample age  0 s"]),
+                ("m", "settings", ["> Recorder details", "Recorder: on · cadence 30min · last run failed"]),
                 ("n", "connections", ["127.0.0.1:8080"]),
                 ("l", "listeners", ["8080", "fixture-worker"]),
                 ("b", "probe-log", ["probe proc", "probe listen"]),
@@ -242,6 +244,20 @@ def run(fixture, output, review_only=False):
                 if key == "c":
                     tmux("send-keys", "-t", "visual", "-l", "\x1b[<65;9;7M" * 20)
                     capture("19-columns-bottom", ["> [ ] cgroup", "Space toggle"], 56, 12)
+                if key == "m":
+                    tmux("send-keys", "-t", "visual", "Enter")
+                    capture("19-settings-recorder", ["failed (exit 7)", "latest insert  2026-11-18", "0 s (any insert)"], 56, 12)
+                    tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")
+                    capture("19-settings-recorder-wide", ["database  /fixture/neohtop/neohtop.db", "required probes off: cpu",
+                                                          "schedule: sloppytop service --help"], 112, 30, compare=True)
+                    tmux("send-keys", "-t", "visual", "Escape")
+                    capture("19-settings-overview-wide", ["> Recorder details", "Global probe switches", "Metrics listener (stopped)"], 112, 30)
+                    tmux("send-keys", "-t", "visual", "Down", "Enter", "Down")
+                    capture("19-settings-probes-wide", ["Global probes", "[ ] cpu (required", "> [x] memory"], 112, 30)
+                    tmux("resize-window", "-t", "visual", "-x", "56", "-y", "12")
+                    capture("19-settings-probes", ["> [x] memory", "Esc back", "Space toggle"], 56, 12)
+                    tmux("send-keys", "-t", "visual", "Escape")
+                    capture("19-settings-back", ["> Global probe switches"], 56, 12)
                 if key == "w":
                     tmux("send-keys", "-t", "visual", "c")
                     capture("19-report-compare", ["24h window comparison", "coverage  insufficient"], 56, 12)

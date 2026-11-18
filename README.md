@@ -258,9 +258,12 @@ watch -n2 'sloppytop snapshot --format json | jq ".system.cpu_usage_per_core"'
 
 Screen settings persist at `~/.config/sloppytop/config.json`. An existing `~/.config/neohtop` directory stays in use until the new directory exists.
 Press `m` in the TUI to check recorder health on macOS or Linux. Settings
-shows scheduler and recorder state, the last run outcome when known, and
-the age of the last successful DB insert (including manual recordings).
-Close and reopen Settings to refresh. To manage the job, use `service`.
+shows whether the scheduler is on, off or unknown and its cadence when
+reported. Press Enter on **Recorder details** for the resolved database path,
+last scheduled run outcome and latest successful insert (including manual
+recordings). Esc returns to Settings; ↑/↓ selects the global probe switches
+or metrics listener. Close and reopen Settings to refresh recorder health.
+Scheduling remains a CLI operation (`sloppytop service --help`).
 From a selected process, press `i` for details and `t` to sample its visible
 subtree with the same collector as `tree --summary-pid`. Press `t` again
 to return. Coverage is shown per metric; the subtree may omit processes,
