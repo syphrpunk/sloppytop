@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 5eddc53 Launch compiled diagnosis pane without user shell startup hooks
+HEAD: 88d15a0 Apply recording-only group choices at SQLite insertion
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -84,6 +84,7 @@ The [TUI controls audit](docs/research/tui-controls-audit.md) covers tree readab
 Audit dispatch is tracked under Memento epic nht-f4dce9: one completed evidence record and nine follow-ups. Parallelize sampler tracing, benchmark harness development and the isolated picker prototype; reserve exclusive measurement slots and a single production-screen integrator.
 First wave integrated locally through cd9f83e. The 12-repeat macOS baseline/candidate PTY comparison after warmup measured populated-table p95 2443/1988 ms, with 3/0 misses. Recorder Settings is read-only; focused picker remains prototype-only. Fixed-host macOS/Linux release-gate reports are still pending (nht-bee39c).
 Integrated confirmed recorder schedule changes and readback (c4e0103), plus tree projection only (b97c133). Wire tree keys, focus and hidden counts next. The diagnosis smoke initially failed before the first tmux frame; launching the binary directly instead of through shell startup hooks fixed it (5eddc53). No real scheduler was changed.
+Tree mode now supports folding and focus navigation (a24f505). Optional recording groups are enforced at SQLite insertion (88d15a0); the next screen integration is exposing those choices in recorder Settings without changing global probes.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -101,7 +102,7 @@ Integrated confirmed recorder schedule changes and readback (c4e0103), plus tree
 Open tasks:
 (task manager: memento)
 {
-  "count": 13,
+  "count": 12,
   "items": [
     {
       "id": "nht-9de7a2",
@@ -152,22 +153,6 @@ Open tasks:
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-bee39c-enforce-interactive-and-soak-budgets-on-fixed-hosts.md"
     },
     {
-      "id": "nht-7bd44a",
-      "uuid": "01a1efcf-a8b5-7000-8bdb-42a43d3c3866",
-      "slug": "nht-7bd44a-expand-and-collapse-process-branches-without-losing-focus",
-      "title": "Expand and collapse process branches without losing focus",
-      "status": "in-progress",
-      "type": "task",
-      "parent": "nht-f4dce9",
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "medium",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-11-18T18:41:50.061Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-7bd44a-expand-and-collapse-process-branches-without-losing-focus.md"
-    },
-    {
       "id": "nht-cb0edf",
       "uuid": "01a0d7da-f744-7000-953d-f33b5e5bdcd9",
       "slug": "nht-cb0edf-expand-the-cli-past-process-table-parity",
@@ -198,6 +183,22 @@ Open tasks:
       "attentionReason": null,
       "updatedAt": "2026-09-25T09:17:26.842Z",
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-2613eb-harvest-faculties-from-the-repos-monitor-corpus.md"
+    },
+    {
+      "id": "nht-b1794f",
+      "uuid": "01a00e6e-2b7e-7000-b59f-dae09b769881",
+      "slug": "nht-b1794f-opentui-tui-replacement",
+      "title": "OpenTUI TUI replacement",
+      "status": "todo",
+      "type": "epic",
+      "parent": null,
+      "blockedBy": [],
+      "blocking": [],
+      "priority": "low",
+      "attention": null,
+      "attentionReason": null,
+      "updatedAt": "2026-08-17T06:34:56.255Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-b1794f-opentui-tui-replacement.md"
     },
     {
 

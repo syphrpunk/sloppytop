@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Integrated keyboard tree folding and recording-only storage groups. 329 tests passed, one Linux-only skip; type-check, build, visual comparisons and compiled diagnosis passed.
+
+
+## Session digest — 2026-11-18
+
 - Verified 321 tests, one Linux-only skip, type-check, build, visual comparisons and compiled smokes. Recorder scheduling is complete; tree interaction and fixed-host SLA acceptance remain open.
 
 
