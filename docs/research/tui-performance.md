@@ -168,3 +168,10 @@ row, not the footer PID, which Linux can emit as separate updates.
   1.31 s to launch, versus under 0.01 s on its second launch. This
   reproduces the fresh-build delay without any Sloppytop dependencies or
   code. It is not evidence that the cold-start target has been met.
+- After the Unicode layout fix, `just tui-bench --workload live --trace
+  --trials 20 --starts 1 --idle 5 --soak 80` measured 16.9 ms maximum
+  loop lag across all 4,686 observations (1.04 ms p95 over the last
+  3,600). Search, Escape and scroll p95 were 27, 45 and 19 ms. Paused
+  CPU/RSS were 0.4%/106 MiB. RSS rose from 93 to 145 MiB during the live
+  soak without a captured drop; the earlier longer run showed reclamation,
+  but this run alone does not establish a steady-state plateau.
