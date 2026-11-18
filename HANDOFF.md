@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: d641bf2 perf(tui): render on demand instead of continuously
+HEAD: 5982100 test(tui): recognize selected rows in Linux PTY output
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -60,6 +60,7 @@ The TUI goal remains active. Discovery now has bounded keyboard/wheel scrolling,
 Added battery capacity, live disk topology, sampled electrical/power/interface readings, and on-demand cgroup totals to TUI overlays. Reviewed the generated frames for each. Direct PTY shrink improved from 102–103 ms to 33–34 ms; the first launch after rebuilding still missed the startup budgets. Full suite on macOS after the metric work: 287 pass, one Linux-only skip. The resize change separately passed type-check, build, compiled smoke and visual checks.
 History now scrolls with its legend pinned; visual checks drive stored SQLite data, disk metrics, Unicode search and discovery cancellation. Discovery itself uses a separate collector worker; the benchmark measured 40 ms from closing the visible loading screen to search. macOS validation: 287 passed, one Linux-only skip, type-check, build, live compiled smoke, visual checks. Cold startup, sustained performance acceptance and broader overlay visual coverage remain open.
 The PTY harness now opens and dismisses every overlay, checks a narrow picker baseline, and verifies the selected column stays visible after mouse scrolling. Demand-driven rendering measured 0.2% paused CPU live and 0.8% at 5,000 rows. The fresh-build startup delay reproduced on `--version`, outside the renderer and collector. Cold startup and sustained cross-platform acceptance remain open. Latest local checks: 287 passed, one Linux-only skip, type-check, build, live compiled smoke and visual checks.
+Sustained benchmarks now measure RSS/CPU and tree toggles. Linux arm64 passed type-check, standalone build, all 288 tests, and compiled PTY smoke as UID 1000. On macOS the 5,000-row soak stayed below the memory budget, but Escape dismissal narrowly missed p95; the live memory run has not established a plateau. Cold macOS startup remains open.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -72,7 +73,7 @@ The PTY harness now opens and dismisses every overlay, checks a narrow picker ba
 
 <!-- handoff:next -->
 
-**TUI goal active:** Continue [visual usability work](docs/research/tui-follow-up.md) (`nht-005268`) and [performance profiling](docs/research/tui-performance.md) (`nht-ead7a9`). Isolate the fresh Mach-O launch delay beyond `runTui`, check sustained live and synthetic workloads, and verify standalone builds outside macOS. All overlays have basic PTY coverage; check remaining rendered baselines and map the goal gates to evidence.
+**TUI goal active:** Continue [visual usability work](docs/research/tui-follow-up.md) (`nht-005268`) and [performance profiling](docs/research/tui-performance.md) (`nht-ead7a9`). Linux arm64 has passed standalone validation; investigate fresh Mach-O launch latency, live memory plateau and Escape tails. Check remaining rendered baselines and map goal gates to evidence.
 
 **Deferred:** Linux powercap (`nht-4aa2dd`) and NVIDIA (`nht-f456db`) still require their separately documented hardware verification.
 

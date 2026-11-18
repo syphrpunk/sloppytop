@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## TUI sustained workloads and Linux standalone smoke — 2026-11-18
+
+- Measured sustained live and 5,000-row fixture workloads, verified the Linux arm64 build and runtime, and corrected the PTY selected-row assertion for differential rendering.
+
+
 ## All-overlay PTY coverage and demand-driven rendering — 2026-11-18
 
 - Covered every overlay at a short viewport, measured paused CPU after enabling demand-driven rendering, and reproduced fresh macOS startup delay without entering the TUI.
