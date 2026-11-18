@@ -14,11 +14,12 @@ import pty
 import re
 import select
 import struct
-import subprocess
 import sys
 import tempfile
 import termios
 import time
+
+from harness_process import PrivateTmux, checkpoint, exited, harness_entry, kill_owned_group, run_owned, pause
 
 # Differential rendering can leave the footer's PID and its value in separate
 # writes. The selected row itself starts with a marker and a numeric PID.
@@ -43,7 +44,7 @@ def main() -> int:
             env = {**os.environ, "XDG_CONFIG_HOME": config}
 
             def run(*args):
-                return json.loads(subprocess.check_output([binary, *args, "--format", "json"], env=env, timeout=20))
+                return json.loads(run_owned([binary, *args, "--format", "json"], env=env, timeout=20).stdout)
 
             recorded = run("record")
             history = run("history")
@@ -58,27 +59,19 @@ def main() -> int:
             return smoke_history(binary, config, env, service)
         return smoke(binary, config, args.timings or args.timings_json, args.timings_json)
 
+
 def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
-    base = ["tmux", "-S", os.path.join(config, "smoke.sock"), "-f", "/dev/null"]
-
-    def tmux(*args, check=True):
-        return subprocess.run([*base, *args], env=env, check=check, timeout=10,
-                              text=True, capture_output=True)
-
     def wait_frame(*markers):
         deadline = time.monotonic() + 12
         while time.monotonic() < deadline:
-            frame = tmux("capture-pane", "-pt", "smoke").stdout
+            frame = tmux("capture-pane", "-pt", "smoke")
             if all(marker in frame for marker in markers):
                 return
             time.sleep(0.05)
         raise RuntimeError(f"missing terminal markers: {markers}\n{frame}")
 
-    try:
-        # Multiple command arguments make tmux exec the binary directly,
-        # without running user shell startup hooks in this disposable pane.
-        tmux("new-session", "-d", "-x", "112", "-y", "30", "-s", "smoke",
-             "env", f"XDG_CONFIG_HOME={config}", binary, "tui")
+    with PrivateTmux(config, env) as tmux:
+        pid = tmux.start("smoke", 112, 30, [binary, "tui"])
         wait_frame("q quit", "PID")
         tmux("send-keys", "-t", "smoke", "v")
         wait_frame("i inspect")
@@ -87,7 +80,7 @@ def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
         tmux("send-keys", "-t", "smoke", "Enter")
         wait_frame("sample evidence 1/1", "Esc back to sample")
         for _ in range(120):
-            if "recorded top processes" in tmux("capture-pane", "-pt", "smoke").stdout:
+            if "recorded top processes" in tmux("capture-pane", "-pt", "smoke"):
                 break
             tmux("send-keys", "-t", "smoke", "Down")
             time.sleep(0.04)
@@ -148,7 +141,6 @@ def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
                    service["last_successful_sample_at"], "(any insert)")
         tmux("send-keys", "-t", "smoke", "q")
         wait_frame("q quit")
-        pid = int(tmux("display-message", "-p", "-t", "smoke", "#{pane_pid}").stdout)
         tmux("send-keys", "-t", "smoke", "-l", f"/pid:{pid}")
         tmux("send-keys", "-t", "smoke", "Enter")
         wait_frame("1/", f"PID {pid}")
@@ -161,8 +153,6 @@ def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
         tmux("send-keys", "-t", "smoke", "q")
         print("compiled diagnosis smoke ok: recorded history/report, recorder health and live subtree")
         return 0
-    finally:
-        tmux("kill-server", check=False)
 
 
 def smoke(binary: str, config: str, timings: bool, timings_json: bool) -> int:
@@ -174,17 +164,20 @@ def smoke(binary: str, config: str, timings: bool, timings_json: bool) -> int:
     start = time.monotonic()
     pid, fd = pty.fork()
     if pid == 0:
-        fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", height, width, 0, 0))
-        os.execv(binary, [binary, "tui"])
+        try:
+            fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", height, width, 0, 0))
+            os.execv(binary, [binary, "tui"])
+        finally:
+            os._exit(127)
 
     captured = bytearray()
     sent_q = False
     answered = 0
     first_frame = populated = resize_started = resized = None
     resize_offset = 0
-    exit_status = None
     try:
         while time.monotonic() - start < 20:
+            checkpoint()
             ready, _, _ = select.select([fd], [], [], 0.2)
             if ready:
                 try:
@@ -222,42 +215,41 @@ def smoke(binary: str, config: str, timings: bool, timings_json: bool) -> int:
                         sent_q = True
                     except OSError:
                         break
-            waited, raw = os.waitpid(pid, os.WNOHANG)
-            if waited == pid:
-                exit_status = raw
+            if exited(pid):
                 break
-        if exit_status is None:
+        if not exited(pid):
             try:
                 os.write(fd, b"\x03")
             except OSError:
                 pass
-            time.sleep(1)
-            waited, raw = os.waitpid(pid, os.WNOHANG)
-            if waited == pid:
-                exit_status = raw
-            else:
-                os.kill(pid, 9)
-                os.waitpid(pid, 0)
+            deadline = time.monotonic() + 1
+            while not exited(pid) and time.monotonic() < deadline:
+                pause(.02)
+            if not exited(pid):
                 print("tui smoke: process did not exit", file=sys.stderr)
                 return 1
-        status = finish(exit_status, captured, sent_q, quiet=timings_json)
-        if timings and status == 0:
-            if None in (first_frame, populated, resize_started, resized):
-                print("tui smoke: incomplete timings", file=sys.stderr)
-                return 1
-            if timings_json:
-                print(json.dumps({"interactive_ms": (first_frame-start)*1000,
-                                  "populated_ms": (populated-start)*1000,
-                                  "shrink_ms": (resized-resize_started)*1000}))
-                return 0
-            print(f"direct PTY: first {(first_frame-start)*1000:.1f} ms, "
-                  f"populated {(populated-start)*1000:.1f} ms, shrink {(resized-resize_started)*1000:.1f} ms")
-        return status
     finally:
-        try:
-            os.close(fd)
-        except OSError:
-            pass
+        kill_owned_group(pid)
+        os.close(fd)
+        deadline = time.monotonic() + 3
+        while not exited(pid):
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"owned PTY child {pid} did not exit on SIGKILL")
+            time.sleep(.02)
+        _, exit_status = os.waitpid(pid, 0)
+    status = finish(exit_status, captured, sent_q, quiet=timings_json)
+    if timings and status == 0:
+        if None in (first_frame, populated, resize_started, resized):
+            print("tui smoke: incomplete timings", file=sys.stderr)
+            return 1
+        if timings_json:
+            print(json.dumps({"interactive_ms": (first_frame-start)*1000,
+                              "populated_ms": (populated-start)*1000,
+                              "shrink_ms": (resized-resize_started)*1000}))
+            return 0
+        print(f"direct PTY: first {(first_frame-start)*1000:.1f} ms, "
+              f"populated {(populated-start)*1000:.1f} ms, shrink {(resized-resize_started)*1000:.1f} ms")
+    return status
 
 
 def finish(status: int, captured: bytearray, sent_q: bool, quiet=False) -> int:
@@ -275,4 +267,5 @@ def finish(status: int, captured: bytearray, sent_q: bool, quiet=False) -> int:
 
 
 if __name__ == "__main__":
+    harness_entry()
     sys.exit(main())

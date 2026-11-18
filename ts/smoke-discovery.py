@@ -4,7 +4,6 @@
 import json
 import os
 import select
-import shlex
 import socket
 import subprocess
 import sys
@@ -12,17 +11,14 @@ import tempfile
 import time
 import urllib.request
 
+from harness_process import PrivateTmux, checkpoint, harness_entry, run_owned, owned_process
+
 
 def screen(binary, env, width, fixture=False):
     # Differential redraws can split visible labels across cursor writes.
     # Assert against decoded terminal cells, not concatenated PTY bytes.
     with tempfile.TemporaryDirectory(prefix="st-discovery-pty-") as folder:
-        base = ["tmux", "-S", os.path.join(folder, "tmux.sock"), "-f", "/dev/null"]
         terminal_env = {key: value for key, value in env.items() if key not in ("TERM", "TMUX", "TMUX_PANE")}
-
-        def tmux(*args, check=True):
-            return subprocess.run([*base, *args], env=terminal_env, check=check,
-                                  capture_output=True, text=True, timeout=8).stdout
 
         def wait_for(label, predicate):
             until = time.monotonic() + 20
@@ -33,9 +29,8 @@ def screen(binary, env, width, fixture=False):
                 time.sleep(0.05)
             raise AssertionError(f"{width} columns: discovery PTY did not show {label}")
 
-        try:
-            tmux("new-session", "-d", "-s", "smoke", "-x", str(width), "-y", "25",
-                 "exec " + shlex.join([binary, "tui"]))
+        with PrivateTmux(folder, terminal_env) as tmux:
+            tmux.start("smoke", width, 25, [binary, "tui"])
             wait_for("main screen", lambda frame: all(marker in frame for marker in ("PID", "q quit", "D discover")))
             tmux("send-keys", "-t", "smoke", "D")
             wait_for("overview", lambda f: ("cached peers" in f and
@@ -49,9 +44,6 @@ def screen(binary, env, width, fixture=False):
                 wait_for(tab, lambda f: f"{tab} {index}/7" in f and "reading local tables" not in f)
             tmux("send-keys", "-t", "smoke", "q")
             wait_for("return to main", lambda frame: "q quit" in frame)
-        finally:
-            tmux("send-keys", "-t", "smoke", "C-c", check=False)
-            tmux("kill-server", check=False)
 
 
 def mcp(binary, env):
@@ -66,9 +58,8 @@ def mcp(binary, env):
             "name": "get_tool_details", "arguments": {"name": "discover"},
         }},
     ]
-    child = subprocess.Popen([binary, "--mcp"], env=env, stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0)
-    try:
+    with owned_process([binary, "--mcp"], env=env, stdin=subprocess.PIPE,
+                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0) as child:
         for msg in messages:
             child.stdin.write(json.dumps({"jsonrpc": "2.0", **msg}).encode() + b"\n")
         child.stdin.flush()
@@ -76,6 +67,7 @@ def mcp(binary, env):
         pending = b""
         checked = set()
         while time.monotonic() < deadline:
+            checkpoint()
             if not select.select([child.stdout], [], [], 0.25)[0]:
                 continue
             chunk = os.read(child.stdout.fileno(), 65536)
@@ -96,21 +88,18 @@ def mcp(binary, env):
                 if checked == {2, 3}:
                     return
         raise AssertionError("MCP tool list did not respond")
-    finally:
-        child.kill()
-        child.wait()
 
 
 def output_boundaries(binary, env):
     def run(*args):
-        return subprocess.check_output([binary, *args], env=env, text=True, timeout=20)
+        return run_owned([binary, *args], env=env, text=True, timeout=20).stdout
 
     # Snapshot paths and parse errors must not echo any private material.
     path = os.path.join(env["XDG_CONFIG_HOME"], "private-canary.example")
     with open(path, "w") as snapshot:
         snapshot.write('{"secret":"192.0.2.243"}')
-    bad = subprocess.run([binary, "discover", "--before", path, "--after", path, "--format", "json"],
-                         env=env, text=True, capture_output=True, timeout=20)
+    bad = run_owned([binary, "discover", "--before", path, "--after", path, "--format", "json"],
+                 env=env, text=True, check=False, timeout=20)
     assert bad.returncode and "DISCOVERY_INVALID" in bad.stdout
     assert "private-canary.example" not in bad.stdout + bad.stderr
     assert "192.0.2.243" not in bad.stdout + bad.stderr
@@ -128,22 +117,22 @@ def output_boundaries(binary, env):
     assert not os.path.exists(os.path.join(home, "probes.jsonl"))
     assert not os.path.exists(os.path.join(home, "sloppytop.db"))
     assert json.loads(run("record", "--format", "json"))["recorded"]
-    for output in (run("watch", "--count", "1", "--interval-ms", "100", "--format", "jsonl"),
-                   run("history", "--format", "json"),
-                   run("history", "--openmetrics"),
-                   run("log", "--limit", "100", "--format", "json")):
+    for document in (run("watch", "--count", "1", "--interval-ms", "100", "--format", "jsonl"),
+                     run("history", "--format", "json"),
+                     run("history", "--openmetrics"),
+                     run("log", "--limit", "100", "--format", "json")):
         for name in ("cached_by_interface", "default_routes", "owner_visibility", "observed_at"):
-            assert name not in output
+            assert name not in document
 
     with socket.socket() as slot:
         slot.bind(("127.0.0.1", 0))
         port = slot.getsockname()[1]
     with open(os.path.join(home, "config.json"), "w") as config:
         json.dump({"metrics": {"enabled": True, "host": "127.0.0.1", "port": port}}, config)
-    child = subprocess.Popen([binary, "metrics", "serve"], env=env, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL)
-    try:
+    with owned_process([binary, "metrics", "serve"], env=env, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL):
         for _ in range(30):
+            checkpoint()
             try:
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}/metrics", timeout=2) as response:
                     metrics = response.read().decode()
@@ -154,12 +143,10 @@ def output_boundaries(binary, env):
                 time.sleep(0.1)
         else:
             raise AssertionError("isolated metrics did not bind")
-    finally:
-        child.kill()
-        child.wait()
 
 
 if __name__ == "__main__":
+    harness_entry()
     binary = os.path.abspath(sys.argv[1])
     with tempfile.TemporaryDirectory(prefix="sloppytop-discovery-") as folder:
         env = {**os.environ, "XDG_CONFIG_HOME": folder, "TERM": "xterm-256color"}

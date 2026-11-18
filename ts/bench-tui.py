@@ -8,13 +8,12 @@ import os
 import platform
 import re
 from pathlib import Path
-import shlex
-import signal
 import subprocess
 import sys
 import tempfile
 import time
 
+from harness_process import PrivateTmux, checkpoint, harness_entry, pause
 from tui_sla import IDLE, INPUTS, REPEATS, SOAK, check_host, summary
 
 
@@ -24,7 +23,7 @@ def process_usage(pid):
         fields = Path(f"/proc/{pid}/stat").read_text().rsplit(") ", 1)[1].split()
         ticks = int(fields[11]) + int(fields[12])  # utime/stime (fields 14/15)
         return ticks / os.sysconf("SC_CLK_TCK"), int(fields[21]) * os.sysconf("SC_PAGE_SIZE") / 2**20
-    cpu, rss = subprocess.check_output(["ps", "-o", "time=,rss=", "-p", pid], text=True).split()
+    cpu, rss = subprocess.check_output(["ps", "-o", "time=,rss=", "-p", pid], text=True, timeout=5).split()
     seconds = 0
     for part in cpu.split(":"):
         seconds = seconds * 60 + float(part)
@@ -34,15 +33,10 @@ def process_usage(pid):
 def bench(binary, rows, trials, idle, starts, trace, soak, fixed=False):
     with tempfile.TemporaryDirectory(prefix="st-bench-") as folder:
         trace_path = Path(folder) / "trace.json"
-        command = shlex.join(["env", f"SLOPPYTOP_TUI_TRACE={trace_path if trace else ''}",
-                              "ST_FIXTURE_DISCOVERY_DELAY=350", "ST_VISUAL_HISTORY=0",
-                              f"HOME={folder}", f"XDG_CONFIG_HOME={folder}", f"ST_FIXTURE_ROWS={rows or 24}",
-                              str(binary), *([] if rows else ["tui"])])
-        base = ["tmux", "-S", f"{folder}/tmux.sock", "-f", "/dev/null"]
-
-        def tmux(*args, check=True):
-            return subprocess.run([*base, *args], capture_output=True, text=True,
-                                  check=check, timeout=10).stdout
+        command = ["env", f"SLOPPYTOP_TUI_TRACE={trace_path if trace else ''}",
+                   "ST_FIXTURE_DISCOVERY_DELAY=350", "ST_VISUAL_HISTORY=0",
+                   f"HOME={folder}", f"XDG_CONFIG_HOME={folder}", f"ST_FIXTURE_ROWS={rows or 24}",
+                   str(binary), *([] if rows else ["tui"])]
 
         def frame(predicate, started, label):
             deadline = started + 15
@@ -75,9 +69,10 @@ def bench(binary, rows, trials, idle, starts, trace, soak, fixed=False):
 
         def start():
             nonlocal pid
+            # Diagnostic startup includes the pane guard, not server creation.
+            # Release startup/shrink measurements still use the direct PTY.
             started = time.monotonic()
-            pid = int(tmux("new-session", "-d", "-s", "bench", "-x", "112", "-y", "30",
-                           "-P", "-F", "#{pane_pid}", f"exec {command}"))
+            pid = tmux.start("bench", 112, 30, command)
             interactive = frame(lambda f: f.startswith("sloppytop") and "q quit" in f, started, "interactive")
             populated = frame(lambda f: main(f) and (not fixed or not rows or f"{rows}/{rows}" in f.splitlines()[-1]),
                               started, "process table")
@@ -95,17 +90,9 @@ def bench(binary, rows, trials, idle, starts, trace, soak, fixed=False):
                     pid = None
                     return
                 time.sleep(.025)
-            # HUP alone can leave a detached native renderer consuming CPU.
-            if tmux("display-message", "-p", "-t", "bench", "#{pane_pid}", check=False).strip() == str(pid):
-                try:
-                    os.kill(pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-            pid = None
-            tmux("kill-server", check=False)
             raise RuntimeError("benchmark pane did not shut down on Ctrl-C")
 
-        try:
+        with PrivateTmux(folder) as tmux:
             session_start = time.monotonic()
             start()
             live_memory = []
@@ -115,7 +102,7 @@ def bench(binary, rows, trials, idle, starts, trace, soak, fixed=False):
                 began = time.monotonic()
                 soak_memory.append([0, rss])
                 for second in range(1, soak + 1):
-                    time.sleep(max(0, began + second - time.monotonic()))
+                    pause(max(0, began + second - time.monotonic()))
                     cpu, rss = process_usage(str(pid))
                     soak_memory.append([time.monotonic() - began, rss])
                 soak_cpu = round(100 * (cpu - cpu_before) / (time.monotonic() - began), 2)
@@ -153,11 +140,12 @@ def bench(binary, rows, trials, idle, starts, trace, soak, fixed=False):
                     measure("freeze_ms", lambda: keys("Space"), lambda f: main(f) and "FROZEN" in f.splitlines()[-1])
             cpu_start, _ = process_usage(str(pid))
             idle_start = time.monotonic()
-            time.sleep(idle)
+            pause(idle)
             cpu_end, rss = process_usage(str(pid))
             idle_seconds = time.monotonic() - idle_start
             cpu_pct = 100 * (cpu_end - cpu_start) / idle_seconds
             if fixed:
+                stop()
                 return {"inputs": {key: summary(values) for key, values in samples.items()
                                    if key.startswith(("live_", "frozen_"))},
                         "idle_seconds": idle_seconds, "paused_cpu_pct": cpu_pct, "paused_rss_mib": rss,
@@ -185,17 +173,39 @@ def bench(binary, rows, trials, idle, starts, trace, soak, fixed=False):
                     "live_rss_mib": live_memory, **phases,
                     **({"soak_cpu_pct": soak_cpu, "soak_rss_mib": soak_memory} if soak else {}),
                     **{key: summary(values) for key, values in samples.items()}}
-        finally:
+
+
+def smoke_output(command, env, timeout):
+    # The nested harness has its own PTY to tear down; give it the same
+    # cooperative shutdown on an outer timeout as on operator interruption.
+    child = subprocess.Popen(command, env=env, stdout=subprocess.PIPE)
+    try:
+        until = time.monotonic() + timeout
+        while time.monotonic() < until:
+            checkpoint()
             try:
-                stop()
-            finally:
-                tmux("kill-server", check=False)
+                stdout, _ = child.communicate(timeout=.2)
+            except subprocess.TimeoutExpired:
+                continue
+            if child.returncode:
+                raise subprocess.CalledProcessError(child.returncode, command)
+            return stdout
+        raise subprocess.TimeoutExpired(command, timeout)
+    finally:
+        if child.poll() is None:
+            child.terminate()
+            try:
+                child.wait(timeout=4)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.wait(timeout=2)
+        child.stdout.close()
 
 
 def direct_repeats(binary, rows):
     command = [sys.executable, str(Path(__file__).with_name("smoke-tui.py")), str(binary), "--timings-json"]
     env = {**os.environ, "ST_FIXTURE_ROWS": str(rows or 24), "ST_VISUAL_HISTORY": "0", "SLOPPYTOP_TUI_TRACE": ""}
-    runs = [json.loads(subprocess.check_output(command, env=env, timeout=30)) for _ in range(REPEATS + 1)]
+    runs = [json.loads(smoke_output(command, env=env, timeout=30)) for _ in range(REPEATS + 1)]
     # Only same-file repeat launches are in scope. Preserve the excluded launch.
     return {"warmup": runs[0], "direct_pty": {k: summary([run[k] for run in runs[1:]]) for k in runs[0]}}
 
@@ -205,12 +215,12 @@ def fixed_host(live, fixture, host):
     if host != platform.node() or system not in ("Darwin", "Linux"):
         raise ValueError("run on the booked Darwin/Linux host (exact hostname required)")
     root = Path(__file__).resolve().parents[1]
-    if subprocess.check_output(["git", "status", "--porcelain"], cwd=root).strip():
+    if subprocess.check_output(["git", "status", "--porcelain"], cwd=root, timeout=10).strip():
         raise ValueError("build and run the release protocol from a clean candidate checkout")
     report = {"system": system, "host": host, "platform": platform.platform(),
-              "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
-              "tmux": subprocess.check_output(["tmux", "-V"], text=True).strip(),
-              "bun": subprocess.check_output(["bun", "--version"], text=True).strip(), "workloads": {}}
+              "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True, timeout=10).strip(),
+              "tmux": subprocess.check_output(["tmux", "-V"], text=True, timeout=10).strip(),
+              "bun": subprocess.check_output(["bun", "--version"], text=True, timeout=10).strip(), "workloads": {}}
     for rows, binary in [(None, live), (5000, fixture)]:
         row = report["workloads"][str(rows or "live")] = {}
         try:
@@ -232,6 +242,7 @@ def fixed_host(live, fixture, host):
 
 
 if __name__ == "__main__":
+    harness_entry()
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("live", type=Path)
     parser.add_argument("fixture", type=Path)

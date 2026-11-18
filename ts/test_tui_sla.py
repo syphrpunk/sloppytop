@@ -57,7 +57,7 @@ class TuiSlaTest(unittest.TestCase):
         spec.loader.exec_module(bench)
         keys = self.row["warmup"].keys()
         fake = [json.dumps(dict.fromkeys(keys, ms)) for ms in [5001, *range(1, 13)]]
-        with patch.object(bench.subprocess, "check_output", side_effect=fake) as smoke:
+        with patch.object(bench, "smoke_output", side_effect=fake) as smoke:
             result = bench.direct_repeats("/unused/fixture", 5000)
         self.assertEqual(smoke.call_count, 13)
         self.assertEqual(smoke.call_args.kwargs["env"]["ST_FIXTURE_ROWS"], "5000")

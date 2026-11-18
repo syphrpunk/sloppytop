@@ -5,15 +5,14 @@ import argparse
 import difflib
 import hashlib
 import html
-import os
 from pathlib import Path
 import re
 import shutil
-import signal
-import subprocess
 import tempfile
 import time
 import unicodedata
+
+from harness_process import PrivateTmux, harness_entry, run_owned
 
 
 SGR = re.compile(r"\x1b\[([0-9;]*)m")
@@ -94,11 +93,8 @@ def run(fixture, output, review_only=False):
     }
     with tempfile.TemporaryDirectory(prefix="st-visual-") as folder:
         # Have tmux exec directly, without user shell startup hooks.
-        command = ["env", "ST_VISUAL_HISTORY=1", "ST_FIXTURE_DISCOVERY_DELAY=350", f"XDG_CONFIG_HOME={folder}", str(fixture)]
-        base = ["tmux", "-S", f"{folder}/tmux.sock", "-f", "/dev/null"]
-
-        def tmux(*args, check=True):
-            return subprocess.run([*base, *args], check=check, text=True, capture_output=True, timeout=10).stdout
+        command = ["env", "ST_VISUAL_HISTORY=1", "ST_FIXTURE_DISCOVERY_DELAY=350", f"HOME={folder}",
+                   f"XDG_CONFIG_HOME={folder}", str(fixture)]
 
         def capture(label, expected, width, height, *, compare=False, timeout=8):
             deadline = time.monotonic() + timeout
@@ -111,7 +107,7 @@ def run(fixture, output, review_only=False):
                     (output / f"{label}.svg").write_text(styled, encoding="utf-8")
                     converter = shutil.which("rsvg-convert")
                     if converter:
-                        subprocess.run([converter, str(output / f"{label}.svg"), "-o", str(output / f"{label}.png")], check=True, timeout=10)
+                        run_owned([converter, str(output / f"{label}.svg"), "-o", str(output / f"{label}.png")], timeout=10)
                     baseline = Path(__file__).with_name("tui-baselines") / f"{label}.txt"
                     if compare and not review_only:
                         expected_frame = baseline.read_text(encoding="utf-8")
@@ -133,10 +129,8 @@ def run(fixture, output, review_only=False):
                 time.sleep(.06)
             raise RuntimeError(f"{label}: expected {expected!r}\n{plain}")
 
-        pid = None
-        try:
-            pid = int(tmux("new-session", "-d", "-s", "visual", "-x", "112", "-y", "30",
-                           "-P", "-F", "#{pane_pid}", *command))
+        with PrivateTmux(folder) as tmux:
+            tmux.start("visual", 112, 30, command)
             capture("01-wide", ["PID", "fixture-worker"], 112, 30, timeout=20)
             tmux("send-keys", "-t", "visual", "T", "Right", "Left")
             capture("01b-tree-fold-wide", ["+2 界-fixture", "Tree: PID/family order", "PID 201", "22/24", "r 1000ms"], 112, 30, compare=True)
@@ -343,24 +337,13 @@ def run(fixture, output, review_only=False):
             else:
                 raise RuntimeError("q did not exit from the main view")
             # Reuse only the disposable fixture config: r survives a restart, pause does not.
-            pid = int(tmux("new-session", "-d", "-s", "visual", "-x", "56", "-y", "18",
-                           "-P", "-F", "#{pane_pid}", *command))
+            tmux.start("visual", 56, 18, command)
             capture("21-saved-screen-interval", ["fixture-worker", "live", "r 2000ms"], 56, 18)
             tmux("send-keys", "-t", "visual", "q")
-        finally:
-            try:
-                # A native renderer that hangs on startup can survive tmux's HUP.
-                if pid is not None and tmux("display-message", "-p", "-t", "visual", "#{pane_pid}",
-                                            check=False).strip() == str(pid):
-                    try:
-                        os.kill(pid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
-            finally:
-                tmux("kill-server", check=False)
 
 
 if __name__ == "__main__":
+    harness_entry()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("fixture", type=Path)
     parser.add_argument("output", type=Path)
