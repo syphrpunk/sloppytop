@@ -4,6 +4,12 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Network discovery slices 14–25 verified — 2026-11-18
+
+- Added bounded provider results, passive inventory, a CLI/TUI overview, explicit snapshot comparison and redacted exports. Existing `net`/`listen` payloads are unchanged.
+- Verified 280 tests on macOS (one Linux-only skip) and all 281 on Linux arm64, plus both type-checks and builds. Compiled macOS PTY passed narrow/wide, refresh, and denied/partial fixtures; the smoke also exercised storage, scrape and MCP exclusion. Linux tracing found no IPv4/IPv6 sockets for discovery and no discovery provider launches for `record` or `watch`.
+
+
 ## Local network discovery batch planned — 2026-11-18
 
 - Prepared twelve on-demand local discovery slices (14–25) with acceptance evidence for each. Planning only; no host checks or runtime changes.
