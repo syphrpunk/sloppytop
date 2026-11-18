@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 8312b79 feat(tui): display on-demand local network discovery
+HEAD: 2eb036f docs: checkpoint verified network discovery batch
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -51,6 +51,8 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 [Slice 13](docs/research/slices/13-linux-powercap.md) adds experimental package watts (`093616b`). The Linux arm64 guest exposed no powercap. The OptiPlex exposes `package-0`, but its energy counter is root-only. Real hardware validation is deferred until later this week (`nht-4aa2dd`), separately from the NVIDIA follow-up. The goal remains blocked until the checklist is verified on a host with counters readable without elevation.
 
 [Slices 14–25](docs/research/slices/14-25-network-discovery-plan.md) are implemented and verified. `discover` and TUI `D` read local tables on demand; raw exports are explicit and `--redact` emits only counts and coverage. See the [provider matrix and audit](docs/research/slices/18-25-discovery-workflow.md). Linux arm64 and macOS were validated. Discovery is not exposed via MCP or collected by the recorder or scraper. NVIDIA and powercap follow-ups are unchanged.
+
+Built the `2eb036f` checkout on macOS arm64 and installed the verified binary at `/opt/homebrew/bin/sloppytop`. The CLI reports `0.3.0`; this is the checkout build with discovery, not a release download. No recorder service or persistent metrics listener was configured.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->

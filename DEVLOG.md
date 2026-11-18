@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## macOS checkout build installed on PATH — 2026-11-18
+
+- Passed 280 tests (one Linux-only skip), type-check, build, and both compiled TUI and discovery smokes. Installed a byte-identical copy at `/opt/homebrew/bin/sloppytop` and verified redacted discovery from outside the checkout.
+
+
 ## Network discovery slices 14–25 verified — 2026-11-18
 
 - Added bounded provider results, passive inventory, a CLI/TUI overview, explicit snapshot comparison and redacted exports. Existing `net`/`listen` payloads are unchanged.
