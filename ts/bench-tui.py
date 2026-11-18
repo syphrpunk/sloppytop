@@ -5,6 +5,7 @@ import argparse
 import json
 import math
 import os
+import re
 from pathlib import Path
 import shlex
 import signal
@@ -62,6 +63,11 @@ def bench(binary, rows, trials, idle, starts, trace, soak):
         def main(f):
             return "PID" in f and "PID " in f.splitlines()[-2] and f.startswith("sloppytop")
 
+        def searching(f):
+            # The empty editor is "/" after the mode, not the idle "/ search"
+            # hint. Other actions can follow it in either toolbar layout.
+            return main(f) and bool(re.search(r"\b(?:live|FROZEN)\s+/(?! search)(?:\s|$)", f.splitlines()[-1]))
+
         def start():
             nonlocal pid
             started = time.monotonic()
@@ -111,10 +117,9 @@ def bench(binary, rows, trials, idle, starts, trace, soak):
                     # Vary phase relative to the 1 s refresh rather than hitting the
                     # same portion of the collector window on every trial.
                     time.sleep((trial % 7) * .037)
-                    measure(f"{mode}_search_ms", lambda: keys("/"),
-                            lambda f: main(f) and "/" in f.splitlines()[-1].split("q quit")[0].split()[-1:])
+                    measure(f"{mode}_search_ms", lambda: keys("/"), searching)
                     measure(f"{mode}_dismiss_ms", lambda: keys("Escape"),
-                            lambda f: main(f) and not f.splitlines()[-1].split("q quit")[0].rstrip().endswith("/"))
+                            lambda f: main(f) and not searching(f))
                     selected = tmux("capture-pane", "-p", "-t", "bench").splitlines()[-2]
                     measure(f"{mode}_scroll_ms", lambda: keys("Down"),
                             lambda f: main(f) and f.splitlines()[-2] != selected)
@@ -142,7 +147,7 @@ def bench(binary, rows, trials, idle, starts, trace, soak):
             measure("discovery_dismiss_ms", lambda: keys("Escape"), main)
             measure("discovery_loading_ms", lambda: keys("D"), lambda f: "reading local tables" in f)
             measure("discovery_interrupt_search_ms", lambda: tmux("send-keys", "-t", "bench", "q", "/"),
-                    lambda f: main(f) and "/" in f.splitlines()[-1].split("q quit")[0].split()[-1:])
+                    searching)
             stop()
             phases = {"phases_ms": json.loads(trace_path.read_text())} if trace else {}
             for _ in range(starts - 1):

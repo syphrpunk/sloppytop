@@ -2,7 +2,7 @@
 // An omitted reading stays blank. A measured 0 is drawn as 0.
 
 import type { SortKey } from '../filter/index.ts'
-import { PROBE_NAMES } from '../monitor/probes.ts'
+import { PROBE_NAMES, RECORD_PROBES } from '../monitor/probes.ts'
 import type { CpuCoreKind, DiskDevice, ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { TUI_COLUMNS, type TuiColumn } from '../store/config.ts'
 import { sparkline, type SparklinePoint } from '../view/sparkline.ts'
@@ -978,6 +978,11 @@ function rowLine(state: ScreenState, row: DisplayRow, fitted: { id: TuiColumn; w
 
 function cell(id: TuiColumn, proc: ProcessInfo, prefix: string, width: number): string {
   const spec = COLUMNS[id]
+  // Fold distant ancestors before clipping the label; a deep branch must
+  // not turn the entire name cell into whitespace and line art.
+  if (id === 'name' && prefix && prefix.length > width - 4) {
+    prefix = width >= 8 ? '…' + prefix.slice(-3) : ''
+  }
   const text = cellText(id, proc, prefix)
   return spec.align === 'right' ? padLeft(text, width) : padRight(text, width)
 }
@@ -1428,9 +1433,10 @@ function settingsLines(state: ScreenState): string[] {
   for (const name of pickerWindow(PROBE_NAMES, state.panelIndex, room)) {
     const mark = name === PROBE_NAMES[state.panelIndex] ? '>' : ' '
     const box = page.probes[name] ? '[x]' : '[ ]'
-    lines.push(`${mark} ${box} ${name}`)
+    const required = RECORD_PROBES.some(probe => probe === name)
+    lines.push(`${mark} ${box} ${name}${required ? ' (needed to record)' : ''}`)
   }
-  lines.push('service install stays a command')
+  lines.push('schedule: sloppytop service --help')
   return lines
 }
 

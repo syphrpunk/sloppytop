@@ -6,7 +6,7 @@ sloppytop  Charm
 │ last sample  2026-11-18T04:00:00.000Z                │
 │ sample age  0 s (any insert)                         │
 │ metrics  127.0.0.1:9464  stopped                     │
-│ > [x] cpu                                            │
-│ service install stays a command                      │
+│ > [x] cpu (needed to record)                         │
+│ schedule: sloppytop service --help                   │
 ╰──────────────────────────────────────────────────────╯
 q close   ↑/↓ select   Space toggle   m listener

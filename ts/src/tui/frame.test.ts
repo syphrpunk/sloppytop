@@ -683,6 +683,15 @@ describe('process table', () => {
     expect(frame.text).toContain('└─ child')
   })
 
+  test('tree indentation preserves nearby levels and folds before hiding a deep name', () => {
+    const frame = compose(screen({ tree: true, height: 40, columns: ['pid', 'name'] }), {
+      processes: Array.from({ length: 8 }, (_, i) => proc({ pid: i + 1, ppid: i, name: `level${i}` })),
+      system: {}, history: emptyHistory(),
+    })
+    expect(frame.text).toContain('   └─ level2')
+    expect(frame.text).toContain('…└─ level7')
+  })
+
   test('kill asks before it signals, and cancel does not', () => {
     const processes = [proc({ pid: 42, name: 'nginx', command: 'nginx: master' })]
     const state = screen({ selectedPid: 42, columns: ['pid', 'name'] })

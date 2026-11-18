@@ -439,7 +439,8 @@ describe('probe log and settings', () => {
     expect(frame.text).toContain('sample age  unavailable')
     expect(frame.text).toContain('127.0.0.1:9464  stopped')
     expect(frame.text).toContain('> [x] cpu')
-    expect(frame.text).toContain('service install stays a command')
+    expect(frame.text).toContain('cpu (needed to record)')
+    expect(frame.text).toContain('schedule: sloppytop service --help')
   })
 
   test('recorder health keeps a failed run separate from a fresh successful insert', () => {
