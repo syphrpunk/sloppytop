@@ -102,6 +102,34 @@ describe('sensors', () => {
     expect(parseHwmonInput({ chip: 'nct6779', key: 'temp1_label', input: '1\n' })).toBeNull()
   })
 
+  test('hwmon headroom is the critical limit minus the reading', () => {
+    expect(
+      parseHwmonInput({ chip: 'coretemp', key: 'temp1_input', input: '70000\n', label: 'Package id 0', critical: '100000\n' }),
+    ).toEqual({
+      kind: 'temp',
+      reading: { name: 'coretemp Package id 0', celsius: 70, critical_celsius: 100, headroom_celsius: 30 },
+    })
+    expect(parseHwmonInput({ chip: 'coretemp', key: 'temp1_input', input: '100000\n', critical: '100000\n' })?.reading).toEqual({
+      name: 'coretemp temp1',
+      celsius: 100,
+      critical_celsius: 100,
+      headroom_celsius: 0,
+    })
+    expect(parseHwmonInput({ chip: 'coretemp', key: 'temp1_input', input: '105000\n', critical: '100000\n' })?.reading).toMatchObject({
+      headroom_celsius: -5,
+    })
+    const missing = parseHwmonInput({ chip: 'nvme', key: 'temp1_input', input: '45000\n' })
+    expect(missing?.kind).toBe('temp')
+    expect(missing && missing.kind === 'temp' ? missing.reading : {}).not.toHaveProperty('critical_celsius')
+    expect(missing && missing.kind === 'temp' ? missing.reading : {}).not.toHaveProperty('headroom_celsius')
+    const garbage = parseHwmonInput({ chip: 'nvme', key: 'temp1_input', input: '45000\n', critical: 'n/a\n' })
+    expect(garbage && garbage.kind === 'temp' ? garbage.reading : {}).not.toHaveProperty('headroom_celsius')
+    expect(parseHwmonInput({ chip: 'nct6779', key: 'fan1_input', input: '0\n', critical: '100000\n' })?.reading).toEqual({
+      name: 'nct6779 fan1',
+      rpm: 0,
+    })
+  })
+
   test('gpu sysfs percents stay in range and a measured 0 stays 0', () => {
     expect(parseGpuBusyPercent('0\n')).toBe(0)
     expect(parseGpuBusyPercent('100')).toBe(100)

@@ -4,7 +4,7 @@
 
 import type { Database } from 'bun:sqlite'
 import { disabledRecordProbes, type ProbeSet } from '../monitor/probes.ts'
-import type { ProcessInfo, SystemStats } from '../monitor/types.ts'
+import type { FanReading, ProcessInfo, SystemStats, TemperatureReading } from '../monitor/types.ts'
 import { takeSample } from '../sample.ts'
 import { loadConfig } from '../store/config.ts'
 import { insertSample, openDb, queryHistory, type HistoryRow } from '../store/db.ts'
@@ -20,6 +20,7 @@ import {
 } from '../store/report.ts'
 import { status, type StatusResult } from '../store/service.ts'
 import type {
+  HistorySeries,
   HistoryView,
   ReportAnomalyLine,
   ReportGroupLine,
@@ -79,17 +80,103 @@ export async function attemptRecord(
   return { recorded: true, message: `recorded sample ${result.sampleId}  ${result.processesStored} processes` }
 }
 
-export function historyView(rows: Pick<HistoryRow, 'at' | 'cpu_usage_total' | 'memory_used' | 'load_1'>[]): HistoryView {
+type HistoryInput = Pick<HistoryRow, 'at' | 'cpu_usage_total' | 'memory_used' | 'load_1'> &
+  Partial<Omit<HistoryRow, 'at' | 'cpu_usage_total' | 'memory_used' | 'load_1'>>
+
+const TEMP_CAP = 8
+const FAN_CAP = 4
+
+function measured(rows: HistoryInput[], read: (row: HistoryInput) => number | undefined): HistorySeries['values'] {
+  return rows.map((row) => {
+    const value = read(row)
+    return value !== undefined && Number.isFinite(value) ? value : null
+  })
+}
+
+function addSeries(out: HistorySeries[], label: string, values: HistorySeries['values'], max?: number): void {
+  if (values.every((value) => value === null)) return
+  out.push(max === undefined ? { label, values } : { label, values, max })
+}
+
+function newest<T>(rows: HistoryInput[], read: (row: HistoryInput) => T[] | undefined): T[] {
+  for (let index = rows.length - 1; index >= 0; index--) {
+    const row = rows[index]
+    const list = row ? read(row) : undefined
+    if (list && list.length > 0) return list
+  }
+  return []
+}
+
+function readingValue(list: TemperatureReading[] | undefined, name: string, field: 'celsius' | 'headroom_celsius'): number | undefined {
+  const reading = list?.find((item) => item.name === name)
+  const value = reading?.[field]
+  return value !== undefined && Number.isFinite(value) ? value : undefined
+}
+
+export function historyView(rows: HistoryInput[]): HistoryView {
   if (rows.length === 0) {
-    return { status: 'empty', message: EMPTY_WINDOW, cpu: [], memory: [], load: [], recent: [] }
+    return { status: 'empty', message: EMPTY_WINDOW, cpu: [], memory: [], load: [], series: [], notes: [], recent: [] }
   }
   const chrono = [...rows].reverse()
+  const series: HistorySeries[] = []
+  addSeries(series, 'cpu W', measured(chrono, (row) => row.cpu_power_watts))
+  addSeries(series, 'gpu W', measured(chrono, (row) => row.gpu_power_watts))
+  addSeries(series, 'ane W', measured(chrono, (row) => row.ane_power_watts))
+  addSeries(series, 'dram W', measured(chrono, (row) => row.dram_power_watts))
+  addSeries(series, 'batt', measured(chrono, (row) => row.battery_charge_percent), 100)
+  // Despite the column names, the recorder already stores bytes per second.
+  addSeries(series, 'rx/s', measured(chrono, (row) => row.network_rx_bytes))
+  addSeries(series, 'tx/s', measured(chrono, (row) => row.network_tx_bytes))
+  addSeries(series, 'swap', measured(chrono, (row) => row.swap_used_bytes))
+  addSeries(series, 'psi c', measured(chrono, (row) => row.psi_cpu_some_avg10))
+  addSeries(series, 'psi io', measured(chrono, (row) => row.psi_io_some_avg10))
+  addSeries(series, 'psi m', measured(chrono, (row) => row.psi_memory_some_avg10))
+  addSeries(series, 'wired', measured(chrono, (row) => row.memory_wired_bytes))
+  addSeries(series, 'comp', measured(chrono, (row) => row.memory_compressed_bytes))
+  addSeries(series, 'app', measured(chrono, (row) => row.memory_app_bytes))
+  addSeries(series, 'cache', measured(chrono, (row) => row.memory_cached_bytes))
+  addSeries(series, 'pg in', measured(chrono, (row) => row.pageins_per_s))
+  addSeries(series, 'pg out', measured(chrono, (row) => row.pageouts_per_s))
+  addSeries(series, 'cmp', measured(chrono, (row) => row.compressions_per_s))
+  addSeries(series, 'dec', measured(chrono, (row) => row.decompressions_per_s))
+  addSeries(series, 'procs', measured(chrono, (row) => row.process_count))
+  const notes: string[] = []
+  const thermal = [...chrono].reverse().find((row) => row.thermal_state)?.thermal_state
+  if (thermal === 'nominal' || thermal === 'fair' || thermal === 'serious' || thermal === 'critical') {
+    notes.push(`thermal  ${thermal}`)
+  }
+  const pressure = [...chrono].reverse().find((row) => row.memory_pressure_level)?.memory_pressure_level
+  if (pressure === 'normal' || pressure === 'warning' || pressure === 'critical') {
+    notes.push(`pressure  ${pressure}`)
+  }
+  for (const reading of newest(chrono, (row) => row.temperatures).slice(0, TEMP_CAP)) {
+    if (reading.name.trim() === '') continue
+    addSeries(series, reading.name, measured(chrono, (row) => readingValue(row.temperatures, reading.name, 'celsius')))
+    addSeries(
+      series,
+      `${reading.name} headroom`,
+      measured(chrono, (row) => readingValue(row.temperatures, reading.name, 'headroom_celsius')),
+    )
+  }
+  for (const fan of newest(chrono, (row) => row.fans).slice(0, FAN_CAP)) {
+    if (fan.name.trim() === '') continue
+    addSeries(
+      series,
+      fan.name,
+      measured(chrono, (row) => {
+        const match = row.fans?.find((item: FanReading) => item.name === fan.name)
+        return match && Number.isFinite(match.rpm) ? match.rpm : undefined
+      }),
+    )
+  }
   return {
     status: 'ready',
     message: '',
     cpu: chrono.map((row) => row.cpu_usage_total),
     memory: chrono.map((row) => row.memory_used),
     load: chrono.map((row) => row.load_1),
+    series,
+    notes,
     recent: rows.slice(0, 5).map((row) => ({
       at: row.at.slice(11, 19),
       cpu: row.cpu_usage_total,

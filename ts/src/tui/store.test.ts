@@ -107,6 +107,137 @@ describe('history and report pages', () => {
     expect(view.memory).toEqual([10, 20])
     expect(view.load).toEqual([0.1, 0.2])
     expect(view.recent[0]).toEqual({ at: '00:00:02', cpu: 2, memory: 20, load: 0.2 })
+    expect(view.series).toEqual([])
+    expect(view.notes).toEqual([])
+  })
+
+  test('stored power, battery, rates, and sensors stay separate readings', () => {
+    const view = historyView([
+      {
+        at: '2026-10-23T00:00:02.000Z',
+        cpu_usage_total: 2,
+        memory_used: 20,
+        load_1: 0.2,
+        cpu_power_watts: 0,
+        gpu_power_watts: 0.4,
+        ane_power_watts: 0,
+        dram_power_watts: 1.5,
+        battery_charge_percent: 80,
+        network_rx_bytes: 3000,
+        network_tx_bytes: 5000,
+        swap_used_bytes: 0,
+        thermal_state: 'nominal',
+        memory_pressure_level: 'normal',
+        temperatures: [
+          { name: 'pkg', celsius: 70, critical_celsius: 100, headroom_celsius: 30 },
+          { name: 'nvme', celsius: 45 },
+        ],
+        fans: [{ name: 'fan1', rpm: 0 }],
+      },
+      {
+        at: '2026-10-23T00:00:01.000Z',
+        cpu_usage_total: 1,
+        memory_used: 10,
+        load_1: 0.1,
+        cpu_power_watts: 7.5,
+        gpu_power_watts: 0.4,
+        network_rx_bytes: 1000,
+        network_tx_bytes: 4000,
+        temperatures: [{ name: 'pkg', celsius: 60, headroom_celsius: 40 }],
+      },
+    ])
+    const labeled = (label: string) => view.series.find((series) => series.label === label)
+    expect(labeled('cpu W')?.values).toEqual([7.5, 0])
+    expect(labeled('gpu W')?.values).toEqual([0.4, 0.4])
+    expect(labeled('ane W')?.values).toEqual([null, 0])
+    expect(labeled('dram W')?.values).toEqual([null, 1.5])
+    expect(labeled('batt')?.values).toEqual([null, 80])
+    expect(labeled('batt')?.max).toBe(100)
+    expect(labeled('rx/s')?.values).toEqual([1000, 3000])
+    expect(labeled('tx/s')?.values).toEqual([4000, 5000])
+    expect(view.series.some((series) => series.label === 'system W')).toBe(false)
+    expect(labeled('swap')?.values).toEqual([null, 0])
+    expect(labeled('pkg')?.values).toEqual([60, 70])
+    expect(labeled('pkg headroom')?.values).toEqual([40, 30])
+    expect(labeled('nvme')?.values).toEqual([null, 45])
+    expect(view.series.some((series) => series.label === 'nvme headroom')).toBe(false)
+    expect(labeled('fan1')?.values).toEqual([null, 0])
+    expect(view.notes).toEqual(['thermal  nominal', 'pressure  normal'])
+
+    const frame = compose(screen({ overlay: 'history', historyPage: view, width: 100, height: 48 }), {
+      processes: [],
+      system: {},
+      history: emptyHistory(),
+    })
+    expect(frame.text).toContain('cpu W')
+    expect(frame.text).toContain('thermal  nominal')
+    expect(frame.text).toContain('pressure  normal')
+    expect(frame.text).toContain('pkg headroom')
+    expect(frame.text).not.toContain('nvme headroom')
+    expect(frame.text).toContain('esc  close')
+    expect(frame.text).not.toContain('system W')
+  })
+
+  test('steady and declining rates stay as recorded and a short page keeps close', () => {
+    const view = historyView([
+      {
+        at: '2026-10-23T00:00:03.000Z',
+        cpu_usage_total: 1,
+        memory_used: 1,
+        load_1: 0,
+        network_rx_bytes: 100,
+        network_tx_bytes: 50,
+      },
+      {
+        at: '2026-10-23T00:00:02.000Z',
+        cpu_usage_total: 1,
+        memory_used: 1,
+        load_1: 0,
+        network_rx_bytes: 3100,
+        network_tx_bytes: 50,
+      },
+      {
+        at: '2026-10-23T00:00:01.000Z',
+        cpu_usage_total: 1,
+        memory_used: 1,
+        load_1: 0,
+        network_rx_bytes: 1100,
+        network_tx_bytes: 50,
+      },
+    ])
+    expect(view.series.find((series) => series.label === 'rx/s')?.values).toEqual([1100, 3100, 100])
+    expect(view.series.find((series) => series.label === 'tx/s')?.values).toEqual([50, 50, 50])
+    const frame = compose(screen({ overlay: 'history', historyPage: view, width: 80, height: 12 }), {
+      processes: [],
+      system: {},
+      history: emptyHistory(),
+    })
+    expect(frame.text).toContain('esc  close')
+    expect(frame.text).toContain(' more')
+  })
+
+  test('one recorded rate is chartable and zero is still a measurement', () => {
+    const view = historyView([
+      { at: '2026-10-23T00:00:01Z', cpu_usage_total: 1, memory_used: 1, load_1: 0, network_rx_bytes: 0 },
+    ])
+    expect(view.series).toEqual([{ label: 'rx/s', values: [0] }])
+  })
+
+  test('optional charts preserve interior and trailing gaps in the rendered frame', () => {
+    const common = { cpu_usage_total: 1, memory_used: 1, load_1: 0 }
+    const view = historyView([
+      { ...common, at: '2026-10-23T00:03:00Z' },
+      { ...common, at: '2026-10-23T00:02:00Z', cpu_power_watts: 4 },
+      { ...common, at: '2026-10-23T00:01:00Z', cpu_power_watts: NaN },
+      { ...common, at: '2026-10-23T00:00:00Z', cpu_power_watts: 0 },
+    ])
+    expect(view.series).toEqual([{ label: 'cpu W', values: [0, null, 4, null] }])
+    const frame = compose(screen({ overlay: 'history', historyPage: view }), {
+      processes: [],
+      system: {},
+      history: emptyHistory(),
+    })
+    expect(frame.text).toMatch(/cpu W +⠤*⠀⠂⣿⠂/)
   })
 
   test('an empty report uses the same empty window', () => {

@@ -94,13 +94,29 @@ export interface HistoryPoint {
   load: number
 }
 
+export interface HistorySeries {
+  label: string
+  /** Oldest first; null occupies the slot for an unavailable reading. */
+  values: (number | null)[]
+  /** Scale ceiling. If omitted, use the max of the measured values. */
+  max?: number
+}
+
 export interface HistoryView {
   status: 'loading' | 'empty' | 'ready' | 'error'
   message: string
   cpu: number[]
   memory: number[]
   load: number[]
+  /** Stored readings other than cpu, memory, and load. Empty when none were measured. */
+  series: HistorySeries[]
+  /** One text row per enum, such as `thermal  nominal`. Not a sparkline. */
+  notes: string[]
   recent: HistoryPoint[]
+}
+
+export function emptyHistoryPage(status: HistoryView['status'], message: string): HistoryView {
+  return { status, message, cpu: [], memory: [], load: [], series: [], notes: [], recent: [] }
 }
 
 export interface ReportSummary {
@@ -618,7 +634,7 @@ function openHistory(state: ScreenState): ReduceResult {
     state: {
       ...state,
       overlay: 'history',
-      historyPage: { status: 'loading', message: 'loading…', cpu: [], memory: [], load: [], recent: [] },
+      historyPage: emptyHistoryPage('loading', 'loading…'),
     },
     effect: { openHistory: true },
   }

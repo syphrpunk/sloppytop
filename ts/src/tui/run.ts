@@ -28,6 +28,7 @@ import {
   type SampleHistory,
 } from './frame.ts'
 import {
+  emptyHistoryPage,
   ensureSelection,
   initialState,
   reduce,
@@ -330,7 +331,7 @@ export async function runTui(loaders: PageLoaders = defaultPageLoaders()): Promi
       const message = err instanceof Error && err.message ? err.message : 'store failed'
       if (effect.record && state.overlay === 'record') state = { ...state, recordPage: { message } }
       if (effect.openHistory && state.overlay === 'history') {
-        state = { ...state, historyPage: { status: 'error', message, cpu: [], memory: [], load: [], recent: [] } }
+        state = { ...state, historyPage: emptyHistoryPage('error', message) }
       }
       if (effect.openReport && state.overlay === 'report' && state.reportPage) {
         state = { ...state, reportPage: { ...state.reportPage, status: 'error', message } }

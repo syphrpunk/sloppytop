@@ -479,7 +479,14 @@ function parseTemperatures(text: string | null): TemperatureReading[] | undefine
     if (typeof rec['name'] !== 'string' || typeof rec['celsius'] !== 'number' || !Number.isFinite(rec['celsius'])) {
       return
     }
-    out.push({ name: rec['name'], celsius: rec['celsius'] })
+    const reading: TemperatureReading = { name: rec['name'], celsius: rec['celsius'] }
+    if (typeof rec['critical_celsius'] === 'number' && Number.isFinite(rec['critical_celsius'])) {
+      reading.critical_celsius = rec['critical_celsius']
+    }
+    if (typeof rec['headroom_celsius'] === 'number' && Number.isFinite(rec['headroom_celsius'])) {
+      reading.headroom_celsius = rec['headroom_celsius']
+    }
+    out.push(reading)
   }
   return out
 }

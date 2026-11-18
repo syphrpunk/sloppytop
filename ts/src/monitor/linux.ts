@@ -179,7 +179,7 @@ function readText(path: string): string | undefined {
   }
 }
 
-/** `/sys/class/hwmon` temperatures are millidegrees. Fan inputs are rpm. */
+/** `/sys/class/hwmon` temperatures are millidegrees. Fan inputs are rpm. `tempN_crit` is the critical limit for that same sensor. `tempN_max` is not. */
 function collectHwmon(): { temperatures?: TemperatureReading[]; fans?: FanReading[] } {
   const root = '/sys/class/hwmon'
   if (!existsSync(root)) return {}
@@ -206,7 +206,16 @@ function collectHwmon(): { temperatures?: TemperatureReading[]; fans?: FanReadin
       const input = readText(`${base}/${file}`)
       if (input === undefined) continue
       const label = readText(`${base}/${file.replace(/_input$/, '_label')}`)
-      const parsed = parseHwmonInput({ chip, key: file, input, ...(label !== undefined ? { label } : {}) })
+      const critical = file.startsWith('temp')
+        ? readText(`${base}/${file.replace(/_input$/, '_crit')}`)
+        : undefined
+      const parsed = parseHwmonInput({
+        chip,
+        key: file,
+        input,
+        ...(label !== undefined ? { label } : {}),
+        ...(critical !== undefined ? { critical } : {}),
+      })
       if (!parsed) continue
       if (parsed.kind === 'temp') temperatures.push(parsed.reading)
       else fans.push(parsed.reading)

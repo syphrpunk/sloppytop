@@ -31,12 +31,14 @@ describe('renderOpenMetrics', () => {
       ...row,
       memory_app_bytes: 0,
       pageins_per_s: 1.5,
-      temperatures: [{ name: 'soc "die"', celsius: 42 }],
+      temperatures: [{ name: 'soc "die"', celsius: 42, critical_celsius: 100, headroom_celsius: 58 }],
       fans: [{ name: 'fan1', rpm: 0 }],
     })
     expect(text).toContain('sloppytop_memory_app_bytes 0\n')
     expect(text).toContain('sloppytop_pageins_per_second 1.5\n')
     expect(text).toContain('sloppytop_temperature_celsius{sensor="soc \\"die\\""} 42\n')
+    expect(text).toContain('sloppytop_temperature_critical_celsius{sensor="soc \\"die\\""} 100\n')
+    expect(text).toContain('sloppytop_temperature_headroom_celsius{sensor="soc \\"die\\""} 58\n')
     expect(text).toContain('sloppytop_fan_rpm{fan="fan1"} 0\n')
   })
 })

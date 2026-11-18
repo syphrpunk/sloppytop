@@ -26,4 +26,12 @@ describe('sparkline', () => {
   test('all-zero series renders empty cells, not NaN artifacts', () => {
     expect(sparkline([0, 0])).toBe('⠀⠀')
   })
+
+  test('missing points are distinct from zero and padding and do not set the scale', () => {
+    expect(sparkline([0, null, 10, NaN, 20, Infinity], { width: 7 })).toBe('⠤⠀⠂⣤⠂⣿⠂')
+  })
+
+  test('clipping keeps the gap slots in the most recent points', () => {
+    expect(sparkline([20, 5, null, 0, null], { width: 3 })).toBe('⠂⠀⠂')
+  })
 })

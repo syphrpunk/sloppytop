@@ -34,6 +34,7 @@ export function renderOpenMetrics(row: HistoryRow): string {
   )
   for (const sensor of row.temperatures ?? []) {
     labeledGauge(lines, 'sloppytop_temperature_celsius', 'Temperature, degrees Celsius', 'sensor', sensor.name, sensor.celsius)
+    appendTemperatureLimits(lines, sensor)
   }
   for (const fan of row.fans ?? []) {
     labeledGauge(lines, 'sloppytop_fan_rpm', 'Fan speed, revolutions per minute', 'fan', fan.name, fan.rpm)
@@ -100,6 +101,7 @@ export function renderSystemMetrics(system: Partial<SystemStats>, at = new Date(
   }
   for (const sensor of system.temperatures ?? []) {
     labeledGauge(lines, 'sloppytop_temperature_celsius', 'Temperature, degrees Celsius', 'sensor', sensor.name, sensor.celsius)
+    appendTemperatureLimits(lines, sensor)
   }
   for (const fan of system.fans ?? []) {
     labeledGauge(lines, 'sloppytop_fan_rpm', 'Fan speed, revolutions per minute', 'fan', fan.name, fan.rpm)
@@ -129,6 +131,29 @@ function gauge(lines: string[], name: string, help: string, value: number | unde
 function optionalGauge(lines: string[], name: string, help: string, value: number | undefined) {
   if (value === undefined) return
   lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} gauge`, `${name} ${value}`)
+}
+
+function appendTemperatureLimits(lines: string[], sensor: { name: string; critical_celsius?: number; headroom_celsius?: number }) {
+  if (sensor.critical_celsius !== undefined && Number.isFinite(sensor.critical_celsius)) {
+    labeledGauge(
+      lines,
+      'sloppytop_temperature_critical_celsius',
+      'Critical temperature limit for this sensor, degrees Celsius. Not an alert.',
+      'sensor',
+      sensor.name,
+      sensor.critical_celsius,
+    )
+  }
+  if (sensor.headroom_celsius !== undefined && Number.isFinite(sensor.headroom_celsius)) {
+    labeledGauge(
+      lines,
+      'sloppytop_temperature_headroom_celsius',
+      'Degrees under the critical limit for this sensor. Not an alert.',
+      'sensor',
+      sensor.name,
+      sensor.headroom_celsius,
+    )
+  }
 }
 
 function labeledGauge(

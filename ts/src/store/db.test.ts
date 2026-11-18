@@ -135,7 +135,7 @@ describe('metrics store', () => {
             read_request_bytes: 4096,
           },
         ],
-        temperatures: [{ name: 'soc', celsius: 0 }],
+        temperatures: [{ name: 'soc', celsius: 0, critical_celsius: 100, headroom_celsius: 100 }],
         fans: [{ name: 'fan1', rpm: 1200 }],
         thermal_state: 'nominal',
         memory_wired_bytes: 10,
@@ -170,7 +170,7 @@ describe('metrics store', () => {
         read_request_bytes: 4096,
       },
     ])
-    expect(rich.temperatures).toEqual([{ name: 'soc', celsius: 0 }])
+    expect(rich.temperatures).toEqual([{ name: 'soc', celsius: 0, critical_celsius: 100, headroom_celsius: 100 }])
     expect(rich.fans).toEqual([{ name: 'fan1', rpm: 1200 }])
     expect(rich.thermal_state).toBe('nominal')
     expect(rich.memory_compressed_bytes).toBe(0)

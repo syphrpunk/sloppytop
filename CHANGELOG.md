@@ -12,6 +12,8 @@ The `handoff-create --changelog` flow appends entries to "## Unreleased" as you 
 - `service install` stores one sample before it returns, then starts the hourly recorder. `sloppytop history`, `sloppytop report`, and `v` on the screen read that sample.
 - The Linux recorder timer starts 5 seconds after the user service manager (`OnStartupSec=5s`, `AccuracySec=1s`).
 - `Casks/sloppytop.rb` is a Homebrew cask for the v0.3.0 Apple Silicon binary. `brew tap syphrpunk/sloppytop https://github.com/syphrpunk/sloppytop` and then `brew install syphrpunk/sloppytop/sloppytop` stores one sample and starts the hourly recorder.
+- Linux temperature readings include critical limits and headroom when the same hwmon sensor reports a valid `tempN_crit`.
+- TUI history charts show more recorded signals, plot network rates as stored, and retain gaps for missing readings.
 
 ## 0.3.0 - 2026-10-23
 

@@ -9,6 +9,10 @@ const LEVELS = ['⠀', '⣀', '⣤', '⣶', '⣿'] as const
 
 /** Dim track character used to left-pad when there are fewer values than width. */
 const TRACK = '⠤'
+/** One missing sample, distinct from both an idle sample and left padding. */
+const GAP = '⠂'
+
+export type SparklinePoint = number | null
 
 function levelFor(v: number, max: number): string {
   if (!Number.isFinite(v) || v <= 0 || max <= 0) return LEVELS[0]
@@ -19,23 +23,29 @@ function levelFor(v: number, max: number): string {
 }
 
 export interface SparklineOptions {
-  /** Scale ceiling. Defaults to the max of the values (0 → all-empty). */
+  /** Scale ceiling. Defaults to the largest finite measured value (or 0). */
   max?: number
   /** Fixed output width: longer series keep the most recent points, shorter ones get a left track pad. */
   width?: number
 }
 
 /**
- * Render values (oldest first) as a braille sparkline string.
+ * Render samples (oldest first) as a braille sparkline string. Null and
+ * non-finite samples occupy a gap cell and do not affect scaling.
  * With no width, output length equals the series length.
  */
-export function sparkline(values: number[], opts: SparklineOptions = {}): string {
-  const max = opts.max ?? Math.max(0, ...values)
+export function sparkline(values: readonly SparklinePoint[], opts: SparklineOptions = {}): string {
+  const max = opts.max ?? values.reduce<number>(
+    (peak, value) => value !== null && Number.isFinite(value) ? Math.max(peak, value) : peak,
+    0,
+  )
   let vals = values
   let pad = 0
   if (opts.width !== undefined) {
     if (vals.length > opts.width) vals = vals.slice(vals.length - opts.width)
     pad = opts.width - vals.length
   }
-  return TRACK.repeat(pad) + vals.map((v) => levelFor(v, max)).join('')
+  return TRACK.repeat(pad) + vals.map((v) =>
+    v === null || !Number.isFinite(v) ? GAP : levelFor(v, max),
+  ).join('')
 }

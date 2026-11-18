@@ -1,5 +1,5 @@
-// Output shapes mirror the Go CLI's --json field names (cli/main.go) so
-// existing jq pipelines keep working against the TypeScript port.
+// Output shapes keep the original snapshot field names so existing jq
+// pipelines keep working.
 
 import type { EnergyNj } from './energy.ts'
 
@@ -192,6 +192,16 @@ export type CpuCoreKind = 'performance' | 'efficiency' | 'unknown'
 export interface TemperatureReading {
   name: string
   celsius: number
+  /**
+   * Critical limit published for this same sensor. Omitted when the
+   * platform has no limit. Not an alert, and not `thermal_state`.
+   */
+  critical_celsius?: number
+  /**
+   * `critical_celsius - celsius`. Present only with a measured limit.
+   * Positive is margin under the limit. A measured 0 is at the limit.
+   */
+  headroom_celsius?: number
 }
 
 export interface FanReading {

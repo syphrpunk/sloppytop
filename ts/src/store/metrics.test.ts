@@ -20,6 +20,8 @@ describe('metrics scrape', () => {
     expect(text).toContain('# sloppytop_sample_at 2026-10-23T00:00:00.000Z\n')
     expect(text).toContain('sloppytop_cpu_core_usage_percent{core="1",kind="efficiency"} 0\n')
     expect(text).toContain('sloppytop_temperature_celsius{sensor="soc"} 0\n')
+    expect(text).not.toContain('sloppytop_temperature_headroom_celsius')
+    expect(text).not.toContain('sloppytop_temperature_critical_celsius')
     expect(text).toContain('sloppytop_disk_read_bytes_per_second{device="disk0"} 4\n')
     expect(text).toContain('sloppytop_thermal_state{state="nominal"} 1\n')
     expect(text).not.toMatch(/sloppytop_thermal_state \d/)

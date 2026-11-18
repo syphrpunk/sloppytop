@@ -191,7 +191,7 @@ describe('stats strip', () => {
     const hidden = projectSystem(
       measured({
         thermal_state: 'serious',
-        temperatures: [{ name: 'die', celsius: 61 }],
+        temperatures: [{ name: 'die', celsius: 61, critical_celsius: 100, headroom_celsius: 39 }],
         fans: [{ name: 'exhaust', rpm: 900 }],
       }),
       { ...defaultProbes(), sensors: false },
@@ -199,9 +199,32 @@ describe('stats strip', () => {
     const frame = compose(screen(), { processes: [], system: hidden, history: emptyHistory() })
     expect(frame.text).not.toContain('serious')
     expect(frame.text).not.toContain('die')
+    expect(frame.text).not.toContain('headroom')
     expect(frame.text).not.toContain('exhaust')
     expect(frame.text.split('\n').some((line) => line.startsWith('temp'))).toBe(false)
     expect(frame.text.split('\n').some((line) => line.startsWith('thermal'))).toBe(false)
+  })
+
+  test('a measured critical limit draws headroom on its own row', () => {
+    const frame = compose(screen({ width: 120, height: 48 }), {
+      processes: [],
+      system: measured({
+        temperatures: [
+          { name: 'pkg', celsius: 70, critical_celsius: 100, headroom_celsius: 30 },
+          { name: 'nvme', celsius: 45 },
+        ],
+      }),
+      history: emptyHistory(),
+    })
+    const lines = frame.text.split('\n').map(inner)
+    const temp = lines.filter((line) => line.includes('pkg') && line.includes('70.0°C'))
+    const head = lines.filter((line) => line.includes('headroom') && line.includes('30.0°C'))
+    expect(temp).toHaveLength(1)
+    expect(temp[0]).not.toContain('headroom')
+    expect(head).toHaveLength(1)
+    expect(head[0]).toContain('pkg headroom')
+    expect(lines.some((line) => line.includes('nvme') && line.includes('headroom'))).toBe(false)
+    expect(frame.text).not.toContain('100.0°C')
   })
 
   test('a long temperature list keeps one labeled row per reading and counts the rest', () => {

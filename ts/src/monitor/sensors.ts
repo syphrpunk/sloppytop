@@ -124,6 +124,11 @@ export interface HwmonInput {
   key: string
   input: string
   label?: string
+  /**
+   * Contents of the matching `tempN_crit` file, millidegrees. Absent when
+   * that file does not exist. `tempN_max` is not a critical limit.
+   */
+  critical?: string
 }
 
 /** `temp*_input` is millidegrees Celsius. `fan*_input` is rpm. A measured 0 stays 0. */
@@ -138,9 +143,26 @@ export function parseHwmonInput(
   const label = row.label?.trim() || row.key.replace(/_input$/, '')
   const chip = row.chip.trim()
   const name = chip ? `${chip} ${label}` : label
-  if (kind === 'temp') return { kind: 'temp', reading: { name, celsius: round3(value / 1000) } }
+  if (kind === 'temp') {
+    const celsius = round3(value / 1000)
+    const reading: TemperatureReading = { name, celsius }
+    const critical = millidegree(row.critical)
+    if (critical !== undefined) {
+      reading.critical_celsius = critical
+      reading.headroom_celsius = round3(critical - celsius)
+    }
+    return { kind: 'temp', reading }
+  }
   if (value < 0) return null
   return { kind: 'fan', reading: { name, rpm: value } }
+}
+
+/** Integer millidegrees, or undefined when the file is missing or not an integer. */
+function millidegree(text: string | undefined): number | undefined {
+  if (text === undefined) return
+  const raw = text.trim()
+  if (!/^-?\d+$/.test(raw)) return
+  return round3(Number(raw) / 1000)
 }
 
 /** amdgpu `gpu_busy_percent`, 0–100. A measured 0 stays 0. */

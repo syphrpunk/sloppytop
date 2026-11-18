@@ -5,7 +5,7 @@ import type { SortKey } from '../filter/index.ts'
 import { PROBE_NAMES } from '../monitor/probes.ts'
 import type { CpuCoreKind, DiskDevice, ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { TUI_COLUMNS, type TuiColumn } from '../store/config.ts'
-import { sparkline } from '../view/sparkline.ts'
+import { sparkline, type SparklinePoint } from '../view/sparkline.ts'
 import {
   clip,
   formatBytes,
@@ -730,6 +730,9 @@ function sensorRows(system: Partial<SystemStats>, width: number): string[] {
   const lines: string[] = []
   for (const reading of (system.temperatures ?? []).slice(0, 8)) {
     lines.push(sensorLine(plain(reading.name), formatCelsius(reading.celsius), width))
+    if (reading.headroom_celsius !== undefined && Number.isFinite(reading.headroom_celsius)) {
+      lines.push(sensorLine(`${plain(reading.name)} headroom`, formatCelsius(reading.headroom_celsius), width))
+    }
   }
   for (const fan of (system.fans ?? []).slice(0, 4)) {
     lines.push(sensorLine(plain(fan.name), formatRpm(fan.rpm), width))
@@ -1067,23 +1070,48 @@ function helpLines(): string[] {
 
 const SETTINGS_WINDOW = 8
 
+function historyChart(label: string, values: readonly SparklinePoint[], width: number, max?: number): string {
+  const name = clip(plain(label), 18)
+  const sparkWidth = Math.max(4, width - name.length - 2)
+  const spark = sparkline(values, max === undefined ? { width: sparkWidth } : { max, width: sparkWidth })
+  return `${name}  ${spark}`
+}
+
+/** Title and toolbar sit outside this list, and the frame adds two bands. */
+function fitHistory(height: number, lines: string[], tail: string[]): string[] {
+  const budget = Math.max(1, height - 4)
+  const head = lines[0] ?? 'history'
+  const middle = lines.slice(1)
+  const keptTail = tail.slice(0, Math.max(0, budget - 1))
+  const room = budget - 1 - keptTail.length
+  if (room <= 0) return [head, ...keptTail].slice(0, budget)
+  if (middle.length <= room) return [head, ...middle, ...keptTail]
+  if (room === 1) return [head, `+${middle.length} more`, ...keptTail]
+  const shown = middle.slice(0, room - 1)
+  return [head, ...shown, `+${middle.length - shown.length} more`, ...keptTail]
+}
+
 function historyLines(state: ScreenState): string[] {
   const page = state.historyPage
-  if (!page || page.status === 'loading') return ['history …', 'esc  close']
-  if (page.status !== 'ready') return ['history', ...wrapWords(page.message, state.width), 'esc  close']
+  if (!page || page.status === 'loading') return fitHistory(state.height, ['history …'], ['esc  close'])
+  if (page.status !== 'ready') return fitHistory(state.height, ['history', ...wrapWords(page.message, state.width)], ['esc  close'])
   const width = chartWidth(state.width)
   const lines = ['history']
-  if (page.cpu.length > 0) lines.push(`cpu  ${sparkline(page.cpu, { max: 100, width })}`)
-  if (page.memory.length > 0) lines.push(`mem  ${sparkline(page.memory, { width })}`)
-  if (page.load.length > 0) lines.push(`load ${sparkline(page.load, { width })}`)
+  if (page.cpu.length > 0) lines.push(historyChart('cpu', page.cpu, width, 100))
+  if (page.memory.length > 0) lines.push(historyChart('mem', page.memory, width))
+  if (page.load.length > 0) lines.push(historyChart('load', page.load, width))
+  for (const series of page.series) {
+    if (series.values.length === 0) continue
+    lines.push(historyChart(series.label, series.values, width, series.max))
+  }
+  for (const note of page.notes) lines.push(note)
   if (page.recent.length > 0) {
     lines.push('recent')
     for (const point of page.recent) {
       lines.push(`  ${point.at}  cpu ${point.cpu.toFixed(1)}  mem ${formatBytesCompact(point.memory)}  load ${point.load.toFixed(2)}`)
     }
   }
-  lines.push('esc  close')
-  return lines
+  return fitHistory(state.height, lines, ['esc  close'])
 }
 
 function reportLines(state: ScreenState): string[] {
