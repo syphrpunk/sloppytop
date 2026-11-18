@@ -38,17 +38,19 @@ sloppytop history --charts          # + braille sparkline trend charts
 sloppytop history --processes       # include stored top processes per sample
 sloppytop report --hours 24         # hourly avg/peak series, top consumers, anomaly flags, charts
 sloppytop config                    # effective config + storage paths + DB stats
-sloppytop service install           # scheduled job: runs `record` hourly
+sloppytop service install           # store one sample now, then run `record` hourly
 sloppytop service status            # job state + DB stats
 sloppytop service uninstall
 ```
 
 `report` flags unhealthy samples: `io_pressure` (load1 far above core count at moderate CPU — I/O wait), `cpu_saturation` (>90% CPU), `memory_pressure` (>92% used).
 
-`service install` uses the platform scheduler with absolute paths (neither inherits a useful PATH) — pointing at the compiled binary when installed from one, or `<bun> <script> record` in dev:
+`service install` stores one sample before it returns, then starts the scheduler. The required probes are `cpu`, `memory`, `disk`, `network`, and `host`. One of those being off stops the install and leaves the scheduler unchanged. Read the sample with `sloppytop history`, `sloppytop report`, or `sloppytop tui` and press `v`. The Homebrew cask in `Casks/sloppytop.rb` runs `record` and then `service install` for the published binary.
 
-- **macOS**: launchd user agent at `~/Library/LaunchAgents/com.syphrpunk.sloppytop.record.plist` (RunAtLoad fires one sample immediately)
-- **Linux**: systemd user units `sloppytop-record.service` + `.timer` under `~/.config/systemd/user/` (`OnUnitActiveSec`, enabled via `systemctl --user enable --now`)
+The scheduler uses absolute paths (neither inherits a useful PATH) — the compiled binary when installed from one, or `<bun> <script> record` in dev:
+
+- **macOS**: launchd user agent at `~/Library/LaunchAgents/com.syphrpunk.sloppytop.record.plist` (`RunAtLoad` runs `record` again when the agent loads)
+- **Linux**: systemd user units `sloppytop-record.service` + `.timer` under `~/.config/systemd/user/` (`OnStartupSec=5s`, `AccuracySec=1s`, then `OnUnitActiveSec`, enabled via `systemctl --user enable --now`)
 
 ## Self-update
 

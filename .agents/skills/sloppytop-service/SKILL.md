@@ -1,13 +1,13 @@
 ---
 name: sloppytop-service
-description: Manage the hourly metrics recorder (launchd agent on macOS, systemd user timer on Linux). Run `sloppytop service --help` for usage details.
+description: Manage the hourly metrics recorder (launchd agent on macOS, systemd user timer on Linux). install stores one sample immediately. Run `sloppytop service --help` for usage details.
 requires_bin: sloppytop
 command: sloppytop service
 ---
 
 # sloppytop service install
 
-Install + start a scheduled job that runs `record` on an interval
+Store one sample now and start the hourly recorder
 
 ## Options
 

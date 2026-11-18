@@ -16,7 +16,6 @@ import { NetError, sampleNet } from './monitor/net.ts'
 import {
   collectFlags,
   countEntry,
-  disabledRecordProbes,
   hardwareEntry,
   isProbeName,
   parseProbeList,
@@ -39,7 +38,7 @@ import {
 import { eventLogPath, logEvent, type LogLevel } from './store/log.ts'
 import { metricsResponse } from './store/metrics.ts'
 import { appendProbeLog, probeLogPath, readProbeLog } from './store/probe-log.ts'
-import { dbInfo, insertSample, openDb, queryHistory, queryTopProcesses } from './store/db.ts'
+import { dbInfo, openDb, queryHistory, queryTopProcesses } from './store/db.ts'
 import { renderOpenMetrics } from './store/openmetrics.ts'
 import {
   reportAnomalies,
@@ -50,6 +49,7 @@ import {
   reportWindow,
 } from './store/report.ts'
 import { takeSample } from './sample.ts'
+import { RecordBlocked, recordSample } from './store/record.ts'
 import * as service from './store/service.ts'
 import { sparkline } from './view/sparkline.ts'
 
@@ -111,6 +111,10 @@ function note(feature: string, message: string, level: LogLevel = 'info') {
 
 function probeOff(name: string) {
   return { code: 'PROBE_DISABLED' as const, message: `probe ${name} is off — sloppytop probe enable ${name}` }
+}
+
+function recordCadence(intervalSecs: number): string {
+  return intervalSecs === 3600 ? 'hourly' : `every ${intervalSecs}s`
 }
 
 function setProbes(
@@ -490,39 +494,19 @@ Cli.create('sloppytop', {
   .command('record', {
     description: 'Take a snapshot and store it in the metrics SQLite DB (~/.config/sloppytop, or ~/.config/neohtop when that directory already exists)',
     async run(c) {
-      const config = initConfig()
-      const blocked = disabledRecordProbes(config.probes)
-      if (blocked.length > 0) {
-        const message = `record needs these probes enabled: ${blocked.join(', ')}`
-        note('record', message, 'error')
-        return c.error({ code: 'PROBE_DISABLED', message })
-      }
       try {
-        const { system, processes } = await takeSample(config.record.sampleMs)
-        const db = openDb()
-        try {
-          const at = new Date().toISOString()
-          const result = insertSample(db, at, system, processes, config.record)
-          note('record', `sample ${result.sampleId} stored ${result.processesStored}`)
-          return c.ok(
-            {
-              recorded: true,
-              sample_id: result.sampleId,
-              at,
-              processes_stored: result.processesStored,
-              pruned: result.pruned,
-              db_path: dbPath(),
-            },
-            {
-              cta: {
-                commands: [{ command: 'history', description: 'Query recorded samples' }],
-              },
-            },
-          )
-        } finally {
-          db.close()
-        }
+        const stored = await recordSample()
+        note('record', `sample ${stored.sample_id} stored ${stored.processes_stored}`)
+        return c.ok(stored, {
+          cta: {
+            commands: [{ command: 'history', description: 'Query recorded samples' }],
+          },
+        })
       } catch (err) {
+        if (err instanceof RecordBlocked) {
+          note('record', err.message, 'error')
+          return c.error({ code: 'PROBE_DISABLED', message: err.message })
+        }
         note('record', (err as Error).message, 'error')
         throw err
       }
@@ -804,10 +788,10 @@ Cli.create('sloppytop', {
   .command(
     Cli.create('service', {
       description:
-        'Manage the hourly metrics recorder (launchd agent on macOS, systemd user timer on Linux)',
+        'Manage the hourly metrics recorder (launchd agent on macOS, systemd user timer on Linux). install stores one sample immediately',
     })
       .command('install', {
-        description: 'Install + start a scheduled job that runs `record` on an interval',
+        description: 'Store one sample now and start the hourly recorder',
         options: z.object({
           intervalSecs: z.coerce
             .number()
@@ -816,13 +800,27 @@ Cli.create('sloppytop', {
             .default(3600)
             .describe('Seconds between record runs (default hourly)'),
         }),
-        run(c) {
+        async run(c) {
+          let stored: Awaited<ReturnType<typeof recordSample>>
+          try {
+            stored = await recordSample()
+          } catch (err) {
+            if (err instanceof RecordBlocked) {
+              note('service', err.message, 'error')
+              return c.error({ code: 'PROBE_DISABLED', message: err.message })
+            }
+            note('service', (err as Error).message, 'error')
+            return c.error({ code: 'RECORD_FAILED', message: (err as Error).message })
+          }
+          const cadence = recordCadence(c.options.intervalSecs)
           try {
             const result = service.install(c.options.intervalSecs)
-            note('service', `installed ${result.scheduler} every ${c.options.intervalSecs}s`)
+            const message = `sample ${stored.sample_id} stored; the next one is ${cadence}`
+            note('service', message)
             return c.ok(
               {
                 installed: true,
+                ...stored,
                 scheduler: result.scheduler,
                 name: service.scheduler().name,
                 files: result.files,
@@ -830,16 +828,22 @@ Cli.create('sloppytop', {
                 interval_secs: c.options.intervalSecs,
                 log: logPath(),
                 event_log: eventLogPath(),
+                note: message,
               },
               {
                 cta: {
-                  commands: [{ command: 'service status', description: 'Verify the job' }],
+                  commands: [
+                    { command: 'history', description: 'Read the stored samples' },
+                    { command: 'report', description: 'Summarize the stored samples' },
+                    { command: 'service status', description: 'Verify the hourly recorder' },
+                  ],
                 },
               },
             )
           } catch (err) {
-            note('service', (err as Error).message, 'error')
-            return c.error({ code: 'INSTALL_FAILED', message: (err as Error).message })
+            const message = `sample ${stored.sample_id} stored at ${stored.db_path}; scheduler failed: ${(err as Error).message}`
+            note('service', message, 'error')
+            return c.error({ code: 'INSTALL_FAILED', message })
           }
         },
       })

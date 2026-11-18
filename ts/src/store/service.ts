@@ -1,6 +1,7 @@
 // Scheduled metrics recorder — launchd user agent on macOS, systemd user
 // timer on Linux. Both run `sloppytop record` on an interval with absolute
-// paths (neither scheduler inherits a useful PATH).
+// paths (neither scheduler inherits a useful PATH). The Linux timer arms
+// 5 seconds after the user service manager starts.
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
@@ -90,13 +91,17 @@ StandardError=append:${logPath()}
 `
 }
 
+/** Seconds after the user service manager starts before the first Linux sample. */
+export const LINUX_STARTUP_SEC = 5
+
 export function renderTimerUnit(intervalSecs: number): string {
   return `[Unit]
 Description=Run the sloppytop metrics recorder every ${intervalSecs}s
 
 [Timer]
-OnBootSec=2min
+OnStartupSec=${LINUX_STARTUP_SEC}s
 OnUnitActiveSec=${intervalSecs}s
+AccuracySec=1s
 
 [Install]
 WantedBy=timers.target

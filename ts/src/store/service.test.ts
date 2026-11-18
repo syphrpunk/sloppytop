@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { LABEL, UNIT, renderPlist, renderServiceUnit, renderTimerUnit } from './service.ts'
+import { LABEL, LINUX_STARTUP_SEC, UNIT, renderPlist, renderServiceUnit, renderTimerUnit } from './service.ts'
 
 describe('launchd plist', () => {
   test('embeds label, absolute command, and interval', () => {
@@ -8,6 +8,7 @@ describe('launchd plist', () => {
     expect(plist).toContain('<string>/usr/local/bin/sloppytop</string>')
     expect(plist).toContain('<string>record</string>')
     expect(plist).toContain('<integer>3600</integer>')
+    expect(plist).toContain('<key>RunAtLoad</key>\n  <true/>')
   })
 
   test('xml-escapes paths', () => {
@@ -28,9 +29,12 @@ describe('systemd units', () => {
     expect(unit).toContain('ExecStart="/home/d k/.proto/bun" "/home/d k/src/index.ts" record')
   })
 
-  test('timer unit fires on the requested interval and installs to timers.target', () => {
+  test('timer unit fires seconds after startup, then on the interval', () => {
     const timer = renderTimerUnit(1800)
+    expect(timer).toContain(`OnStartupSec=${LINUX_STARTUP_SEC}s`)
+    expect(timer).toContain('AccuracySec=1s')
     expect(timer).toContain('OnUnitActiveSec=1800s')
+    expect(timer).not.toContain('OnBootSec')
     expect(timer).toContain('WantedBy=timers.target')
     expect(UNIT).toBe('sloppytop-record')
   })

@@ -26,9 +26,16 @@ A terminal process monitor — originally the CLI companion to [NeoHtop](https:/
 
 ## Installation
 
-Download a prebuilt `sloppytop` binary from this repo's [releases](https://github.com/syphrpunk/sloppytop/releases). `sloppytop tui` opens the process monitor. `sloppytop --help` lists the other commands.
+Homebrew stores one performance sample before the install command returns, then starts an hourly recorder. Read that log with `sloppytop history`, `sloppytop report`, or `sloppytop tui` and press `v`.
 
-The macOS release build is Apple Silicon. An Intel Mac runs this checkout with bun.
+```bash
+brew tap syphrpunk/sloppytop https://github.com/syphrpunk/sloppytop
+brew install syphrpunk/sloppytop/sloppytop
+```
+
+Homebrew needs the git URL because this repository name has no `homebrew-` prefix. The fully qualified install trusts this cask. After that, `brew install sloppytop` and `brew upgrade sloppytop` use the short name.
+
+The macOS release build is Apple Silicon. An Intel Mac runs this checkout with bun. A downloadable binary is the fallback below. `sloppytop tui` opens the process monitor. `sloppytop --help` lists the other commands.
 
 <details>
 <summary><b>macOS (Apple Silicon)</b></summary>
@@ -37,6 +44,8 @@ The macOS release build is Apple Silicon. An Intel Mac runs this checkout with b
 curl -LO https://github.com/syphrpunk/sloppytop/releases/latest/download/sloppytop-macos-arm64.tar.gz
 tar xzf sloppytop-macos-arm64.tar.gz
 sudo mv sloppytop-macos-arm64 /usr/local/bin/sloppytop
+sloppytop record
+sloppytop service install
 ```
 
 </details>
@@ -54,6 +63,10 @@ sudo mv sloppytop-linux-amd64 /usr/local/bin/sloppytop
 curl -LO https://github.com/syphrpunk/sloppytop/releases/latest/download/sloppytop-linux-arm64.tar.gz
 tar xzf sloppytop-linux-arm64.tar.gz
 sudo mv sloppytop-linux-arm64 /usr/local/bin/sloppytop
+
+# either archive: store one sample now, then keep an hourly recorder
+sloppytop record
+sloppytop service install
 ```
 
 </details>

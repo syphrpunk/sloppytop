@@ -9,6 +9,9 @@ The `handoff-create --changelog` flow appends entries to "## Unreleased" as you 
 ## Unreleased
 
 - Removed the Go sources in `cli/` and the `.augment` skill links. `just build` compiles `ts/dist/sloppytop`. CI tests and builds the TypeScript CLI only.
+- `service install` stores one sample before it returns, then starts the hourly recorder. `sloppytop history`, `sloppytop report`, and `v` on the screen read that sample.
+- The Linux recorder timer starts 5 seconds after the user service manager (`OnStartupSec=5s`, `AccuracySec=1s`).
+- `Casks/sloppytop.rb` is a Homebrew cask for the v0.3.0 Apple Silicon binary. `brew tap syphrpunk/sloppytop https://github.com/syphrpunk/sloppytop` and then `brew install syphrpunk/sloppytop/sloppytop` stores one sample and starts the hourly recorder.
 
 ## 0.3.0 - 2026-10-23
 
