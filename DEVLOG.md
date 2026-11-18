@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Session digest — 2026-11-18
+
+- Tested the isolated Homebrew package lifecycle, documented the public cask and quarantine gaps, and verified the installed discovery and layout changes.
+
+
 ## Installed the updated local binary — 2026-11-18
 
 - Rebuilt and installed the arm64 checkout; verified the existing `st` shortcut with the compiled diagnosis smoke.

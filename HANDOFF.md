@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 9faae4d chore(handoff): full checkpoint diagnosis-26-37
+HEAD: f5aabc5 fix(tui): advertise discovery and align overlay frames
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -77,6 +77,7 @@ The operator removed macOS fresh-file startup and signing/packaging from the goa
 After resuming, reran type-check, build, live and discovery PTY smokes, visual baselines, and all 290 tests on macOS (289 pass, one Linux-only skip). The retained TUI acceptance checks and both Memento items are verified; fresh-file startup was removed by the operator, not passed.
 The [diagnosis batch](docs/research/slices/26-37-diagnosis.md) added recorder health, history evidence, comparison reports, workload and interface history, redacted discovery diffs and diagnostic reports, and TUI sample inspection. Mac and OptiPlex builds passed the same-DB compiled diagnosis smoke; macOS had 298 tests pass (one Linux-only skip) and Linux had 299 pass. The existing Apple Silicon tracker `nht-9de7a2` remains open: two Macs did not supply validated fan and cluster-frequency measurements, and CPU energy stayed at zero in the second Mac's three live trials. Revisit only with a reliable unprivileged provider or a user-approved change to the requirement. NVIDIA and Linux powercap remain separate.
 Rebuilt the current macOS arm64 checkout and installed it at `/opt/homebrew/bin/sloppytop`; the existing `st` symlink now runs the updated build. The installed binary matched the checkout artifact byte-for-byte and passed the compiled diagnosis smoke through `st`. No release, push, or service change.
+The [Homebrew and TUI audit](docs/research/homebrew-tui-audit.md) reproduced the missing public cask and exercised install, upgrade and uninstall in a disposable prefix. The fixture omitted recorder hooks to protect the active legacy agent; exact published lifecycle verification remains open. The locally installed `st` now advertises discovery in the footer, opens seven numbered tabs, and uses aligned overlay frames. Full tests, type-check, visual check, and installed-binary smokes passed. Nothing pushed or published.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -90,6 +91,8 @@ Rebuilt the current macOS arm64 checkout and installed it at `/opt/homebrew/bin/
 <!-- handoff:next -->
 
 **Queue: the configured task manager below (source of truth); the configured queue view, if any, is generated from it.**
+
+**Homebrew:** Test the exact cask with recorder hooks in a disposable macOS login and authorize a release before publishing. See [audit and remaining gates](docs/research/homebrew-tui-audit.md).
 
 Open tasks:
 (task manager: memento)
