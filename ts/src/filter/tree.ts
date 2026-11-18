@@ -38,9 +38,13 @@ export function buildProcessTree(procs: ProcessInfo[]): TreeProcess[] {
   const result: TreeProcess[] = []
   const visited = new Set<number>()
 
-  function walk(idx: number, depth: number, prefix: string, isLast: boolean): void {
+  // A process chain can be as deep as the sample is long. Walk iteratively
+  // rather than spending a JS call frame on each process.
+  const pending = roots.reverse().map((idx) => ({ idx, depth: 0, prefix: '', isLast: true }))
+  while (pending.length) {
+    const { idx, depth, prefix, isLast } = pending.pop()!
     const p = procs[idx]!
-    if (visited.has(p.pid)) return // avoid cycles
+    if (visited.has(p.pid)) continue // avoid cycles
     visited.add(p.pid)
 
     result.push({
@@ -51,12 +55,10 @@ export function buildProcessTree(procs: ProcessInfo[]): TreeProcess[] {
 
     const kids = children.get(p.pid) ?? []
     const childPrefix = depth === 0 ? prefix : prefix + (isLast ? '   ' : '│  ')
-    kids.forEach((kidIdx, i) => {
-      walk(kidIdx, depth + 1, childPrefix, i === kids.length - 1)
-    })
+    for (let i = kids.length - 1; i >= 0; i--) {
+      pending.push({ idx: kids[i]!, depth: depth + 1, prefix: childPrefix, isLast: i === kids.length - 1 })
+    }
   }
-
-  for (const rootIdx of roots) walk(rootIdx, 0, '', true)
 
   // Any processes not visited (orphans from cycles) go at the end
   for (const p of procs) {
