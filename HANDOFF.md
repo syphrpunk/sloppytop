@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 6bc6d6c feat: guard the st install shortcut and capture TUI regressions
+HEAD: c557f9c perf(tui): avoid redundant row projection and paused repaint
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -55,6 +55,8 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 Built the `2eb036f` checkout on macOS arm64 and installed the verified binary at `/opt/homebrew/bin/sloppytop`. The CLI reports `0.3.0`; this is the checkout build with discovery, not a release download. No recorder service or persistent metrics listener was configured.
 
 The checkout installer now adds `st` only when the destination, PATH, and login shell agree it is free; `/opt/homebrew/bin/st` is installed and points to `sloppytop`. `just tui-visual` captures styled terminal frames with synthetic data. The [TUI backlog](docs/research/tui-follow-up.md) tracks usability (`nht-005268`) and a separate performance investigation (`nht-ead7a9`).
+
+The TUI goal is active. Captured and inspected narrow/wide resize frames with prioritized process metrics; tested unknown, partial and measured-zero discovery counts. `just tui-bench` and the [baseline and budgets](docs/research/tui-performance.md) show improved paused fixture CPU after eliminating redundant work, but live input and resize still miss budget. Next: instrument sampling and PTY resize separately; finish overlay focus, discovery drill-down, metric parity and reviewed visual baselines. Latest macOS checks: 283 tests passed, one Linux-only skip, type-check, build, styled captures and compiled TUI smoke.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -67,23 +69,13 @@ The checkout installer now adds `st` only when the destination, PATH, and login 
 
 <!-- handoff:next -->
 
-**Deferred until later this week:** Use the [Slice 13 powercap checklist](docs/research/slices/13-linux-powercap.md#real-hardware-verification) on an authorized Linux host with counters readable by the test account. Track evidence in `nht-4aa2dd`.
+**TUI goal active:** Continue [visual usability work](docs/research/tui-follow-up.md) (`nht-005268`) and [performance profiling](docs/research/tui-performance.md) (`nht-ead7a9`). Instrument live collection and separate tmux PTY resize delay from application paint delay. Finish overlay focus, discovery tabs and metric coverage, and checked visual baselines.
 
-**Separate, deferred:** NVIDIA cloud validation remains in `nht-f456db`.
+**Deferred:** Linux powercap (`nht-4aa2dd`) and NVIDIA (`nht-f456db`) still require their separately documented hardware verification.
 
-**Discovery batch verified:** See the [discovery workflow, provider matrix, and acceptance evidence](docs/research/slices/18-25-discovery-workflow.md).
+**Discovery batch verified:** See the [discovery workflow and evidence](docs/research/slices/18-25-discovery-workflow.md).
 
-**TUI follow-ups:** [Usability and visual regressions](docs/research/tui-follow-up.md) (`nht-005268`); profile responsiveness in a dedicated session (`nht-ead7a9`).
-
-**Queue: Memento is the source of truth.**
-
-- `nht-4aa2dd` (todo): Validate Linux powercap package telemetry on real hardware
-- `nht-f456db` (todo): Validate experimental NVIDIA telemetry on a real cloud GPU
-- `nht-9de7a2` (todo): Apple Silicon energy sample
-- `nht-cb0edf` (todo): Expand the CLI past process-table parity
-- `nht-2613eb` (todo): Harvest faculties from the _repos monitor corpus
-- `nht-b1794f` (todo): OpenTUI TUI replacement
-- `nht-9bd745` (todo): Stall pressure, thermal headroom, and battery
+**Queue:** Memento is the source of truth. Other open items include Apple Silicon energy (`nht-9de7a2`), CLI parity (`nht-cb0edf`), corpus research (`nht-2613eb`), OpenTUI (`nht-b1794f`), and pressure/thermal/battery (`nht-9bd745`).
 
 <!-- /handoff:next -->
 

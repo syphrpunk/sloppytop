@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## TUI performance baseline and first usability fixes — 2026-11-18
+
+- Added live and synthetic PTY timings, improved constrained layouts and discovery count labels, and removed redundant frame work. Both TUI trackers remain open; live input and resize still miss the measured budgets.
+
+
 ## Guarded st install and TUI visual testing — 2026-11-18
 
 - Installed the guarded `st` symlink; added installer collision tests and captured six TUI frames in tmux. Filed usability and performance follow-ups with reproduction evidence. Passed type-check, build, PTY smokes, and 281 tests with one Linux-only skip on the final run.
