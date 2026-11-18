@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Scrollable TUI history and discovery worker — 2026-11-18
+
+- Added scrollable history and checked disk charts, Unicode search and discovery cancellation through the PTY harness. Moved discovery collection off the input thread.
+
+
 ## TUI metric parity and direct PTY resize — 2026-11-18
 
 - Added hardware and cgroup views with visual checks. Measured direct kernel PTY resize and shortened the renderer debounce; cold startup and broader visual/performance acceptance remain open.
