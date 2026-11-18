@@ -280,3 +280,18 @@ The captures are local under `~/tmp/st-instruments.PqHJI7/` (`fresh.trace`
 and `repeat.trace`). Inspect `thread-narrative` and `syscall` via
 `xctrace export --xpath '/trace-toc/run/data/table[@schema="…"]'`.
 Raw captures can contain host process metadata and are not committed.
+
+### Second Mac: mbp2023
+
+Ran the same ARM64 binary (verified by SHA-256) on macOS 27.0.1 using
+the direct PTY smoke. Each of five APFS copies was launched twice, with
+temporary config and no global install or service changes.
+
+| Launch | First frame | Populated table | Shrink |
+|---|---:|---:|---:|
+| Fresh copy | 1,239–1,485 ms | 2,456–2,746 ms | 18.5–20.1 ms |
+| Repeat | 82.5–84.8 ms | 1,284–1,365 ms | 17.7–20.0 ms |
+
+All ten live smokes passed, but the fresh-file startup budgets still
+failed. This independently reproduces the first-launch penalty; no
+system trace was taken on the second host to attribute it there.
