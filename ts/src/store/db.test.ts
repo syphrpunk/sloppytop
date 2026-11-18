@@ -184,7 +184,7 @@ describe('metrics store', () => {
     db.close()
   })
 
-  test('adds nullable columns to a database created before swap and battery', () => {
+  test('migrates required legacy network fields without rewriting their meaning', () => {
     const dir = mkdtempSync(join(tmpdir(), 'sloppytop-db-'))
     const path = join(dir, 'old.db')
     let old: Database | undefined = new Database(path)
@@ -210,7 +210,7 @@ describe('metrics store', () => {
     )`)
     old.run(`INSERT INTO system_samples VALUES (
       1, '2026-01-01T00:00:00.000Z', 'old', 0, '[]',
-      100, 0, 100, 0, 0, 0, 0, 0, 100, 0, 100, 1, 0
+      100, 0, 100, 0, 0, 0, 0, 17, 100, 0, 100, 1, 0
     )`)
     old.close()
     old = undefined
@@ -232,16 +232,21 @@ describe('metrics store', () => {
     expect(names).toContain('cpu_core_kinds')
     const legacy = queryHistory(db, '2026-01-01T00:00:00.000Z', 1)[0]!
     expect(legacy.id).toBe(1)
+    expect(legacy.network_rx_bytes).toBe(0)
+    expect(legacy.network_tx_bytes).toBe(17)
     expect(legacy).not.toHaveProperty('linux_oom_kills')
     insertSample(
       db,
       new Date().toISOString(),
-      { ...system, swap_total_bytes: 100, swap_used_bytes: 40 },
+      { ...system, network_rx_bytes: undefined, network_tx_bytes: 0, swap_total_bytes: 100, swap_used_bytes: 40 },
       [],
       { processLimit: 1, retentionDays: 30 },
     )
     const row = queryHistory(db, new Date(Date.now() - 3_600_000).toISOString(), 1)[0]!
     expect(row.swap_used_bytes).toBe(40)
+    expect(row).not.toHaveProperty('network_rx_bytes')
+    expect(row.network_tx_bytes).toBe(0)
+    expect(db.query('PRAGMA integrity_check').get()).toEqual({ integrity_check: 'ok' })
     expect(row).not.toHaveProperty('battery_charge_percent')
     expect(row).not.toHaveProperty('linux_oom_kills')
     db.close()

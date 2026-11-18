@@ -82,8 +82,6 @@ describe('AGX performance statistics', () => {
       memoryTotal: 1,
       memoryUsed: 1,
       memoryFree: 0,
-      netRxTotal: 0,
-      netTxTotal: 0,
       diskTotal: 1,
       diskUsed: 0,
       diskFree: 1,

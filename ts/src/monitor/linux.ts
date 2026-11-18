@@ -6,6 +6,7 @@ import { hostname, release } from 'node:os'
 import { parseCgroupPath } from './cgroup.ts'
 import { parseDiskstats } from './disk.ts'
 import { memoryFromMeminfo, pagingFromVmstat } from './memory.ts'
+import { parseProcNetDev } from './network.ts'
 import { flagOn, type CollectFlags } from './probes.ts'
 import { parseGpuBusyPercent, parseGpuMemoryBytes, parseHwmonInput } from './sensors.ts'
 import type { CoreTicks, FanReading, GpuActivity, PlatformSample, ProcessDetail, RawProc, TemperatureReading } from './types.ts'
@@ -259,17 +260,12 @@ function parseMaybe<T>(text: string | undefined, parse: (value: string) => T | n
   return parsed === null ? undefined : parsed
 }
 
-function collectNet(): { rx: number; tx: number } {
-  let rx = 0
-  let tx = 0
-  for (const line of readProc('net/dev').split('\n').slice(2)) {
-    const m = line.match(/^\s*([^:]+):\s*(.*)$/)
-    if (!m || m[1] === 'lo') continue
-    const f = m[2]!.trim().split(/\s+/)
-    rx += Number(f[0] ?? 0)
-    tx += Number(f[8] ?? 0)
+function collectNet() {
+  try {
+    return parseProcNetDev(readProc('net/dev'))
+  } catch {
+    return undefined
   }
-  return { rx, tx }
 }
 
 function collectSwap(): { total: number; used: number } | undefined {
@@ -372,8 +368,7 @@ export function collect(flags?: CollectFlags): PlatformSample {
     ...(mem.cached !== undefined ? { memoryCached: mem.cached } : {}),
     ...(mem.compressed !== undefined ? { memoryCompressed: mem.compressed } : {}),
     ...(pages && hasCounter(pages) ? { pageCounters: pages } : {}),
-    netRxTotal: net.rx,
-    netTxTotal: net.tx,
+    ...(net ? { network: net } : {}),
     diskTotal: disk.total,
     diskUsed: disk.used,
     diskFree: disk.free,

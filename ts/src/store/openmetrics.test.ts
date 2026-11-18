@@ -15,6 +15,15 @@ const row: HistoryRow = {
 }
 
 describe('renderOpenMetrics', () => {
+  test('omits an unmeasured direction and exports a measured zero', () => {
+    for (const metrics of [
+      renderOpenMetrics({ ...row, network_rx_bytes: undefined, network_tx_bytes: 0 }),
+      renderSystemMetrics({ network_tx_bytes: 0 }),
+    ]) {
+      expect(metrics).not.toContain('sloppytop_network_rx_bytes_per_second')
+      expect(metrics).toContain('sloppytop_network_tx_bytes_per_second 0\n')
+    }
+  })
   test('uses an OpenMetrics counter family and preserves zero in live and stored output', () => {
     const metric = '# TYPE sloppytop_linux_oom_kills counter\nsloppytop_linux_oom_kills_total 0\n'
     expect(renderSystemMetrics({ linux_oom_kills: 0 })).toContain(metric)

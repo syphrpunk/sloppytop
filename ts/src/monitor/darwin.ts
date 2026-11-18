@@ -11,6 +11,7 @@ import { flagOn, type CollectFlags } from './probes.ts'
 import { parseIoregDisks } from './disk.ts'
 import { parseAgxGpuTime, parseAgxPerformance } from './gpu.ts'
 import { memoryFromVmStat } from './memory.ts'
+import { parseNetstatBytes } from './network.ts'
 import { coreKinds, owningApp, type PerfLevelCount } from './sensors.ts'
 import type {
   CoreTicks,
@@ -176,28 +177,12 @@ function collectCoreKinds(cpuCount: number): CpuCoreKind[] | undefined {
   }
 }
 
-function collectNet(): { rx: number; tx: number } {
-  const lines = sh('/usr/sbin/netstat', ['-ibn']).split('\n')
-  const header = lines[0]?.trim().split(/\s+/) ?? []
-  const addressIdx = header.indexOf('Address')
-  const ibytesIdx = header.indexOf('Ibytes')
-  const obytesIdx = header.indexOf('Obytes')
-  let rx = 0
-  let tx = 0
-  const seen = new Set<string>()
-  for (const line of lines.slice(1)) {
-    if (!line.includes('<Link#')) continue
-    const parts = line.trim().split(/\s+/)
-    const iface = parts[0]!
-    if (iface.startsWith('lo') || seen.has(iface)) continue
-    seen.add(iface)
-    // Link rows without a MAC address shift columns after Address left by the gap
-    const shift = parts.length < header.length ? header.length - parts.length : 0
-    const at = (idx: number) => Number(parts[idx > addressIdx ? idx - shift : idx] ?? 0)
-    rx += at(ibytesIdx)
-    tx += at(obytesIdx)
+function collectNet() {
+  try {
+    return parseNetstatBytes(sh('/usr/sbin/netstat', ['-ibn']))
+  } catch {
+    return undefined
   }
-  return { rx, tx }
 }
 
 // Bun's node:os polyfill surfaces real host_processor_info tick counters,
@@ -334,8 +319,7 @@ export function collect(flags?: CollectFlags): PlatformSample {
     ...(mem.app !== undefined ? { memoryApp: mem.app } : {}),
     ...(mem.cached !== undefined ? { memoryCached: mem.cached } : {}),
     ...(hasPageCounters(mem.pages) ? { pageCounters: mem.pages } : {}),
-    netRxTotal: net.rx,
-    netTxTotal: net.tx,
+    ...(net ? { network: net } : {}),
     diskTotal: disk.total,
     diskUsed: disk.used,
     diskFree: disk.free,

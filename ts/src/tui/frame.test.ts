@@ -76,6 +76,16 @@ function screen(over: Partial<ScreenState> = {}): ScreenState {
 }
 
 describe('stats strip', () => {
+  test('renders missing network intervals as gaps, not as zeros', () => {
+    const idle = { network_rx_bytes: 0 }
+    const history = pushHistory(pushHistory(emptyHistory(), idle), {})
+    expect(history.rx).toEqual([0, null])
+    const drawn = compose(screen(), { processes: [], system: {}, history })
+    const rx = lineStarting(drawn.text, 'rx')
+    expect(rx).toContain('—')
+    expect(rx).toContain('⠂')
+    expect(rx).not.toContain('0B/s')
+  })
   test('omitted cpu adds no history point, and a measured 0 does', () => {
     expect(pushHistory(emptyHistory(), {}).cpu).toEqual([])
     expect(pushHistory(emptyHistory(), { cpu_usage_total: 0 }).cpu).toEqual([0])

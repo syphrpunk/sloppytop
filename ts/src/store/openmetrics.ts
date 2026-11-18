@@ -7,7 +7,7 @@ import type { HistoryRow } from './db.ts'
  * Prometheus disagree on seconds versus milliseconds.
  */
 export function renderOpenMetrics(row: HistoryRow): string {
-  const gauges: [name: string, help: string, value: number][] = [
+  const gauges: [name: string, help: string, value: number | undefined][] = [
     ['sloppytop_cpu_usage_percent', 'Total CPU usage, 0-100', row.cpu_usage_total],
     ['sloppytop_memory_used_bytes', 'Memory used, bytes', row.memory_used],
     ['sloppytop_load1', 'Load average over 1 minute', row.load_1],
@@ -17,7 +17,7 @@ export function renderOpenMetrics(row: HistoryRow): string {
   ]
   const lines = [`# sloppytop_sample_at ${row.at}`]
   for (const [name, help, value] of gauges) {
-    lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} gauge`, `${name} ${value}`)
+    gauge(lines, name, help, value)
   }
   optionalGauge(lines, 'sloppytop_memory_wired_bytes', 'Wired memory, bytes', row.memory_wired_bytes)
   optionalGauge(lines, 'sloppytop_memory_compressed_bytes', 'Compressed memory, bytes', row.memory_compressed_bytes)

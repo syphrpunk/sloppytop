@@ -39,8 +39,8 @@ CREATE TABLE system_samples (
   memory_used INTEGER NOT NULL,
   memory_free INTEGER NOT NULL,
   load_1 REAL NOT NULL, load_5 REAL NOT NULL, load_15 REAL NOT NULL,
-  network_rx_bytes INTEGER NOT NULL,  -- bytes/s at sample time
-  network_tx_bytes INTEGER NOT NULL,
+  network_rx_bytes INTEGER,         -- bytes/s, NULL when unmeasured
+  network_tx_bytes INTEGER,
   disk_total_bytes INTEGER NOT NULL,
   disk_used_bytes INTEGER NOT NULL,
   disk_free_bytes INTEGER NOT NULL,

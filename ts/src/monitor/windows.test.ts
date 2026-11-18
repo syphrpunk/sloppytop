@@ -13,8 +13,8 @@ const raw = {
     { Size: 500_000_000_000, FreeSpace: 100_000_000_000 },
   ],
   net: [
-    { BytesReceivedPersec: 1_000_000, BytesSentPersec: 500_000 },
-    { BytesReceivedPersec: 2_000_000, BytesSentPersec: 700_000 },
+    { Name: 'a', BytesReceivedPersec: 1_000_000, BytesSentPersec: 500_000 },
+    { Name: 'b', BytesReceivedPersec: 2_000_000, BytesSentPersec: 700_000 },
   ],
   procs: [
     {
@@ -50,8 +50,8 @@ describe('windows buildSample', () => {
     expect(sample.memoryUsed).toBe((16_777_216 - 8_388_608) * 1024)
     expect(sample.diskTotal).toBe(1_500_000_000_000)
     expect(sample.diskFree).toBe(500_000_000_000)
-    expect(sample.netRxTotal).toBe(3_000_000)
-    expect(sample.netTxTotal).toBe(1_200_000)
+    expect(sample.network?.get('a')).toEqual({ rx: 1_000_000, tx: 500_000 })
+    expect(sample.network?.get('b')).toEqual({ rx: 2_000_000, tx: 700_000 })
     expect(sample.loadAvg).toEqual([0, 0, 0])
     expect(sample.osVersion).toBe('Microsoft Windows 11 Pro')
     expect(sample.kernelVersion).toBe('10.0.26100')

@@ -6,6 +6,7 @@ import { diskRates } from './disk.ts'
 import { powerWatts } from './energy.ts'
 import { gpuTimeDeltas } from './gpu.ts'
 import { pageRates, type PageRates } from './memory.ts'
+import { networkRate, type NetworkCounters } from './network.ts'
 import type { CollectFlags } from './probes.ts'
 import type { EnergyNj } from './energy.ts'
 import type {
@@ -22,8 +23,7 @@ const CLK_TCK = 100
 
 interface PrevSample {
   at: number // ms
-  netRx: number
-  netTx: number
+  network?: NetworkCounters
   coreTicks?: { busy: number; total: number }[]
   procTicks: Map<number, number>
   procDisk: Map<number, { read: number; write: number }>
@@ -53,12 +53,11 @@ async function loadPlatform(): Promise<PlatformImpl> {
 }
 
 export class Monitor {
-  #impl!: PlatformImpl
   #prev: PrevSample | null = null
   #sample: PlatformSample | null = null
   #cpuPerCore: number[] = []
-  #netRxRate = 0
-  #netTxRate = 0
+  #netRxRate: number | undefined
+  #netTxRate: number | undefined
   #power: Partial<Record<'cpu' | 'gpu' | 'ane' | 'dram', number>> = {}
   #diskDevices: DiskDevice[] = []
   #procGpuMs = new Map<number, number>()
@@ -68,10 +67,10 @@ export class Monitor {
   #pageRates: PageRates = {}
   #flags: CollectFlags | undefined
 
+  constructor(private readonly impl: PlatformImpl, private readonly clock = () => performance.now()) {}
+
   static async create(): Promise<Monitor> {
-    const m = new Monitor()
-    m.#impl = await loadPlatform()
-    return m
+    return new Monitor(await loadPlatform())
   }
 
   setFlags(flags: CollectFlags | undefined): void {
@@ -83,16 +82,14 @@ export class Monitor {
   }
 
   refresh(): void {
-    const sample = this.#impl.collect(this.#flags)
-    const at = Date.now()
+    const sample = this.impl.collect(this.#flags)
+    const at = this.clock()
     const prev = this.#prev
     const elapsed = prev ? (at - prev.at) / 1000 : 0
 
     // Network rates (bytes/s) from cumulative counter deltas
-    if (prev && elapsed > 0) {
-      this.#netRxRate = Math.max(0, (sample.netRxTotal - prev.netRx) / elapsed)
-      this.#netTxRate = Math.max(0, (sample.netTxTotal - prev.netTx) / elapsed)
-    }
+    this.#netRxRate = networkRate(prev?.network, sample.network, 'rx', elapsed)
+    this.#netTxRate = networkRate(prev?.network, sample.network, 'tx', elapsed)
     this.#power = powerWatts(prev?.energyNj, sample.energyNj, elapsed)
     this.#diskDevices = diskRates(prev?.disks, sample.disks ?? [], elapsed)
     this.#procGpuMs = gpuTimeDeltas(prev?.gpuTimeNs, sample.gpuTimeNs, elapsed)
@@ -158,8 +155,7 @@ export class Monitor {
 
     this.#prev = {
       at,
-      netRx: sample.netRxTotal,
-      netTx: sample.netTxTotal,
+      ...(sample.network ? { network: sample.network } : {}),
       coreTicks: sample.cpuPerCoreTicks,
       procTicks,
       procDisk,
@@ -173,7 +169,7 @@ export class Monitor {
   }
 
   detail(pid: number): ProcessDetail {
-    return this.#impl.detail(pid)
+    return this.impl.detail(pid)
   }
 
   stats(): SystemStats {
@@ -199,8 +195,8 @@ export class Monitor {
       memory_free: s.memoryFree,
       uptime_secs: s.uptimeSecs,
       load_avg: s.loadAvg,
-      network_rx_bytes: Math.round(this.#netRxRate),
-      network_tx_bytes: Math.round(this.#netTxRate),
+      ...(this.#netRxRate !== undefined ? { network_rx_bytes: this.#netRxRate } : {}),
+      ...(this.#netTxRate !== undefined ? { network_tx_bytes: this.#netTxRate } : {}),
       disk_total_bytes: s.diskTotal,
       disk_used_bytes: s.diskUsed,
       disk_free_bytes: s.diskFree,

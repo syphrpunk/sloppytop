@@ -12,6 +12,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { cpus, hostname } from 'node:os'
+import { byteCounter, type NetworkCounters } from './network.ts'
 import type { CoreTicks, DiskCounters, PlatformSample, ProcessDetail, RawProc } from './types.ts'
 
 const PS_SCRIPT = `
@@ -24,7 +25,10 @@ $phys = @()
 try {
   $phys = @(Get-CimInstance Win32_PerfRawData_PerfDisk_PhysicalDisk | Select-Object Name,DiskReadBytesPersec,DiskWriteBytesPersec,DiskReadsPersec,DiskWritesPersec)
 } catch {}
-$net = @(Get-CimInstance Win32_PerfRawData_Tcpip_NetworkInterface | Select-Object BytesReceivedPersec,BytesSentPersec)
+$net = @()
+try {
+  $net = @(Get-CimInstance Win32_PerfRawData_Tcpip_NetworkInterface | Select-Object Name,BytesReceivedPersec,BytesSentPersec)
+} catch {}
 $procs = @(Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,WorkingSetSize,VirtualSize,ThreadCount,CommandLine,KernelModeTime,UserModeTime,ReadTransferCount,WriteTransferCount,@{n='RuntimeSecs';e={ if ($_.CreationDate) { [int](($now - $_.CreationDate).TotalSeconds) } else { 0 } }})
 @{
   cpuBrand = $cpu.Name
@@ -56,7 +60,7 @@ interface RawWindows {
     DiskReadsPersec?: number
     DiskWritesPersec?: number
   }[]
-  net?: { BytesReceivedPersec?: number; BytesSentPersec?: number }[]
+  net?: { Name?: string; BytesReceivedPersec?: number; BytesSentPersec?: number }[]
   procs?: {
     ProcessId?: number
     ParentProcessId?: number
@@ -122,12 +126,7 @@ export function buildSample(raw: RawWindows, coreTicks: CoreTicks[], host: strin
     diskFree += d.FreeSpace ?? 0
   }
   const disks = physicalDisks(raw.phys)
-  let netRx = 0
-  let netTx = 0
-  for (const n of raw.net ?? []) {
-    netRx += n.BytesReceivedPersec ?? 0 // PerfRawData: raw cumulative counter despite the name
-    netTx += n.BytesSentPersec ?? 0
-  }
+  const network = rawNetwork(raw.net)
 
   const memoryTotal = (raw.memoryTotalKb ?? 0) * 1024
   const memoryFree = (raw.memoryFreeKb ?? 0) * 1024
@@ -138,8 +137,7 @@ export function buildSample(raw: RawWindows, coreTicks: CoreTicks[], host: strin
     memoryTotal,
     memoryUsed: memoryTotal - memoryFree,
     memoryFree,
-    netRxTotal: netRx,
-    netTxTotal: netTx,
+    ...(network ? { network } : {}),
     diskTotal,
     diskUsed: diskTotal - diskFree,
     diskFree,
@@ -151,6 +149,20 @@ export function buildSample(raw: RawWindows, coreTicks: CoreTicks[], host: strin
     procs,
     ...(disks ? { disks } : {}),
   }
+}
+
+function rawNetwork(rows: RawWindows['net']): NetworkCounters | undefined {
+  if (!rows?.length) return
+  const counters = new Map<string, { rx?: number; tx?: number }>()
+  for (const row of rows) {
+    if (!row.Name || counters.has(row.Name)) return
+    // PerfRawData supplies cumulative counters despite the field names.
+    counters.set(row.Name, {
+      rx: byteCounter(row.BytesReceivedPersec),
+      tx: byteCounter(row.BytesSentPersec),
+    })
+  }
+  return counters
 }
 
 function physicalDisks(

@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS system_samples (
   load_1 REAL NOT NULL,
   load_5 REAL NOT NULL,
   load_15 REAL NOT NULL,
-  network_rx_bytes INTEGER NOT NULL,
-  network_tx_bytes INTEGER NOT NULL,
+  network_rx_bytes INTEGER,
+  network_tx_bytes INTEGER,
   disk_total_bytes INTEGER NOT NULL,
   disk_used_bytes INTEGER NOT NULL,
   disk_free_bytes INTEGER NOT NULL,
@@ -114,12 +114,29 @@ const ADDED_SYSTEM_COLUMNS: [name: string, type: string][] = [
 
 /** Existing databases were created before these columns. CREATE IF NOT EXISTS will not add them. */
 function ensureSystemColumns(db: Database) {
-  const have = new Set(
-    (db.prepare('PRAGMA table_info(system_samples)').all() as { name: string }[]).map((c) => c.name),
-  )
-  for (const [name, type] of ADDED_SYSTEM_COLUMNS) {
-    if (!have.has(name)) db.run(`ALTER TABLE system_samples ADD COLUMN ${name} ${type}`)
-  }
+  const columns = () =>
+    new Map((db.query('PRAGMA table_info(system_samples)').all() as { name: string; notnull: number }[])
+      .map((c) => [c.name, c.notnull]))
+  const rates = ['network_rx_bytes', 'network_tx_bytes'] as const
+  const current = columns()
+  if (rates.every((name) => current.get(name) === 0)
+    && ADDED_SYSTEM_COLUMNS.every(([name]) => current.has(name))) return
+  db.transaction(() => {
+    const have = columns()
+    for (const [name, type] of ADDED_SYSTEM_COLUMNS) {
+      if (!have.has(name)) db.run(`ALTER TABLE system_samples ADD COLUMN ${name} ${type}`)
+    }
+    // Change only the rate columns. Keep sample IDs, process foreign keys,
+    // indexes, and every legacy value (including ambiguous legacy zeros).
+    for (const name of rates) {
+      if (have.get(name) !== 1) continue
+      const old = `legacy_${name}`
+      db.run(`ALTER TABLE system_samples RENAME COLUMN ${name} TO ${old}`)
+      db.run(`ALTER TABLE system_samples ADD COLUMN ${name} INTEGER`)
+      db.run(`UPDATE system_samples SET ${name} = ${old}`)
+      db.run(`ALTER TABLE system_samples DROP COLUMN ${old}`)
+    }
+  }).immediate()
 }
 
 export function openDb(path = dbPath()): Database {
@@ -239,8 +256,8 @@ export function insertSample(
       system.load_avg[0],
       system.load_avg[1],
       system.load_avg[2],
-      system.network_rx_bytes,
-      system.network_tx_bytes,
+      system.network_rx_bytes ?? null,
+      system.network_tx_bytes ?? null,
       system.disk_total_bytes,
       system.disk_used_bytes,
       system.disk_free_bytes,
@@ -312,8 +329,8 @@ export interface HistoryRow {
   memory_used: number
   memory_total: number
   load_1: number
-  network_rx_bytes: number
-  network_tx_bytes: number
+  network_rx_bytes?: number
+  network_tx_bytes?: number
   process_count: number
   swap_total_bytes?: number
   swap_used_bytes?: number
@@ -350,8 +367,8 @@ interface HistorySqlRow {
   memory_used: number
   memory_total: number
   load_1: number
-  network_rx_bytes: number
-  network_tx_bytes: number
+  network_rx_bytes: number | null
+  network_tx_bytes: number | null
   process_count: number
   swap_total_bytes: number | null
   swap_used_bytes: number | null
@@ -389,10 +406,10 @@ function historyRow(row: HistorySqlRow): HistoryRow {
     memory_used: row.memory_used,
     memory_total: row.memory_total,
     load_1: row.load_1,
-    network_rx_bytes: row.network_rx_bytes,
-    network_tx_bytes: row.network_tx_bytes,
     process_count: row.process_count,
   }
+  if (row.network_rx_bytes != null) out.network_rx_bytes = row.network_rx_bytes
+  if (row.network_tx_bytes != null) out.network_tx_bytes = row.network_tx_bytes
   if (row.swap_total_bytes != null && row.swap_used_bytes != null) {
     out.swap_total_bytes = row.swap_total_bytes
     out.swap_used_bytes = row.swap_used_bytes

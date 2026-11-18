@@ -63,8 +63,8 @@ export interface SampleHistory {
   cpu: number[]
   mem: number[]
   disk: number[]
-  rx: number[]
-  tx: number[]
+  rx: (number | null)[]
+  tx: (number | null)[]
   /** One series per core. Absent from a sample means that tick adds no point. */
   cores: number[][]
 }
@@ -100,7 +100,7 @@ export function emptyHistory(): SampleHistory {
   return { cpu: [], mem: [], disk: [], rx: [], tx: [], cores: [] }
 }
 
-/** Skip a point when the probe omitted the field. A measured 0 is kept. */
+/** Retain missing network intervals as chart gaps. A measured 0 is kept. */
 export function pushHistory(history: SampleHistory, system: Partial<SystemStats>): SampleHistory {
   const next: SampleHistory = {
     cpu: [...history.cpu],
@@ -115,8 +115,8 @@ export function pushHistory(history: SampleHistory, system: Partial<SystemStats>
   if (mem !== undefined) next.mem.push(mem)
   const disk = percent(system.disk_used_bytes, system.disk_total_bytes)
   if (disk !== undefined) next.disk.push(disk)
-  if (system.network_rx_bytes !== undefined) next.rx.push(system.network_rx_bytes)
-  if (system.network_tx_bytes !== undefined) next.tx.push(system.network_tx_bytes)
+  next.rx.push(system.network_rx_bytes ?? null)
+  next.tx.push(system.network_tx_bytes ?? null)
   if (system.cpu_usage_per_core !== undefined) {
     const values = system.cpu_usage_per_core
     if (next.cores.length !== values.length) next.cores = values.map(() => [])
@@ -128,7 +128,7 @@ export function pushHistory(history: SampleHistory, system: Partial<SystemStats>
     }
   }
   for (const key of ['cpu', 'mem', 'disk', 'rx', 'tx'] as const) {
-    if (next[key].length > HISTORY_CAP) next[key] = next[key].slice(-HISTORY_CAP)
+    next[key].splice(0, Math.max(0, next[key].length - HISTORY_CAP))
   }
   return next
 }
@@ -811,11 +811,12 @@ function netRows(system: Partial<SystemStats>, history: SampleHistory, width: nu
   ]
 }
 
-function rateRow(label: string, bytes: number | undefined, series: number[], width: number): string {
-  if (bytes === undefined) return factLine({ label, value: '—' }, width)
-  const value = `${formatBytesCompact(bytes)}/s`
+function rateRow(label: string, bytes: number | undefined, series: (number | null)[], width: number): string {
+  const value = bytes === undefined ? '—' : `${formatBytesCompact(bytes)}/s`
   const room = width - LABEL_W - widthOf(value) - 2
-  const graphic = room >= 4 && series.length > 0 ? sparkline(series, { width: Math.min(room, 24) }) : undefined
+  const graphic = room >= 4 && series.some((point) => point !== null)
+    ? sparkline(series, { width: Math.min(room, 24) })
+    : undefined
   return factLine({ label, value, graphic }, width)
 }
 

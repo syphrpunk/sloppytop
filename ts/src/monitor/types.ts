@@ -66,8 +66,8 @@ export interface SystemStats {
   uptime_secs: number
   load_avg: [number, number, number]
   /** bytes/s since last refresh */
-  network_rx_bytes: number
-  network_tx_bytes: number
+  network_rx_bytes?: number
+  network_tx_bytes?: number
   disk_total_bytes: number
   disk_used_bytes: number
   disk_free_bytes: number
@@ -256,8 +256,7 @@ export interface PlatformSample {
   memoryUsed: number
   memoryFree: number
   /** cumulative interface byte counters; Monitor computes rates */
-  netRxTotal: number
-  netTxTotal: number
+  network?: import('./network.ts').NetworkCounters
   diskTotal: number
   diskUsed: number
   diskFree: number
