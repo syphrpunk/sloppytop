@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Sustained TUI runs and remaining cold-start gate — 2026-11-18
+
+- Verified longer live and synthetic soaks and direct PTY resize. The fresh-file macOS startup gate needs a runtime/distribution decision; no gate was waived.
+
+
 ## Full-session TUI trace and fresh-file startup controls — 2026-11-18
 
 - Recorded full-session lag and RSS after the Unicode fix, and confirmed that APFS clones reproduce the macOS launch delay without entering the TUI.
