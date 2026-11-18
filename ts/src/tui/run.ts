@@ -44,7 +44,8 @@ import {
 import { styleFrame } from './style.ts'
 import { getTheme, type Theme } from './theme.ts'
 import { startTuiTrace } from './trace.ts'
-import { createTuiSampler, type SampleTick } from './sampler.ts'
+import { createCollectorWorker, createTuiSampler, type SampleTick } from './sampler.ts'
+import type { DiscoveryDetail, Overview } from '../discovery/overview.ts'
 
 export function mountFrame(renderer: CliRenderer, theme: Theme): void {
   renderer.root.add(
@@ -75,10 +76,9 @@ export function bindQuit(renderer: CliRenderer, onQuit: () => void): void {
 
 export async function runTui(
   loaders: PageLoaders = defaultPageLoaders(),
-  loadDiscovery = async () => (await import('../discovery/overview.ts')).discoverOverview(),
+  loadDiscovery?: () => Promise<Overview>,
   sampleTick?: SampleTick,
-  loadDiscoveryDetail = async (section: 'connections' | 'dns') =>
-    (await import('../discovery/overview.ts')).discoverDetail(section),
+  loadDiscoveryDetail?: (section: 'connections' | 'dns') => Promise<DiscoveryDetail>,
 ): Promise<void> {
   const started = performance.now()
   const trace = startTuiTrace()
@@ -114,6 +114,8 @@ export async function runTui(
   let storeToken = 0
   let metricsStop: (() => void) | null = null
   const sampler = sampleTick ? undefined : createTuiSampler()
+  const discoveryWorker = createCollectorWorker()
+  let discoveryQueue = Promise.resolve()
 
   const theme = getTheme(state.theme)
   const rendererStarted = performance.now()
@@ -179,6 +181,7 @@ export async function runTui(
     stopped = true
     if (timer) clearTimeout(timer)
     sampler?.close()
+    discoveryWorker.close()
     if (metricsStop) {
       try {
         metricsStop()
@@ -346,8 +349,23 @@ export async function runTui(
         const enabled = state.probes.network
         const section = DISCOVERY_TABS[tab ?? 0]
         const detailTab = section === 'connections' || section === 'dns'
-        const detail = enabled && detailTab ? await loadDiscoveryDetail(section) : undefined
-        const data = enabled && !detailTab ? await loadDiscovery() : undefined
+        let detail: DiscoveryDetail | undefined
+        let data: Overview | undefined
+        if (enabled) {
+          const collect = async () => {
+            if (stopped || token !== storeToken || state.overlay !== 'discovery' || tab !== state.discoveryPage?.tab) return
+            if (detailTab && loadDiscoveryDetail) detail = await loadDiscoveryDetail(section)
+            else if (!detailTab && loadDiscovery) data = await loadDiscovery()
+            else {
+              const result = await discoveryWorker.request({ kind: 'discovery', section: detailTab ? section : 'overview' }, 16_000)
+              if (result && 'detail' in result) detail = result.detail
+              if (result && 'overview' in result) data = result.overview
+            }
+          }
+          const pending = discoveryQueue.then(collect)
+          discoveryQueue = pending.catch(() => {})
+          await pending
+        }
         if (stopped || token !== storeToken || state.overlay !== 'discovery' || !state.discoveryPage) return
         if (tab !== state.discoveryPage.tab) return
         state = { ...state, discoveryPage: { ...state.discoveryPage, loading: false,

@@ -62,6 +62,7 @@ const loaders = {
 }
 
 await runTui(loaders, async () => {
+  if (process.env.ST_FIXTURE_DISCOVERY_DELAY === '350') await Bun.sleep(350)
   const time = new Date('2026-11-18T04:00:00Z')
   const denied = observe('ip address', { issue: 'denied' }, () => ({ rows: [] as never[] }), 'linux', time)
   const cache = observe('ARP cache', { text: '' }, () => ({

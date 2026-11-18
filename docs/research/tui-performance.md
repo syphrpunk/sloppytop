@@ -106,3 +106,9 @@ rebuilding took 1,420 ms to first frame and 2,481 ms to populated; the
 next five took 72–85 and 1,064–1,205 ms respectively. This separates the
 resize bottleneck from tmux, but the fresh-binary startup outlier still
 needs investigation.
+
+Discovery now uses a separate on-demand collector worker. Obsolete queued
+requests are skipped and late results cannot replace a newer tab. In a short
+`just tui-bench --trace --trials 2 --starts 1 --idle 1` run, closing the visible
+loading screen and entering search took 40 ms live and 29–45 ms across fixture
+sizes. The visual smoke separately dismisses a deliberately delayed fixture.

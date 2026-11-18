@@ -1,15 +1,14 @@
 import type { Sample } from '../sample.ts'
-import type { SampleReply } from './sample-worker.ts'
+import type { WorkerReply, WorkerRequest } from './sample-worker.ts'
 
 export type SampleTick = (options: { paused: boolean; sampleMs: number }) => Promise<Sample | undefined>
 
-export function createTuiSampler() {
+export function createCollectorWorker() {
   let worker: Worker | undefined
   let cancel: (() => void) | undefined
   return {
-    async tick({ paused, sampleMs }: { paused: boolean; sampleMs: number }): Promise<Sample | undefined> {
-      if (paused) return undefined
-      if (cancel) throw new Error('sample already running')
+    async request(request: WorkerRequest, timeoutMs: number): Promise<Exclude<WorkerReply, { error: string }> | undefined> {
+      if (cancel) throw new Error('collector already running')
       // Standalone builds embed the second entrypoint under tui/ in Bun's virtual filesystem.
       const active = worker ??= new Worker(
         import.meta.url.includes('$bunfs')
@@ -30,26 +29,26 @@ export function createTuiSampler() {
           active.terminate()
           reject(new Error(message))
         }
-        const timer = setTimeout(() => fail('sampling timed out'), sampleMs + 10_000)
-        const onClose = () => fail('sampling worker exited')
+        const timer = setTimeout(() => fail('collector timed out'), timeoutMs)
+        const onClose = () => fail('collector worker exited')
         active.addEventListener('close', onClose)
         cancel = () => {
           finish()
           resolve(undefined)
         }
-        active.onmessage = ({ data }: MessageEvent<SampleReply>) => {
+        active.onmessage = ({ data }: MessageEvent<WorkerReply>) => {
           finish()
           if ('error' in data) reject(new Error(data.error))
-          else resolve(data.sample)
+          else resolve(data)
         }
         active.onerror = (event) => {
           event.preventDefault()
-          fail('sampling worker failed')
+          fail('collector worker failed')
         }
         try {
-          active.postMessage(sampleMs)
+          active.postMessage(request)
         } catch {
-          fail('could not request sample')
+          fail('could not request collection')
         }
       })
     },
@@ -58,5 +57,17 @@ export function createTuiSampler() {
       worker?.terminate()
       worker = undefined
     },
+  }
+}
+
+export function createTuiSampler() {
+  const worker = createCollectorWorker()
+  return {
+    async tick({ paused, sampleMs }: Parameters<SampleTick>[0]): Promise<Sample | undefined> {
+      if (paused) return undefined
+      const reply = await worker.request({ kind: 'sample', ms: sampleMs }, sampleMs + 10_000)
+      return reply && 'sample' in reply ? reply.sample : undefined
+    },
+    close: worker.close,
   }
 }

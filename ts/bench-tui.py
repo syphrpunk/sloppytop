@@ -30,7 +30,7 @@ def process_usage(pid):
 def bench(binary, rows, trials, idle, starts, trace):
     with tempfile.TemporaryDirectory(prefix="st-bench-") as folder:
         trace_path = Path(folder) / "trace.json"
-        command = shlex.join(["env", f"SLOPPYTOP_TUI_TRACE={trace_path if trace else ''}",
+        command = shlex.join(["env", f"SLOPPYTOP_TUI_TRACE={trace_path if trace else ''}", "ST_FIXTURE_DISCOVERY_DELAY=350",
                               f"XDG_CONFIG_HOME={folder}", f"ST_FIXTURE_ROWS={rows or 24}",
                               str(binary), *([] if rows else ["tui"])])
         base = ["tmux", "-S", f"{folder}/tmux.sock", "-f", "/dev/null"]
@@ -126,6 +126,9 @@ def bench(binary, rows, trials, idle, starts, trace):
             measure("resume_ms", lambda: keys("Space"), lambda f: "FROZEN" not in f and main(f))
             measure("discovery_load_ms", lambda: keys("D"), lambda f: "cached peers" in f)
             measure("discovery_dismiss_ms", lambda: keys("Escape"), main)
+            measure("discovery_loading_ms", lambda: keys("D"), lambda f: "reading local tables" in f)
+            measure("discovery_interrupt_search_ms", lambda: tmux("send-keys", "-t", "bench", "q", "/"),
+                    lambda f: main(f) and "/" in f.splitlines()[-1].split("q quit")[0].split()[-1:])
             stop()
             phases = {"phases_ms": json.loads(trace_path.read_text())} if trace else {}
             for _ in range(starts - 1):

@@ -81,7 +81,8 @@ def svg(ansi, width, height):
 def run(fixture, output):
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="st-visual-") as folder:
-        command = f"exec env ST_VISUAL_HISTORY=1 XDG_CONFIG_HOME={shlex.quote(folder)} {shlex.quote(str(fixture))}"
+        command = (f"exec env ST_VISUAL_HISTORY=1 ST_FIXTURE_DISCOVERY_DELAY=350 "
+                   f"XDG_CONFIG_HOME={shlex.quote(folder)} {shlex.quote(str(fixture))}")
         base = ["tmux", "-S", f"{folder}/tmux.sock", "-f", "/dev/null"]
 
         def tmux(*args, check=True):
@@ -115,6 +116,10 @@ def run(fixture, output):
             capture("01-wide", ["PID", "fixture-worker"], 112, 30)
             tmux("resize-window", "-t", "visual", "-x", "56", "-y", "18")
             capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0"], 56, 18)
+            tmux("send-keys", "-t", "visual", "D")
+            capture("02b-discovery-loading", ["reading local tables…", "q close"], 56, 18)
+            tmux("send-keys", "-t", "visual", "q")
+            capture("02c-discovery-dismissed", ["q quit", "fixture-worker"], 56, 18)
             tmux("send-keys", "-t", "visual", "D")
             capture("03-discovery-coverage", ["TCP listens: unknown", "UDP bound: unknown",
                                               "cached peers (partial)", "denied", "q close"], 56, 18)
