@@ -144,6 +144,10 @@ export async function runTui(
     rows = frame.rows
     layout = frame.layout
     if (state.overlay === 'none') state = { ...state, bodyRows: frame.layout.bodyRows }
+    if (state.overlay === 'discovery' && state.discoveryPage) {
+      const maxOffset = layout.discoveryMaxOffset ?? 0
+      state = { ...state, discoveryPage: { ...state.discoveryPage, maxOffset, offset: Math.min(state.discoveryPage.offset, maxOffset) } }
+    }
     const themeNow = getTheme(state.theme)
     text.width = width
     text.height = height

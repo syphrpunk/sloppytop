@@ -68,7 +68,7 @@ function styleLine(line: string, theme: Theme): StyledText {
   if (line.startsWith('>') || line.startsWith('>*')) return new StyledText([bold(bg(theme.surface1)(fg(theme.text)(line)))])
   if (line.startsWith('* ')) return new StyledText([fg(theme.lavender)(line)])
   if (/^\s+PID/.test(line)) return new StyledText([bold(fg(theme.overlay1)(line))])
-  if (line.includes('q quit')) return colorToolbar(line, theme)
+  if (line.includes('q quit') || line.startsWith('q close')) return colorToolbar(line, theme)
   if (isFooter(line)) return colorFooter(line, theme)
   return colorLabels(line, theme)
 }

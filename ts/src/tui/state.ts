@@ -229,7 +229,7 @@ export interface ScreenState {
   metricsHost: string
   metricsPort: number
   historyPage: HistoryView | null
-  discoveryPage: { tab: number; offset: number; refreshed?: boolean; data?: import('../discovery/overview.ts').Overview; message?: string } | null
+  discoveryPage: { tab: number; offset: number; maxOffset?: number; refreshed?: boolean; data?: import('../discovery/overview.ts').Overview; message?: string } | null
   /** Null is the overview; otherwise an index into available disk metrics. */
   historyDiskIndex: number | null
   reportPage: ReportView | null
@@ -430,10 +430,10 @@ function reduceOverlay(state: ScreenState, key: KeyPress): ReduceResult {
       state: { ...state, discoveryPage: { tab: page.tab, offset: 0, refreshed: true } }, effect: { openDiscovery: true },
     }
     if (key.name === 'left' || key.name === 'right') return {
-      state: { ...state, discoveryPage: { ...page, tab: (page.tab + (key.name === 'left' ? 4 : 1)) % 5, offset: 0 } },
+      state: { ...state, discoveryPage: { ...page, tab: (page.tab + (key.name === 'left' ? 4 : 1)) % 5, offset: 0, maxOffset: 0 } },
     }
     if (key.name === 'up' || key.name === 'down') return {
-      state: { ...state, discoveryPage: { ...page, offset: Math.max(0, page.offset + (key.name === 'up' ? -1 : 1)) } },
+      state: { ...state, discoveryPage: { ...page, offset: Math.min(page.maxOffset ?? 0, Math.max(0, page.offset + (key.name === 'up' ? -1 : 1))) } },
     }
   }
   if (state.overlay === 'history' && state.historyPage?.status === 'ready') {

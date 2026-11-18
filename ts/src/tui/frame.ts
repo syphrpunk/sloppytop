@@ -19,6 +19,7 @@ import {
   widthOf,
 } from './format.ts'
 import {
+  reduce,
   toggleSort,
   visibleRows,
   type DisplayRow,
@@ -81,6 +82,8 @@ export interface Layout {
   columns: ColumnSpan[]
   bodyStart: number
   bodyRows: number
+  discoveryMaxOffset?: number
+  close?: { x: number; y: number; width: number }
 }
 
 export interface Frame {
@@ -154,6 +157,7 @@ export function compose(
   let headerLine = -1
   let bodyStart = lines.length
   let bodyRows = 0
+  let discoveryMaxOffset: number | undefined
   if (state.overlay === 'none') {
     for (const line of stripLines(input.system, input.history, width, height)) {
       if (!add(line)) break
@@ -181,12 +185,19 @@ export function compose(
     add(footerText(state, input.system, view.rows))
   } else {
     bodyStart = lines.length
-    for (const line of framed(overlayTitle(state.overlay), overlayLines(state, input.processes), width)) {
+    const discovery = state.overlay === 'discovery' ? discoveryLines(state) : undefined
+    discoveryMaxOffset = discovery?.maxOffset
+    for (const line of framed(overlayTitle(state.overlay), discovery?.lines ?? overlayLines(state, input.processes), width)) {
       if (!add(line)) break
     }
+    while (lines.length < capacity) add('')
   }
 
-  const toolbar = fit(toolbarText(state, view.rows, input.processes.length, view.error), width)
+  const close = 'q close'
+  const overlayHints = state.overlay === 'kill' ? 'y confirm   n cancel'
+    : state.overlay === 'discovery' ? '←/→ tab   ↑/↓ scroll   r refresh' : ''
+  const toolbar = fit(state.overlay === 'none' ? toolbarText(state, view.rows, input.processes.length, view.error)
+    : [close, overlayHints].filter(Boolean).join('   '), width)
   const text = [...lines, toolbar].slice(0, height).join('\n')
   return {
     text,
@@ -196,6 +207,8 @@ export function compose(
       columns: spans(fitted),
       bodyStart,
       bodyRows,
+      discoveryMaxOffset,
+      ...(state.overlay === 'none' ? {} : { close: { x: 0, y: capacity, width: Math.min(width, close.length) } }),
     },
   }
 }
@@ -207,14 +220,18 @@ export function applyPointer(
   pointer: Pointer,
 ): { state: ScreenState; effect?: ScreenEffect } {
   if (state.overlay !== 'none') {
-    if (pointer.kind !== 'down') return { state }
-    if (state.overlay === 'columns' || state.overlay === 'theme') {
-      return {
-        state: { ...state, overlay: 'none' },
-        effect: { tui: { columns: state.columns, theme: state.theme, refreshMs: state.refreshMs } },
-      }
+    const close = layout.close
+    if (pointer.kind === 'down' && close && pointer.y === close.y && pointer.x >= close.x && pointer.x < close.x + close.width) {
+      return reduce(state, { name: 'q', ctrl: false, shift: false }, rows)
     }
-    return { state: { ...state, overlay: 'none' } }
+    if (pointer.kind === 'scroll' && pointer.scroll && ['discovery', 'columns', 'theme', 'settings'].includes(state.overlay)) {
+      const page = state.discoveryPage
+      const maxOffset = layout.discoveryMaxOffset ?? 0
+      const bounded = state.overlay === 'discovery' && page
+        ? { ...state, discoveryPage: { ...page, maxOffset, offset: Math.min(page.offset, maxOffset) } } : state
+      return reduce(bounded, { name: pointer.scroll, ctrl: false, shift: false }, rows)
+    }
+    return { state }
   }
 
   if (pointer.kind === 'scroll') {
@@ -996,7 +1013,6 @@ function overlayLines(state: ScreenState, processes: ProcessInfo[]): string[] {
   if (state.overlay === 'theme') return themeLines(state)
   if (state.overlay === 'net' || state.overlay === 'listen' || state.overlay === 'hardware') return pageLines(state)
   if (state.overlay === 'history') return historyLines(state)
-  if (state.overlay === 'discovery') return discoveryLines(state)
   if (state.overlay === 'report') return reportLines(state)
   if (state.overlay === 'log') return logLines(state)
   if (state.overlay === 'settings') return settingsLines(state)
@@ -1092,10 +1108,10 @@ function discoveryCount(
   return `${label}: unknown`
 }
 
-function discoveryLines(state: ScreenState): string[] {
+function discoveryLines(state: ScreenState): { lines: string[]; maxOffset: number } {
   const page = state.discoveryPage
   const data = page?.data
-  if (!page || !data) return [page?.message ?? 'reading local tables…', 'esc  close']
+  if (!page || !data) return { lines: [page?.message ?? 'reading local tables…'], maxOffset: 0 }
   const section = (['overview', 'interfaces', 'routes', 'neighbors', 'listeners'] as const)[page.tab] ?? 'overview'
   const lines: string[] = []
   const provider = (p: { source: string; status: string; observed_at: string; issues: string[]; rows: unknown[] }) =>
@@ -1128,11 +1144,11 @@ function discoveryLines(state: ScreenState): string[] {
   } else {
     for (const p of data.listeners) lines.push(provider(p), ...p.rows.map((r) => `${r.protocol}${r.family} ${r.scope} ${r.address}:${r.port} ${r.owner_visibility}`))
   }
-  const size = Math.max(1, state.height - 7)
-  const offset = Math.min(page.offset, Math.max(0, lines.length - size))
-  return [`${section} · ${data.collected_at.slice(11, 19)}Z${page.refreshed ? ' refreshed' : ''}`,
-    ...lines.slice(offset, offset + size).map((line) => plain(line)),
-    '←/→ tab  ↑/↓ scroll  r refresh  esc close']
+  const size = Math.max(0, state.height - 5)
+  const maxOffset = Math.max(0, lines.length - size)
+  const offset = Math.min(page.offset, maxOffset)
+  return { maxOffset, lines: [`${section} · ${data.collected_at.slice(11, 19)}Z${page.refreshed ? ' refreshed' : ''}`,
+    ...lines.slice(offset, offset + size).map((line) => plain(line))] }
 }
 
 function historyChart(label: string, values: readonly SparklinePoint[], width: number, max?: number, breaks: readonly number[] = []): string {

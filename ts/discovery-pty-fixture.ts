@@ -30,7 +30,9 @@ await runTui(undefined, async () => {
   const time = new Date('2026-11-18T04:00:00Z')
   const denied = observe('ip address', { issue: 'denied' }, () => ({ rows: [] as never[] }), 'linux', time)
   const cache = observe('ARP cache', { text: '' }, () => ({
-    rows: [{ interface: 'eth0', family: 6 as const, address: 'fe80::1%eth0', state: 'stale' }],
+    rows: Array.from({ length: 20 }, (_, i) => ({
+      interface: 'eth0', family: 6 as const, address: `fe80::${(i + 1).toString(16)}%eth0`, state: 'stale',
+    })),
     issues: ['visibility'],
   }), 'linux', time)
   return composeOverview([denied], [], [cache], [], 'fixture', time)

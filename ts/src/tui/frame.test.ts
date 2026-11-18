@@ -118,6 +118,26 @@ test('discovery counts show observed empty and incomplete families independently
   expect(text).toContain('0 cached peers (not online status)')
 })
 
+test('overlay wheel and keyboard share bounds and only the close target dismisses', () => {
+  const at = new Date('2026-01-01T12:34:56Z')
+  const providers = Array.from({ length: 20 }, (_, i) =>
+    observe(`provider${i}`, { issue: 'denied' }, () => ({ rows: [] as never[] }), 'linux', at))
+  const data = composeOverview(providers, [], [], [], 'test', at)
+  let state = screen({ width: 56, height: 18, overlay: 'discovery', discoveryPage: { tab: 0, offset: 0, data } })
+  const input = { processes: [], system: {}, history: emptyHistory() }
+  const { text, layout } = compose(state, input)
+  expect(text.split('\n').at(-1)).toContain('q close')
+  expect(text).not.toContain('q quit')
+  expect(applyPointer(state, layout, [], { x: 2, y: 3, kind: 'down' }).state).toBe(state)
+  for (let i = 0; i < 50; i++) {
+    state = applyPointer(state, layout, [], { x: 2, y: 3, kind: 'scroll', scroll: 'down' }).state
+  }
+  expect(state.discoveryPage?.offset).toBe(layout.discoveryMaxOffset)
+  state = reduce(state, key('up'), []).state
+  expect(state.discoveryPage?.offset).toBe(layout.discoveryMaxOffset! - 1)
+  expect(applyPointer(state, layout, [], { x: 2, y: 17, kind: 'down' }).state.overlay).toBe('none')
+})
+
 test('short wide and narrow screens favor process rows and primary metrics', () => {
   const processes = [proc({ pid: 42, name: '界-worker', cpu_usage: 32, memory_bytes: 450 * 2 ** 20 })]
   const system = measured({ cpu_usage_per_core: [1, 2, 3, 4], core_count: 4 })

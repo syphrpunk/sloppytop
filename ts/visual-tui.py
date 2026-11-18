@@ -2,6 +2,7 @@
 """Capture OpenTUI through tmux's terminal emulator, using synthetic data only."""
 
 import argparse
+import difflib
 import html
 import os
 from pathlib import Path
@@ -86,7 +87,7 @@ def run(fixture, output):
         def tmux(*args, check=True):
             return subprocess.run([*base, *args], check=check, text=True, capture_output=True, timeout=10).stdout
 
-        def capture(label, expected, width, height):
+        def capture(label, expected, width, height, *, compare=False):
             deadline = time.monotonic() + 8
             while time.monotonic() < deadline:
                 plain = tmux("capture-pane", "-p", "-t", "visual")
@@ -97,6 +98,13 @@ def run(fixture, output):
                     converter = shutil.which("rsvg-convert")
                     if converter:
                         subprocess.run([converter, str(output / f"{label}.svg"), "-o", str(output / f"{label}.png")], check=True, timeout=10)
+                    baseline = Path(__file__).with_name("tui-baselines") / f"{label}.txt"
+                    if compare:
+                        expected_frame = baseline.read_text(encoding="utf-8")
+                        if plain != expected_frame:
+                            diff = difflib.unified_diff(expected_frame.splitlines(True), plain.splitlines(True),
+                                                        fromfile=str(baseline), tofile=str(output / f"{label}.txt"))
+                            raise RuntimeError("terminal frame changed:\n" + "".join(diff))
                     return
                 time.sleep(.06)
             raise RuntimeError(f"{label}: expected {expected!r}\n{plain}")
@@ -108,14 +116,19 @@ def run(fixture, output):
             capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0"], 56, 18)
             tmux("send-keys", "-t", "visual", "D")
             capture("03-discovery-coverage", ["TCP listens: unknown", "UDP bound: unknown",
-                                              "cached peers (partial)", "denied"], 56, 18)
+                                              "cached peers (partial)", "denied", "q close"], 56, 18)
             for _ in range(3):
                 tmux("send-keys", "-t", "visual", "Right")
             capture("04-neighbors", ["ARP cache: partial", "fe80::1%eth0"], 56, 18)
+            # SGR wheel down delivered to the screen's PTY, not tmux's copy mode.
+            tmux("send-keys", "-t", "visual", "-l", "\x1b[<65;9;7M" * 24)
+            capture("04b-neighbors-bottom", ["fe80::14%eth0", "q close"], 56, 18, compare=True)
+            tmux("send-keys", "-t", "visual", "Up")
+            capture("04c-neighbors-up", ["fe80::7%eth0", "q close"], 56, 18)
             tmux("send-keys", "-t", "visual", "r")
             capture("05-refreshed", ["refreshed", "fe80::1%eth0"], 56, 18)
-            tmux("send-keys", "-t", "visual", "Escape")
-            capture("06-return", ["sloppytop", "system", "PID", "fixture-worker"], 56, 18)
+            tmux("send-keys", "-t", "visual", "-l", "\x1b[<0;2;18M\x1b[<0;2;18m")
+            capture("06-return", ["sloppytop", "system", "PID", "fixture-worker", "q quit"], 56, 18)
             tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")
             capture("07-grow", ["sloppytop", "╭─ cpu", "PID", "fixture-worker"], 112, 30)
             tmux("send-keys", "-t", "visual", "q")
