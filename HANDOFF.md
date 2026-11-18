@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 19e6a39 feat(tui): compare recorded disk metrics in history
+HEAD: 30d2fa4 feat: add workload summaries and experimental NVIDIA sampling
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -41,6 +41,10 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 [Deep dive 02](docs/research/slices/02-linux-memory-pressure-and-oom.md) is complete (`nht-9f5f15`): the optional Linux kernel count appears in system samples, history and OpenMetrics. Reports compare adjacent same-boot samples and keep kills separate from pressure. Verified read-only against live Linux procfs. Next research candidate: per-device disk history and topology.
 
 [Deep dive 03](docs/research/slices/03-device-disk-history.md) is complete (`nht-ed576c`): CLI and TUI compare recorded disks on shared scales. Read-only Linux and macOS checks support keeping the graphs grouped by recorded name, without implying durable hardware identity or adding topology to the sampling path.
+
+[Slices 04](docs/research/slices/04-live-network-rates.md), [05](docs/research/slices/05-linux-hwmon-electrical.md), [06](docs/research/slices/06-macos-battery-capacity.md), and [08](docs/research/slices/08-workload-resource-use.md) are implemented and verified locally: host network rate validity (`nht-4e0e0e` closed), Linux hwmon electrical readings, macOS raw battery capacity on demand, and visible process-subtree summaries. All changes are committed locally; nothing was pushed.
+
+[Slice 07](docs/research/slices/07-nvidia-telemetry.md) has a bounded experimental Linux probe. Fixtures and the driver-free Linux smoke passed. The five-slice goal remains incomplete until the probe reports utilization and VRAM on a real Linux NVIDIA host with its device and driver recorded. The slice document contains the validation commands.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -53,12 +57,11 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 
 <!-- handoff:next -->
 
-**Queue: the configured task manager below (source of truth); the configured queue view, if any, is generated from it.**
+**Slice 07 validation:** Obtain a Linux host with a real NVIDIA GPU and working `nvidia-smi`. Run the comparison in the slice document and record device, driver, utilization and VRAM. Do not mark the five-slice goal complete before verification.
 
-Open tasks (Memento snapshot):
+**Queue: Memento is the source of truth.**
 
 - `nht-9de7a2` (todo): Apple Silicon energy sample
-- `nht-4e0e0e` (todo): Carry live network rate validity through collection and storage
 - `nht-cb0edf` (todo): Expand the CLI past process-table parity
 - `nht-2613eb` (todo): Harvest faculties from the _repos monitor corpus
 - `nht-b1794f` (todo): OpenTUI TUI replacement

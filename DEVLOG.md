@@ -4,6 +4,13 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Network, hwmon, battery and workload slices verified — 2026-11-18
+
+- Closed `nht-4e0e0e`; verified legacy network rows, zero vs. absent rates, HTTP metrics and recorded history. Verified hwmon fixtures and Linux omission, live macOS battery inventory and recorder isolation, and verified process-subtree summaries on Linux and macOS.
+- Final checks: 256 passed on macOS (one Linux-only skip), 257 passed on Linux arm64. Type-check and compiled build passed on both, plus macOS TUI PTY smoke. Linux dependencies were installed with explicit target flags in a scratch copy to avoid using macOS native packages.
+- Experimental NVIDIA helper failure paths and driver-free smoke passed; real NVIDIA device, driver, utilization and VRAM evidence is still required.
+
+
 ## Per-device disk history completed — 2026-11-18
 
 - Added TUI disk history (`v` then `d`), verified the compiled CLI and interactive TUI against a temporary SQLite fixture, and documented read-only Linux/macOS topology findings. 245 tests passed, plus type-check, build, and TUI smoke.

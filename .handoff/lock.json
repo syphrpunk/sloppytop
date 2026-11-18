@@ -1,27 +1,27 @@
 {
   "schemaVersion": "1",
-  "updatedAt": "2026-11-18T02:02:45Z",
-  "updatedBy": "pi",
+  "updatedAt": "2026-11-18T03:04:50Z",
+  "updatedBy": "MBARemote.local",
   "files": {
     "HANDOFF.md": {
-      "sha256": "50faf4e020e665115b094eb30a6e8dd86e42fe394ab66e91c89a9cd9e48ae3ad",
-      "bytes": 4951,
-      "modifiedAt": "2026-11-18T02:03:02Z"
+      "sha256": "c69d1c34c2709f4cfc3044748247fbffaf1726e3b7df4f3c5f396ce6a14c5c9c",
+      "bytes": 5846,
+      "modifiedAt": "2026-11-18T03:04:50Z"
     },
     "DEVLOG.md": {
-      "sha256": "e6beb601efa1b3013681d06bc36d25a11dc68772a0a29d24b63f06cc76b01c69",
-      "bytes": 3144,
-      "modifiedAt": "2026-11-18T02:03:02Z"
+      "sha256": "5412c0ae1963e82796817fc48a55ac0b96b527590f8e53d6335ac98a79bdeb2e",
+      "bytes": 3910,
+      "modifiedAt": "2026-11-18T03:04:50Z"
     },
     "CHANGELOG.md": {
-      "sha256": "1a5e05e9d3bf0074506a6bdf4669e99ba90cb0d5c1344cbd8c79232afbc899d3",
-      "bytes": 6088,
-      "modifiedAt": "2026-11-18T02:02:39Z"
+      "sha256": "de145a310cb63f75861a2617915eac60acfc371cf1b4b0b1e394497e58a7e755",
+      "bytes": 6715,
+      "modifiedAt": "2026-11-18T03:00:18Z"
     },
     ".handoff/config.yaml": {
-      "sha256": "e0dec954573b9072d130cdf86eb38cda16a7c376d52f046c7a44d3f912b4b42a",
+      "sha256": "00f2276120df2d9fd1b71ce5b3f3b70e5dc81ade25e0b03400d837d6dbd9429b",
       "bytes": 1278,
-      "modifiedAt": "2026-11-18T02:03:02Z"
+      "modifiedAt": "2026-11-18T03:04:50Z"
     }
   }
 }
