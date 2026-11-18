@@ -33,7 +33,7 @@ test('bounds file reads, excludes incomplete lines, and does not invoke a shell'
 })
 
 test.skipIf(process.platform === 'win32')('bounds native command output as well as files', () => {
-  const output = localCommand('/usr/bin/yes', ['line'])
+  const output = localCommand(process.execPath, ['-e', 'process.stdout.write("line\\n".repeat(200_000))'])
   expect(output).toHaveProperty('clipped', true)
   if (!('text' in output)) throw Error('expected clipped output')
   expect(Buffer.byteLength(output.text)).toBeLessThanOrEqual(MAX_BYTES)

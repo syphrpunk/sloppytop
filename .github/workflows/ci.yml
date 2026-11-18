@@ -17,7 +17,8 @@ jobs:
           bun-version: canary
       - name: Install dependencies
         working-directory: ts
-        run: bun install --frozen-lockfile
+        # OpenTUI's Linux bundle references both libc variants at build time.
+        run: bun install --frozen-lockfile --libc='*'
       - name: Type-check and test
         working-directory: ts
         run: |

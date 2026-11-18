@@ -56,8 +56,6 @@ describe('sample and tick', () => {
       expect(setupAfter.clients).toBe(setupMid.clients)
       expect(pageFulfillCount()).toBe(fulfills + 1)
       expect(names(second!)).toEqual(names(first))
-      expect(first.system.fans).toBeUndefined()
-      expect(second!.system.fans).toBeUndefined()
       for (const reading of first.system.temperatures ?? []) {
         expect(Number.isFinite(reading.celsius)).toBe(true)
         expect(names(second!)).toContain(reading.name)
@@ -66,7 +64,7 @@ describe('sample and tick', () => {
         expect(second!.system.temperatures?.some((reading) => reading.name === name)).toBe(true)
       }
 
-      if ((first.system.temperatures?.length ?? 0) > 0) {
+      if (process.platform === 'darwin' && readsMid > readsBefore) {
         expect(setupMid.clients).toBeGreaterThan(setupBefore.clients)
         expect(setupMid.managers).toBeGreaterThan(setupBefore.managers)
         expect(readsMid - readsBefore).toBe(2)

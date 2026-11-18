@@ -5,7 +5,7 @@ default: build
 
 # Install TypeScript dependencies
 setup:
-    cd ts && bun install
+    cd ts && bun install --libc='*'
 
 # Compile this checkout to ts/dist/sloppytop
 build:
@@ -31,7 +31,7 @@ install directory="/usr/local/bin": build
 
 # Install TS dependencies
 ts-setup:
-    cd ts && bun install
+    cd ts && bun install --libc='*'
 
 # Run the TS CLI (pass args after --, e.g. `just ts top --count 5`)
 ts *args:
@@ -55,6 +55,10 @@ ts-compile: build
 # Quit-check the compiled screen. Uses a temp config dir and does not print the frame.
 ts-smoke:
     python3 ts/smoke-tui.py ts/dist/sloppytop
+
+# Check one temporary DB through the compiled recorder, reports and TUI (needs tmux).
+ts-smoke-diagnosis:
+    python3 ts/smoke-tui.py ts/dist/sloppytop --history
 
 # Capture synthetic terminal frames (text and SVG, plus PNG with rsvg-convert)
 tui-visual output="ts/dist/tui-visual":

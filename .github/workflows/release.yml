@@ -51,7 +51,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ts
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --libc='*'
 
       - name: Type-check and test
         working-directory: ts

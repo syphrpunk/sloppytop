@@ -8,11 +8,14 @@ process exits before it draws.
 
 import fcntl
 import argparse
+import json
 import os
 import pty
 import re
 import select
+import shlex
 import struct
+import subprocess
 import sys
 import tempfile
 import termios
@@ -26,7 +29,9 @@ LIVE_ROW = re.compile(rb"> +\d+\b")
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary")
-    parser.add_argument("--timings", action="store_true", help="report startup and direct PTY shrink latency")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--timings", action="store_true", help="report startup and direct PTY shrink latency")
+    modes.add_argument("--history", action="store_true", help="verify record, history, report and TUI against one temporary DB")
     args = parser.parse_args()
     binary = os.path.abspath(args.binary)
     if not os.path.isfile(binary) or not os.access(binary, os.X_OK):
@@ -34,7 +39,55 @@ def main() -> int:
         return 2
 
     with tempfile.TemporaryDirectory(prefix="sloppytop-smoke-") as config:
+        if args.history:
+            env = {**os.environ, "XDG_CONFIG_HOME": config}
+
+            def run(*args):
+                return json.loads(subprocess.check_output([binary, *args, "--format", "json"], env=env, timeout=20))
+
+            recorded = run("record")
+            history = run("history")
+            report = run("report")
+            diagnostic = run("report", "--diagnostic")
+            if not (recorded["recorded"] and history["returned"] == 1
+                    and history["samples"][0]["id"] == recorded["sample_id"]
+                    and report["window"]["samples"] == 1
+                    and diagnostic["redacted"] and diagnostic["coverage"]["samples"] == 1):
+                raise RuntimeError("compiled diagnosis commands did not agree on the recorded sample")
+            return smoke_history(binary, config, env)
         return smoke(binary, config, args.timings)
+
+def smoke_history(binary: str, config: str, env: dict) -> int:
+    base = ["tmux", "-S", os.path.join(config, "smoke.sock"), "-f", "/dev/null"]
+
+    def tmux(*args, check=True):
+        return subprocess.run([*base, *args], env=env, check=check, timeout=10,
+                              text=True, capture_output=True)
+
+    def wait_frame(*markers):
+        deadline = time.monotonic() + 12
+        while time.monotonic() < deadline:
+            frame = tmux("capture-pane", "-pt", "smoke").stdout
+            if all(marker in frame for marker in markers):
+                return
+            time.sleep(0.05)
+        raise RuntimeError(f"missing terminal markers: {markers}")
+
+    try:
+        command = f"exec env XDG_CONFIG_HOME={shlex.quote(config)} {shlex.quote(binary)} tui"
+        tmux("new-session", "-d", "-x", "112", "-y", "30", "-s", "smoke", command)
+        wait_frame("q quit", "PID")
+        tmux("send-keys", "-t", "smoke", "v")
+        wait_frame("i inspect")
+        tmux("send-keys", "-t", "smoke", "i")
+        wait_frame("history sample 1/1", "recorded interfaces")
+        tmux("send-keys", "-t", "smoke", "q")
+        wait_frame("q quit")
+        tmux("send-keys", "-t", "smoke", "q")
+        print("compiled diagnosis smoke ok: one recording reached history, report and TUI")
+        return 0
+    finally:
+        tmux("kill-server", check=False)
 
 
 def smoke(binary: str, config: str, timings: bool) -> int:
