@@ -26,9 +26,20 @@ function sh(cmd: string, args: string[]): string {
   return execFileSync(cmd, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
 }
 
-function sysctl(name: string): string {
-  return sh('/usr/sbin/sysctl', ['-n', name]).trim()
+/** One named read per batch, never cached across refreshes. A missing key (or
+ * failed batch) uses the original individual read and its caller's error policy. */
+export function batchSysctl(names: string[], run = sh): (name: string) => string {
+  const values = new Map<string, string>()
+  try {
+    for (const line of run('/usr/sbin/sysctl', ['-i', ...names]).split('\n')) {
+      const sep = line.indexOf(':')
+      if (sep > 0) values.set(line.slice(0, sep), line.slice(sep + 1).trim())
+    }
+  } catch { /* Fall back to individual reads below. */ }
+  return (name) => values.get(name) ?? run('/usr/sbin/sysctl', ['-n', name]).trim()
 }
+
+type Sysctl = ReturnType<typeof batchSysctl>
 
 const STATUS_MAP: Record<string, string> = {
   R: 'Running',
@@ -145,7 +156,7 @@ export function detail(pid: number): ProcessDetail {
   return { ...(cwd ? { cwd } : {}), environ: ffi.environ(pid) }
 }
 
-function collectMemory(total: number) {
+function collectMemory(total: number, sysctl: Sysctl) {
   let pageSize = 0
   try {
     pageSize = Number(sysctl('hw.pagesize'))
@@ -156,16 +167,18 @@ function collectMemory(total: number) {
 }
 
 /** `hw.perflevel0` is the highest-performance cluster and is listed first. */
-function collectCoreKinds(cpuCount: number): CpuCoreKind[] | undefined {
+function collectCoreKinds(cpuCount: number, sysctl: Sysctl): CpuCoreKind[] | undefined {
   try {
     const n = Number(sysctl('hw.nperflevels'))
     if (!Number.isInteger(n) || n <= 0 || n > 8) return
+    const readLevel = batchSysctl(Array.from({ length: n }, (_, i) =>
+      [`hw.perflevel${i}.logicalcpu`, `hw.perflevel${i}.name`]).flat())
     const levels: PerfLevelCount[] = []
     for (let i = 0; i < n; i++) {
-      const logicalCpu = Number(sysctl(`hw.perflevel${i}.logicalcpu`))
+      const logicalCpu = Number(readLevel(`hw.perflevel${i}.logicalcpu`))
       let name: string | undefined
       try {
-        name = sysctl(`hw.perflevel${i}.name`)
+        name = readLevel(`hw.perflevel${i}.name`)
       } catch {
         name = undefined
       }
@@ -195,7 +208,7 @@ function collectCoreTicks(): CoreTicks[] {
   })
 }
 
-function collectSwap(): { total: number; used: number } | undefined {
+function collectSwap(sysctl: Sysctl): { total: number; used: number } | undefined {
   try {
     return parseSwapUsage(sysctl('vm.swapusage')) ?? undefined
   } catch {
@@ -220,7 +233,7 @@ export function parseMemoryPressureLevel(text: string): MemoryPressureLevel | nu
   }
 }
 
-function collectMemoryPressure(): MemoryPressureLevel | undefined {
+function collectMemoryPressure(sysctl: Sysctl): MemoryPressureLevel | undefined {
   try {
     return parseMemoryPressureLevel(sysctl('kern.memorystatus_vm_pressure_level')) ?? undefined
   } catch {
@@ -280,19 +293,24 @@ function collectDisk(): { total: number; used: number; free: number } {
 }
 
 export function collect(flags?: CollectFlags): PlatformSample {
+  const sysctl = batchSysctl([
+    'hw.memsize', 'hw.pagesize', 'hw.nperflevels', 'kern.boottime', 'vm.loadavg', 'machdep.cpu.brand_string', 'hw.ncpu',
+    ...(flagOn(flags, 'swap') ? ['vm.swapusage'] : []),
+    ...(flagOn(flags, 'pressure') ? ['kern.memorystatus_vm_pressure_level'] : []),
+  ])
   const memoryTotal = Number(sysctl('hw.memsize'))
-  const mem = collectMemory(memoryTotal)
+  const mem = collectMemory(memoryTotal, sysctl)
   const net = collectNet()
   const disk = collectDisk()
   const disks = flagOn(flags, 'diskDevices') ? collectDiskCounters() : undefined
   const gpuTimeNs = flagOn(flags, 'gpu') ? collectGpuTime() : undefined
   const gpuActivity = flagOn(flags, 'gpu') ? collectGpuActivity() : undefined
-  const swap = flagOn(flags, 'swap') ? collectSwap() : undefined
+  const swap = flagOn(flags, 'swap') ? collectSwap(sysctl) : undefined
   const battery = flagOn(flags, 'battery') ? collectBattery() : undefined
-  const memoryPressureLevel = flagOn(flags, 'pressure') ? collectMemoryPressure() : undefined
+  const memoryPressureLevel = flagOn(flags, 'pressure') ? collectMemoryPressure(sysctl) : undefined
   const energyNj = flagOn(flags, 'power') ? readEnergy() : null
   const cores = collectCoreTicks()
-  const cpuCoreKinds = collectCoreKinds(cores.length)
+  const cpuCoreKinds = collectCoreKinds(cores.length, sysctl)
   const temperatures = flagOn(flags, 'sensors') ? readHidTemperatures() : undefined
   const thermalState = flagOn(flags, 'sensors') ? readThermalState() : undefined
 

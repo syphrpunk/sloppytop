@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs'
 import type { Sample } from '../sample.ts'
 import type { WorkerReply, WorkerRequest } from './sample-worker.ts'
 
@@ -60,14 +61,31 @@ export function createCollectorWorker() {
   }
 }
 
-export function createTuiSampler() {
+export function createTuiSampler(startupPath = process.env.SLOPPYTOP_TUI_STARTUP_TRACE) {
   const worker = createCollectorWorker()
+  let tracePending = Boolean(startupPath)
+  let startupJson: string | undefined
   return {
     async tick({ paused, sampleMs }: Parameters<SampleTick>[0]): Promise<Sample | undefined> {
       if (paused) return undefined
-      const reply = await worker.request({ kind: 'sample', ms: sampleMs }, sampleMs + 10_000)
+      const tracing = tracePending
+      tracePending = false
+      const start = tracing ? performance.now() : 0
+      const reply = await worker.request({ kind: 'sample', ms: sampleMs, ...(tracing && { traceStartup: true }) }, sampleMs + 10_000)
+      if (tracing && reply && 'phasesMs' in reply && reply.phasesMs) {
+        const requestMs = performance.now() - start
+        const workerMs = Object.values(reply.phasesMs).reduce((sum, ms) => sum + ms, 0)
+        startupJson = JSON.stringify({ requestedWindowMs: sampleMs, requestMs, outsideWorkerMs: requestMs - workerMs, phasesMs: reply.phasesMs })
+      }
       return reply && 'sample' in reply ? reply.sample : undefined
     },
-    close: worker.close,
+    close() {
+      worker.close()
+      if (startupPath && startupJson) {
+        try {
+          writeFileSync(startupPath, startupJson + '\n', { mode: 0o600, flag: 'wx' })
+        } catch { /* Diagnostics must not prevent terminal restoration. */ }
+      }
+    },
   }
 }

@@ -331,15 +331,20 @@ function powerFields(
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+export type SamplePhase = 'import' | 'config' | 'platform' | 'firstRefresh' | 'window' | 'secondRefresh' | 'projectAndLog'
+export type SampleCheckpoint = (phase: SamplePhase) => void
+
 /**
  * One-shot snapshot. Samples twice `sampleMs` apart so delta-based metrics
  * (Linux CPU%, network rates) are real instead of zero.
  */
-export async function snapshot(sampleMs = 500, flags?: CollectFlags, workloadRootPid?: number) {
+export async function snapshot(sampleMs = 500, flags?: CollectFlags, workloadRootPid?: number, checkpoint?: SampleCheckpoint) {
   const mon = await Monitor.create()
   mon.setFlags(flags)
+  checkpoint?.('platform')
   mon.refresh()
-  const system = await sampleWindow(mon, sampleMs, flags?.gpu)
+  checkpoint?.('firstRefresh')
+  const system = await sampleWindow(mon, sampleMs, flags?.gpu, checkpoint)
   const bootId = mon.linuxBootId()
   const workload = workloadRootPid === undefined ? undefined : mon.workload(workloadRootPid)
   return {
@@ -350,10 +355,12 @@ export async function snapshot(sampleMs = 500, flags?: CollectFlags, workloadRoo
 }
 
 /** NVIDIA runs alongside the ordinary sampling window, never on its critical path. */
-export async function sampleWindow(mon: Monitor, sampleMs: number, gpu?: boolean): Promise<SystemStats> {
+export async function sampleWindow(mon: Monitor, sampleMs: number, gpu?: boolean, checkpoint?: SampleCheckpoint): Promise<SystemStats> {
   const nvidia = startNvidiaSample(gpu)
   await sleep(sampleMs)
+  checkpoint?.('window')
   mon.refresh()
+  checkpoint?.('secondRefresh')
   const devices = nvidia()
   const system = mon.stats()
   if (devices) system.nvidia_devices = devices
