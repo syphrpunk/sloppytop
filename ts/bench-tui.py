@@ -2,25 +2,28 @@
 """Measure visible TUI responses through a private tmux server."""
 
 import argparse
+import hashlib
 import json
-import math
 import os
+import platform
 import re
 from pathlib import Path
 import shlex
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 
-
-def summary(values):
-    ordered = sorted(values)
-    percentile = lambda q: round(ordered[math.ceil(len(ordered) * q) - 1], 1)
-    return {"n": len(values), "p50": percentile(.50), "p95": percentile(.95), "max": percentile(1)}
+from tui_sla import IDLE, INPUTS, REPEATS, SOAK, check_host, summary
 
 
 def process_usage(pid):
+    if sys.platform == "linux":
+        # procps TIME has only whole-second resolution, too coarse for idle CPU.
+        fields = Path(f"/proc/{pid}/stat").read_text().rsplit(") ", 1)[1].split()
+        ticks = int(fields[11]) + int(fields[12])  # utime/stime (fields 14/15)
+        return ticks / os.sysconf("SC_CLK_TCK"), int(fields[21]) * os.sysconf("SC_PAGE_SIZE") / 2**20
     cpu, rss = subprocess.check_output(["ps", "-o", "time=,rss=", "-p", pid], text=True).split()
     seconds = 0
     for part in cpu.split(":"):
@@ -28,11 +31,12 @@ def process_usage(pid):
     return seconds, int(rss) / 1024
 
 
-def bench(binary, rows, trials, idle, starts, trace, soak):
+def bench(binary, rows, trials, idle, starts, trace, soak, fixed=False):
     with tempfile.TemporaryDirectory(prefix="st-bench-") as folder:
         trace_path = Path(folder) / "trace.json"
-        command = shlex.join(["env", f"SLOPPYTOP_TUI_TRACE={trace_path if trace else ''}", "ST_FIXTURE_DISCOVERY_DELAY=350",
-                              f"XDG_CONFIG_HOME={folder}", f"ST_FIXTURE_ROWS={rows or 24}",
+        command = shlex.join(["env", f"SLOPPYTOP_TUI_TRACE={trace_path if trace else ''}",
+                              "ST_FIXTURE_DISCOVERY_DELAY=350", "ST_VISUAL_HISTORY=0",
+                              f"HOME={folder}", f"XDG_CONFIG_HOME={folder}", f"ST_FIXTURE_ROWS={rows or 24}",
                               str(binary), *([] if rows else ["tui"])])
         base = ["tmux", "-S", f"{folder}/tmux.sock", "-f", "/dev/null"]
 
@@ -61,7 +65,8 @@ def bench(binary, rows, trials, idle, starts, trace, soak):
             samples.setdefault(label, []).append(frame(predicate, started, label))
 
         def main(f):
-            return "PID" in f and "PID " in f.splitlines()[-2] and f.startswith("sloppytop")
+            lines = f.splitlines()
+            return f.startswith("sloppytop") and len(lines) >= 2 and "PID " in lines[-2]
 
         def searching(f):
             # The empty editor is "/" after the mode, not the idle "/ search"
@@ -74,7 +79,8 @@ def bench(binary, rows, trials, idle, starts, trace, soak):
             pid = int(tmux("new-session", "-d", "-s", "bench", "-x", "112", "-y", "30",
                            "-P", "-F", "#{pane_pid}", f"exec {command}"))
             interactive = frame(lambda f: f.startswith("sloppytop") and "q quit" in f, started, "interactive")
-            populated = frame(main, started, "process table")
+            populated = frame(lambda f: main(f) and (not fixed or not rows or f"{rows}/{rows}" in f.splitlines()[-1]),
+                              started, "process table")
             samples.setdefault("startup_interactive_ms", []).append(interactive)
             samples.setdefault("startup_populated_ms", []).append(populated)
 
@@ -100,43 +106,65 @@ def bench(binary, rows, trials, idle, starts, trace, soak):
             raise RuntimeError("benchmark pane did not shut down on Ctrl-C")
 
         try:
+            session_start = time.monotonic()
             start()
             live_memory = []
             soak_memory = []
             if soak:
                 cpu_before, rss = process_usage(str(pid))
                 began = time.monotonic()
-                soak_memory.append([0, round(rss, 1)])
+                soak_memory.append([0, rss])
                 for second in range(1, soak + 1):
                     time.sleep(max(0, began + second - time.monotonic()))
                     cpu, rss = process_usage(str(pid))
-                    soak_memory.append([round(time.monotonic() - began, 2), round(rss, 1)])
+                    soak_memory.append([time.monotonic() - began, rss])
                 soak_cpu = round(100 * (cpu - cpu_before) / (time.monotonic() - began), 2)
+            if fixed:
+                # Read a sampling-only trace, without dilution by frozen idle.
+                stop()
+                padding_seconds = [began - session_start, time.monotonic() - (began + soak_memory[-1][0])]
+                soak_trace = json.loads(trace_path.read_text())
+                trace_path.unlink()
+                start()
             for mode in ("live", "frozen"):
+                mode_marker = "live" if mode == "live" else "FROZEN"
+
+                def in_mode(f):
+                    return main(f) and mode_marker in f.splitlines()[-1].split()
+
                 for trial in range(trials):
                     # Vary phase relative to the 1 s refresh rather than hitting the
                     # same portion of the collector window on every trial.
                     time.sleep((trial % 7) * .037)
-                    measure(f"{mode}_search_ms", lambda: keys("/"), searching)
+                    measure(f"{mode}_search_ms", lambda: keys("/"), lambda f: in_mode(f) and searching(f))
                     measure(f"{mode}_dismiss_ms", lambda: keys("Escape"),
-                            lambda f: main(f) and not searching(f))
+                            lambda f: in_mode(f) and not searching(f))
                     selected = tmux("capture-pane", "-p", "-t", "bench").splitlines()[-2]
                     measure(f"{mode}_scroll_ms", lambda: keys("Down"),
-                            lambda f: main(f) and f.splitlines()[-2] != selected)
+                            lambda f: in_mode(f) and f.splitlines()[-2] != selected)
                     keys("Home")
-                    if rows:
+                    if rows and not fixed:
                         tree_visible = lambda f: main(f) and "├─" in f
                         measure(f"{mode}_tree_on_ms", lambda: keys("T"), tree_visible)
                         measure(f"{mode}_tree_off_ms", lambda: keys("T"), lambda f: main(f) and not tree_visible(f))
-                    if mode == "live":
+                    if mode == "live" and not fixed:
                         live_memory.append(round(process_usage(str(pid))[1], 1))
                 if mode == "live":
-                    measure("freeze_ms", lambda: keys("Space"), lambda f: "FROZEN" in f)
+                    measure("freeze_ms", lambda: keys("Space"), lambda f: main(f) and "FROZEN" in f.splitlines()[-1])
             cpu_start, _ = process_usage(str(pid))
             idle_start = time.monotonic()
             time.sleep(idle)
             cpu_end, rss = process_usage(str(pid))
-            cpu_pct = 100 * (cpu_end - cpu_start) / (time.monotonic() - idle_start)
+            idle_seconds = time.monotonic() - idle_start
+            cpu_pct = 100 * (cpu_end - cpu_start) / idle_seconds
+            if fixed:
+                return {"inputs": {key: summary(values) for key, values in samples.items()
+                                   if key.startswith(("live_", "frozen_"))},
+                        "idle_seconds": idle_seconds, "paused_cpu_pct": cpu_pct, "paused_rss_mib": rss,
+                        "soak_rss_mib": soak_memory, "soak_cpu_pct": soak_cpu,
+                        "lag": soak_trace.get("loopLag"), "sample_count": soak_trace.get("sample", {}).get("count"),
+                        "refresh_ms": 1000, "padding_seconds": padding_seconds}
+
             for trial in range(min(trials * 2, 20)):
                 width, height = (56, 18) if trial % 2 == 0 else (112, 30)
                 measure("resize_ms",
@@ -164,8 +192,47 @@ def bench(binary, rows, trials, idle, starts, trace, soak):
                 tmux("kill-server", check=False)
 
 
+def direct_repeats(binary, rows):
+    command = [sys.executable, str(Path(__file__).with_name("smoke-tui.py")), str(binary), "--timings-json"]
+    env = {**os.environ, "ST_FIXTURE_ROWS": str(rows or 24), "ST_VISUAL_HISTORY": "0", "SLOPPYTOP_TUI_TRACE": ""}
+    runs = [json.loads(subprocess.check_output(command, env=env, timeout=30)) for _ in range(REPEATS + 1)]
+    # Only same-file repeat launches are in scope. Preserve the excluded launch.
+    return {"warmup": runs[0], "direct_pty": {k: summary([run[k] for run in runs[1:]]) for k in runs[0]}}
+
+
+def fixed_host(live, fixture, host):
+    system = platform.system()
+    if host != platform.node() or system not in ("Darwin", "Linux"):
+        raise ValueError("run on the booked Darwin/Linux host (exact hostname required)")
+    root = Path(__file__).resolve().parents[1]
+    if subprocess.check_output(["git", "status", "--porcelain"], cwd=root).strip():
+        raise ValueError("build and run the release protocol from a clean candidate checkout")
+    report = {"system": system, "host": host, "platform": platform.platform(),
+              "revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
+              "tmux": subprocess.check_output(["tmux", "-V"], text=True).strip(),
+              "bun": subprocess.check_output(["bun", "--version"], text=True).strip(), "workloads": {}}
+    for rows, binary in [(None, live), (5000, fixture)]:
+        row = report["workloads"][str(rows or "live")] = {}
+        try:
+            binary = binary.resolve(strict=True)
+            digest = hashlib.sha256()
+            with binary.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1 << 20), b""):
+                    digest.update(chunk)
+            row["sha256"] = digest.hexdigest()
+            row.update(direct_repeats(binary, rows))
+            row.update(bench(binary, rows, INPUTS, IDLE, 1, True, SOAK, fixed=True))
+        except (OSError, RuntimeError, ValueError, KeyError, subprocess.SubprocessError) as err:
+            # Keep completed evidence; never serialize tmux stdout or live rows.
+            print(f"{rows or 'live'} collection stopped: {type(err).__name__}: {err}", file=sys.stderr)
+            break
+    result = check_host(report, system, host, report["revision"])
+    print(json.dumps({**report, "assessment": result}, allow_nan=False), flush=True)
+    return int(bool(result["problems"]))
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("live", type=Path)
     parser.add_argument("fixture", type=Path)
     parser.add_argument("--trials", type=int, default=20)
@@ -174,7 +241,12 @@ if __name__ == "__main__":
     parser.add_argument("--trace", action="store_true", help="include application phase timings")
     parser.add_argument("--soak", type=int, default=0, help="seconds of live CPU/RSS observation per workload")
     parser.add_argument("--workload", choices=("all", "live", "100", "1000", "5000"), default="all")
+    parser.add_argument("--fixed-host", metavar="HOST", help="run the serial release protocol; emit one host JSON report")
     args = parser.parse_args()
+    if args.fixed_host is not None:
+        if any(arg.startswith(("--trials", "--idle", "--starts", "--trace", "--soak", "--workload")) for arg in sys.argv):
+            parser.error("diagnostic tuning flags cannot change the fixed-host release protocol")
+        sys.exit(fixed_host(args.live, args.fixture, args.fixed_host))
     if args.trials < 1 or args.idle <= 0 or args.starts < 1 or args.soak < 0:
         parser.error("trials, idle and starts must be positive; soak cannot be negative")
     for rows in (None, 100, 1_000, 5_000):

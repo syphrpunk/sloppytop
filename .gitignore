@@ -9,6 +9,7 @@ sloppytop-cli-*
 # TypeScript port
 ts/node_modules/
 ts/dist/
+ts/__pycache__/
 
 # memento task tracking (local-only)
 .memento/

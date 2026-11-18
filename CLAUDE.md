@@ -55,6 +55,8 @@ cd ts && bun test src/filter
 
 ## Release
 
+Before tagging, clear the [fixed-host TUI performance gate](docs/research/tui-performance.md#fixed-host-release-gate-still-requires-measurement) on the clean candidate. Shared CI is diagnostic only.
+
 Push a git tag to trigger the GitHub Actions release workflow. It builds `sloppytop` for macOS Apple Silicon, Linux, and Windows. `.github/workflows/ci.yml` type-checks, tests, and builds the Linux binary on every push and pull request.
 
 ## Handoff protocol

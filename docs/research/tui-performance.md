@@ -37,6 +37,89 @@ timings. The trace contains durations and counts only, no process or terminal
 data. For manual reproduction set `SLOPPYTOP_TUI_TRACE` to a private file path
 before launching the TUI and exit normally to write the result.
 
+## Fixed-host release gate (still requires measurement)
+
+Before tagging, reserve **exclusive, serial** slots on the designated macOS and
+Linux machines. Record their exact `platform.node()` names in the booking,
+not after selecting results. Use the same machines, power mode, shipped probes,
+1 s refresh and 500 ms counter window before/after a change. Record OS, CPU,
+load/power conditions and tool versions alongside evidence. A shared CI run,
+visual baseline or the historical numbers below do **not** clear this gate.
+This is a pre-tag operator check, not a publishing-workflow or runner change.
+
+1. On **each** booked host, check out the same clean full candidate SHA. From
+   its root, with Bun, just, Python 3.10+ and tmux available, set `BOOKED_HOST`
+   to that machine's pre-recorded name and `REPORT` to a **new**, private file
+   outside the checkout (`macos.json` or `linux.json`). Build *both* artifacts
+   natively from that checkout; do not point at an installed or stale binary:
+
+   ```sh
+   (cd ts && bun install --frozen-lockfile --libc='*') && just build && \
+     (cd ts && bun build --compile discovery-pty-fixture.ts --outfile dist/discovery-pty-fixture)
+   # Continue only after a successful build. No other benchmarks during collection.
+   umask 077
+   python3 ts/bench-tui.py ts/dist/sloppytop ts/dist/discovery-pty-fixture \
+     --fixed-host "${BOOKED_HOST:?}" > "${REPORT:?}"
+   ```
+
+   This exits nonzero on missing evidence, inconclusive growth/lag, or a miss.
+   Preserve misses, interrupted/partial files and exit status; don't pick the
+   best of reruns. Reports contain host/build metadata, digests, counts, timing
+   and resource evidence, not live screen contents. Don't save live panes.
+
+2. Collect both JSON reports. With `REVISION` set to the booked **full Git
+   SHA** and `MAC_HOST`/`LINUX_HOST` to the original host names, replay offline:
+
+   ```sh
+   python3 ts/tui_sla.py --revision "${REVISION:?}" --macos-host "${MAC_HOST:?}" \
+     --linux-host "${LINUX_HOST:?}" /path/to/macos.json /path/to/linux.json
+   ```
+
+   Only exit 0 with complete matching evidence from **both** hosts clears
+   this numeric gate. A missing report, mismatch, timeout or nonzero result
+   blocks release. Review recorded medians, RSS series and retained counts.
+   Continue to use the diagnostic benchmark for discovery loading/interrupt,
+   tree, composition and tmux resize; none substitutes for a direct PTY shrink.
+
+### What counts as evidence
+
+For **each** of live collection and the 5,000-row fixture, the protocol runs:
+
+- Same binary, private config: one excluded warm-up PTY launch, then 12
+  direct PTY launches at 112×30 with a shrink to 56×18. Time interactive
+  frame, selected numeric PID row and compact redraw separately. Use
+  nearest-rank p95; at n=12 it is the maximum. No fresh-file startup SLA.
+- An uninterrupted 180 s running soak with one timestamped process RSS
+  observation per second, then stop **before** pausing to read the sampling
+  trace. Retain full elapsed-time/RSS series, aggregate CPU, target cadence,
+  launch/teardown padding and full-session successful `sample` count (not
+  attempts). Require ≥90 successes within the 180 s observation. Conservatively
+  exclude possible completions outside it: an in-flight sample plus starts
+  every 999 ms for each padding interval (1 ms timer truncation allowance).
+  Fewer assured successes is inconclusive, not a new product cadence SLA;
+  counts don't prove uniform spacing. A missed RSS second is incomplete evidence. Discard 0–60 s for steady-state RSS. Check every
+  later reading against the 200 MiB fixture cap. For both workloads report
+  medians for seconds 61–100, 101–140, 141–180. Three strictly rising medians
+  are **inconclusive; a longer soak and review are required**, not a pass or
+  a proven leak. This is a harness decision rule, not a new growth-rate SLA
+  or a proof of long-term stability. Keep the original failed assessment.
+- Check loop lag on that soak: the trace retains the newest 3,600 samples
+  for p95, and the **full-session maximum** regardless of wrap. Report both
+  counts. Reject p95 >50 ms or max >150 ms. If wrapped and max >50 ms, a
+  passing retained p95 does **not** prove full-soak p95: block as unverified
+  pending whole-soak evidence. If max ≤50 ms it bounds the full p95 too.
+- A separate private tmux session for input-to-visible-frame: 20 each of
+  search, Escape dismissal and scroll, both running and frozen, with phase
+  jitter relative to sampling. Require every distribution's n/p95/max and
+  enforce p95 **and** individual worst-trial limits. While still frozen,
+  measure process CPU (percent of one core) over 10 s and endpoint RSS;
+  require both readings, with numeric caps on the 5,000-row workload.
+
+`just tui-sla-test` runs only synthetic pass/fail and missing-evidence checks
+(including a single 251 ms input despite a passing p95). No host timing was
+performed to validate this harness change. Both fixed-host runs, the two-file
+check, and review of their evidence remain required on the integrated candidate.
+
 ## Initial baseline
 
 Apple M3, macOS 26.5.1, tmux 3.5a, `just tui-bench --trials 5 --starts 3 --idle 3`

@@ -31,6 +31,7 @@ def main() -> int:
     parser.add_argument("binary")
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--timings", action="store_true", help="report startup and direct PTY shrink latency")
+    modes.add_argument("--timings-json", action="store_true", help="emit only numeric direct PTY timings on success")
     modes.add_argument("--history", action="store_true", help="verify record, history, report and TUI against one temporary DB")
     args = parser.parse_args()
     binary = os.path.abspath(args.binary)
@@ -56,7 +57,7 @@ def main() -> int:
                     and diagnostic["redacted"] and diagnostic["coverage"]["samples"] == 1):
                 raise RuntimeError("compiled diagnosis commands did not agree on the recorded sample")
             return smoke_history(binary, config, env, service)
-        return smoke(binary, config, args.timings)
+        return smoke(binary, config, args.timings or args.timings_json, args.timings_json)
 
 def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
     base = ["tmux", "-S", os.path.join(config, "smoke.sock"), "-f", "/dev/null"]
@@ -157,7 +158,9 @@ def smoke_history(binary: str, config: str, env: dict, service: dict) -> int:
         tmux("kill-server", check=False)
 
 
-def smoke(binary: str, config: str, timings: bool) -> int:
+def smoke(binary: str, config: str, timings: bool, timings_json: bool) -> int:
+    if timings_json:
+        os.environ["HOME"] = config  # do not import a personal legacy screen config
     os.environ["XDG_CONFIG_HOME"] = config
     os.environ["TERM"] = "xterm-256color"
     height, width = (30, 112) if timings else (24, 80)
@@ -230,11 +233,16 @@ def smoke(binary: str, config: str, timings: bool) -> int:
                 os.waitpid(pid, 0)
                 print("tui smoke: process did not exit", file=sys.stderr)
                 return 1
-        status = finish(exit_status, captured, sent_q)
+        status = finish(exit_status, captured, sent_q, quiet=timings_json)
         if timings and status == 0:
             if None in (first_frame, populated, resize_started, resized):
                 print("tui smoke: incomplete timings", file=sys.stderr)
                 return 1
+            if timings_json:
+                print(json.dumps({"interactive_ms": (first_frame-start)*1000,
+                                  "populated_ms": (populated-start)*1000,
+                                  "shrink_ms": (resized-resize_started)*1000}))
+                return 0
             print(f"direct PTY: first {(first_frame-start)*1000:.1f} ms, "
                   f"populated {(populated-start)*1000:.1f} ms, shrink {(resized-resize_started)*1000:.1f} ms")
         return status
@@ -245,11 +253,12 @@ def smoke(binary: str, config: str, timings: bool) -> int:
             pass
 
 
-def finish(status: int, captured: bytearray, sent_q: bool) -> int:
+def finish(status: int, captured: bytearray, sent_q: bool, quiet=False) -> int:
     code = os.waitstatus_to_exitcode(status)
     drew = bool(LIVE_ROW.search(captured)) and b"sloppytop" in captured
     if code == 0 and sent_q and drew:
-        print(f"tui smoke ok: drew {len(captured)} bytes and quit")
+        if not quiet:
+            print(f"tui smoke ok: drew {len(captured)} bytes and quit")
         return 0
     print(
         f"tui smoke failed: exit {code}, drew {len(captured)} bytes, quit_sent {sent_q}, frame {drew}",

@@ -69,5 +69,9 @@ tui-visual output="ts/dist/tui-visual":
 tui-bench *args:
     python3 ts/bench-tui.py ts/dist/sloppytop ts/dist/discovery-pty-fixture {{args}}
 
+# Test the fixed-host release gate on synthetic measurements only.
+tui-sla-test:
+    python3 -B ts/test_tui_sla.py
+
 # Cross-target bun runtimes are not downloadable on canary. Release binaries
 # are compiled natively per platform in CI (see release.yml).
