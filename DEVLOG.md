@@ -4,6 +4,10 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Per-device disk history started — 2026-11-18
+
+- Reviewed iodyne and added comparable CLI history charts for recorded disk names (`b513246`). Verified 243 tests, type-check, build, TUI smoke, and compiled CLI output against a temporary SQLite fixture.
+
 ## Linux pressure and OOM slice completed — 2026-11-18
 
 - Implemented the optional Linux kernel OOM count and same-boot report deltas (`dd12a5b`); closed `nht-9f5f15`.

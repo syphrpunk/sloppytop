@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: dd12a5b feat(linux): report kernel OOM kills separately from pressure
+HEAD: b513246 feat(history): compare recorded disk device trends
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -39,6 +39,8 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 [Deep dive 01](docs/research/slices/01-sampling-gaps.md) is complete and committed with the pending chart and Linux headroom work in `d6c3e63` (`nht-62c980`). Recorder and Homebrew cask edits are in `e42bb2b`. Verified 236 tests, type-check, compiled build, and TUI smoke on macOS arm64; the cask parsed in Homebrew and its digest matched the release asset. No live cask install or scheduler was run. Live rate validity is tracked separately (`nht-4e0e0e`).
 
 [Deep dive 02](docs/research/slices/02-linux-memory-pressure-and-oom.md) is complete (`nht-9f5f15`): the optional Linux kernel count appears in system samples, history and OpenMetrics. Reports compare adjacent same-boot samples and keep kills separate from pressure. Verified read-only against live Linux procfs. Next research candidate: per-device disk history and topology.
+
+[Deep dive 03](docs/research/slices/03-device-disk-history.md) is underway (`nht-ed576c`): CLI history compares recorded disk trends; TUI comparison and read-only evidence for durable identity and topology are next.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -53,108 +55,15 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 
 **Queue: the configured task manager below (source of truth); the configured queue view, if any, is generated from it.**
 
-Open tasks:
-(task manager: memento)
-{
-  "count": 6,
-  "items": [
-    {
-      "id": "nht-9de7a2",
-      "uuid": "01a0d7da-f81b-7000-bb47-53203d449d63",
-      "slug": "nht-9de7a2-apple-silicon-energy-sample",
-      "title": "Apple Silicon energy sample",
-      "status": "todo",
-      "type": "feature",
-      "parent": "nht-2613eb",
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "high",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-11-01T08:26:19.378Z",
-      "path": ".memento/items/nht-9de7a2-apple-silicon-energy-sample.md"
-    },
-    {
-      "id": "nht-4e0e0e",
-      "uuid": "01a1ec48-f44c-7000-8847-f43809aa41a2",
-      "slug": "nht-4e0e0e-carry-live-network-rate-validity-through-collection-and-storage",
-      "title": "Carry live network rate validity through collection and storage",
-      "status": "todo",
-      "type": "bug",
-      "parent": "nht-2613eb",
-      "blockedBy": [],
-      "blocking": [],
-      "priority": null,
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-11-18T01:32:46.541Z",
-      "path": ".memento/items/nht-4e0e0e-carry-live-network-rate-validity-through-collection-and-storage.md"
-    },
-    {
-      "id": "nht-cb0edf",
-      "uuid": "01a0d7da-f744-7000-953d-f33b5e5bdcd9",
-      "slug": "nht-cb0edf-expand-the-cli-past-process-table-parity",
-      "title": "Expand the CLI past process-table parity",
-      "status": "todo",
-      "type": "milestone",
-      "parent": null,
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "high",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-09-25T09:17:26.726Z",
-      "path": ".memento/items/nht-cb0edf-expand-the-cli-past-process-table-parity.md"
-    },
-    {
-      "id": "nht-2613eb",
-      "uuid": "01a0d7da-f7b9-7000-89cb-1567be8c3ef1",
-      "slug": "nht-2613eb-harvest-faculties-from-the-repos-monitor-corpus",
-      "title": "Harvest faculties from the _repos monitor corpus",
-      "status": "todo",
-      "type": "epic",
-      "parent": "nht-cb0edf",
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "high",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-09-25T09:17:26.842Z",
-      "path": ".memento/items/nht-2613eb-harvest-faculties-from-the-repos-monitor-corpus.md"
-    },
-    {
-      "id": "nht-b1794f",
-      "uuid": "01a00e6e-2b7e-7000-b59f-dae09b769881",
-      "slug": "nht-b1794f-opentui-tui-replacement",
-      "title": "OpenTUI TUI replacement",
-      "status": "todo",
-      "type": "epic",
-      "parent": null,
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "low",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-08-17T06:34:56.255Z",
-      "path": ".memento/items/nht-b1794f-opentui-tui-replacement.md"
-    },
-    {
-      "id": "nht-9bd745",
-      "uuid": "01a0d7da-f8f6-7000-99b1-e2408001ca4d",
-      "slug": "nht-9bd745-stall-pressure-thermal-headroom-and-battery",
-      "title": "Stall pressure, thermal headroom, and battery",
-      "status": "todo",
-      "type": "feature",
-      "parent": "nht-2613eb",
-      "blockedBy": [],
-      "blocking": [],
-      "priority": "high",
-      "attention": null,
-      "attentionReason": null,
-      "updatedAt": "2026-10-24T17:18:45.298Z",
-      "path": ".memento/items/nht-9bd745-stall-pressure-thermal-headroom-and-battery.md"
-    }
-  ]
+Open tasks (Memento snapshot):
+
+- `nht-9de7a2` (todo): Apple Silicon energy sample
+- `nht-4e0e0e` (todo): Carry live network rate validity through collection and storage
+- `nht-ed576c` (in-progress): Compare per-device disk trends in recorded history
+- `nht-cb0edf` (todo): Expand the CLI past process-table parity
+- `nht-2613eb` (todo): Harvest faculties from the _repos monitor corpus
+- `nht-b1794f` (todo): OpenTUI TUI replacement
+- `nht-9bd745` (todo): Stall pressure, thermal headroom, and battery
 
 <!-- /handoff:next -->
 
