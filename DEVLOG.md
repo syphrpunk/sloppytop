@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-18
 
+- Audited diagnosis goal status and compared CLI features with TUI loaders and renderers. No runtime or product behavior changed.
+
+
+## Session digest — 2026-11-18
+
 - Tested the isolated Homebrew package lifecycle, documented the public cask and quarantine gaps, and verified the installed discovery and layout changes.
 
 

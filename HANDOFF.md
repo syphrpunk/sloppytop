@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: f5aabc5 fix(tui): advertise discovery and align overlay frames
+HEAD: b9d2f7a chore(handoff): append checkpoint brew-tui-audit
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -78,6 +78,7 @@ After resuming, reran type-check, build, live and discovery PTY smokes, visual b
 The [diagnosis batch](docs/research/slices/26-37-diagnosis.md) added recorder health, history evidence, comparison reports, workload and interface history, redacted discovery diffs and diagnostic reports, and TUI sample inspection. Mac and OptiPlex builds passed the same-DB compiled diagnosis smoke; macOS had 298 tests pass (one Linux-only skip) and Linux had 299 pass. The existing Apple Silicon tracker `nht-9de7a2` remains open: two Macs did not supply validated fan and cluster-frequency measurements, and CPU energy stayed at zero in the second Mac's three live trials. Revisit only with a reliable unprivileged provider or a user-approved change to the requirement. NVIDIA and Linux powercap remain separate.
 Rebuilt the current macOS arm64 checkout and installed it at `/opt/homebrew/bin/sloppytop`; the existing `st` symlink now runs the updated build. The installed binary matched the checkout artifact byte-for-byte and passed the compiled diagnosis smoke through `st`. No release, push, or service change.
 The [Homebrew and TUI audit](docs/research/homebrew-tui-audit.md) reproduced the missing public cask and exercised install, upgrade and uninstall in a disposable prefix. The fixture omitted recorder hooks to protect the active legacy agent; exact published lifecycle verification remains open. The locally installed `st` now advertises discovery in the footer, opens seven numbered tabs, and uses aligned overlay frames. Full tests, type-check, visual check, and installed-binary smokes passed. Nothing pushed or published.
+CLI-to-TUI coverage review: recorder health detail, report window comparisons, recorded workload trends, and visible subtree totals are implemented but lack equivalent TUI views. History inspection shows interface rows and sample anomaly evidence for the five newest points; it does not show stored top processes or RSS-growth evidence. Live discovery covers seven tabs; offline snapshot comparison and explicit redacted exports remain CLI workflows. Per-device NVIDIA telemetry is experimental and not rendered. Slice 34 remains the recorded goal blocker; the batch's scheduler evidence is split between native failed-job observations and parser tests, not a same-job lifecycle through the CLI.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -92,7 +93,9 @@ The [Homebrew and TUI audit](docs/research/homebrew-tui-audit.md) reproduced the
 
 **Queue: the configured task manager below (source of truth); the configured queue view, if any, is generated from it.**
 
-**Homebrew:** Test the exact cask with recorder hooks in a disposable macOS login and authorize a release before publishing. See [audit and remaining gates](docs/research/homebrew-tui-audit.md).
+**Homebrew:** Test the exact published cask with recorder hooks in a disposable macOS login. The isolated package fixture covered linking, upgrade, and unlinking only.
+
+**Diagnosis:** Slice 34 (`nht-9de7a2`) still needs verifiable fan, cluster-frequency, and CPU-energy readings. If TUI parity is requested, start with recorder health in Settings and a comparison view in Report.
 
 Open tasks:
 (task manager: memento)
