@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## OpenTUI 0.9.2 upgrade — 2026-11-18
+
+- Upgraded the pinned renderer and verified the ARM64 build, live sampling and unchanged visual baselines. The fresh-copy startup target remains unmet.
+
+
 ## macOS loader timing control — 2026-11-18
 
 - Timed spawn, first dyld diagnostic and version output across five fresh/repeat pairs. The delay largely precedes the first loader message.

@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 46fe1ef docs(tui): distinguish loader latency from application startup
+HEAD: b208b75 chore(tui): upgrade OpenTUI to 0.9.2
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -68,6 +68,7 @@ The 180-second live and 90-second 5,000-row soaks each showed memory reclamation
 Authorized macOS packaging trials improved cold startup but did not meet the first-frame target. Three fresh standalone copies reached 2,773 ms p95; two preinstalled-Bun bundle prototypes reached 809 and 1,094 ms p95. The standalone bytecode build rejected OpenTUI's top-level await. No valid signing identity is available for the remaining signed/notarized control. No release or OS settings changed; see the comparative timings in the TUI performance notes.
 The TUI now lazy-loads optional page and store handlers; each worker imports only its requested backend. All macOS checks passed (289 tests, one Linux-only skip, type-check, build, live smoke and visual checks). Interleaved fresh-copy runs showed no clear cold-start gain. The existing cold-start gate is still unmet.
 After lazy loading, five fresh/repeat launch pairs attributed the bulk of the first-launch penalty to the time before the first dyld diagnostic (1.12–1.29 s fresh versus 3–6 ms on repeat). Version output followed about 50 ms later in both cases. The host component responsible is not identified; the cold-start gate remains unmet.
+OpenTUI 0.9.2 is pinned in the manifest and Bun lockfile. On Apple Silicon, type-check, standalone build, live PTY smoke, all existing visual baselines and 289 tests (one Linux-only skip) passed. Three paired fresh-copy trials showed no clear first-frame improvement; the cold-start goal remains blocked.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
