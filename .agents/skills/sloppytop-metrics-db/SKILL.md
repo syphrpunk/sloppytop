@@ -16,7 +16,7 @@ sloppytop history --processes        # include stored top processes per sample
 sloppytop config                     # paths + DB stats (sample count, first/last timestamps)
 ```
 
-Anomaly flags in `report`: `io_pressure` (load1 > 2× cores at <60% CPU — I/O wait), `cpu_saturation` (>90% CPU), `memory_pressure` (>92% memory used).
+`report` flags `io_pressure`, `cpu_saturation`, and `memory_pressure`. On Linux, `kernel_oom_kill` is a separate outcome observed between adjacent same-boot samples in the report window. The nullable `linux_oom_kills` column holds the cumulative kernel count since boot. The `linux_boot_id` column is private recorder metadata, not returned by commands.
 
 ## Storage
 

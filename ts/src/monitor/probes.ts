@@ -68,7 +68,7 @@ const SYSTEM_KEYS: Record<ProbeName, (keyof SystemStats)[]> = {
     'gpu_memory_bytes',
   ],
   sensors: ['temperatures', 'fans', 'thermal_state'],
-  pressure: ['psi_cpu_some_avg10', 'psi_io_some_avg10', 'psi_memory_some_avg10', 'memory_pressure_level'],
+  pressure: ['psi_cpu_some_avg10', 'psi_io_some_avg10', 'psi_memory_some_avg10', 'memory_pressure_level', 'linux_oom_kills'],
   battery: ['battery_charge_percent', 'battery_charging'],
   swap: ['swap_total_bytes', 'swap_used_bytes'],
   connections: [],
@@ -223,6 +223,7 @@ export function probeEntries(
     psi_io_some_avg10: system.psi_io_some_avg10 ?? null,
     psi_memory_some_avg10: system.psi_memory_some_avg10 ?? null,
     memory_pressure_level: system.memory_pressure_level ?? null,
+    ...(system.linux_oom_kills !== undefined ? { linux_oom_kills: system.linux_oom_kills } : {}),
   })
   push('battery', {
     battery_charge_percent: system.battery_charge_percent ?? null,

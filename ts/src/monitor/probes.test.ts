@@ -63,6 +63,16 @@ function process(command: string): ProcessInfo {
 }
 
 describe('probes', () => {
+  test('Linux OOM kills follow the pressure probe and preserve zero', () => {
+    const stats = { ...system(), linux_oom_kills: 0 }
+    const on = defaultProbes()
+    const off = { ...on, pressure: false }
+    expect(projectSystem(stats, on)).toHaveProperty('linux_oom_kills', 0)
+    expect(projectSystem(stats, off)).not.toHaveProperty('linux_oom_kills')
+    expect(JSON.stringify(probeEntries(stats, [], on))).toContain('"linux_oom_kills":0')
+    expect(JSON.stringify(probeEntries(projectSystem(stats, off), [], off))).not.toContain('linux_oom_kills')
+  })
+
   test('an off probe is removed and a measured zero stays when the probe is on', () => {
     const probes = defaultProbes()
     probes.sensors = false

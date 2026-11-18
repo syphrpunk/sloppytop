@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { HistoryRow } from './db.ts'
-import { renderOpenMetrics } from './openmetrics.ts'
+import { renderOpenMetrics, renderSystemMetrics } from './openmetrics.ts'
 
 const row: HistoryRow = {
   id: 1,
@@ -15,6 +15,13 @@ const row: HistoryRow = {
 }
 
 describe('renderOpenMetrics', () => {
+  test('uses an OpenMetrics counter family and preserves zero in live and stored output', () => {
+    const metric = '# TYPE sloppytop_linux_oom_kills counter\nsloppytop_linux_oom_kills_total 0\n'
+    expect(renderSystemMetrics({ linux_oom_kills: 0 })).toContain(metric)
+    expect(renderOpenMetrics({ ...row, linux_oom_kills: 0 })).toContain(metric)
+    expect(renderSystemMetrics({})).not.toContain('sloppytop_linux_oom_kills')
+    expect(renderOpenMetrics(row)).not.toContain('sloppytop_linux_oom_kills')
+  })
   test('emits the six gauges and the sample time as a comment', () => {
     const text = renderOpenMetrics(row)
     expect(text).toContain('# sloppytop_sample_at 2026-09-25T12:00:00.000Z\n')

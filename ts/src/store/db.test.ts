@@ -208,6 +208,10 @@ describe('metrics store', () => {
       uptime_secs INTEGER NOT NULL,
       process_count INTEGER NOT NULL
     )`)
+    old.run(`INSERT INTO system_samples VALUES (
+      1, '2026-01-01T00:00:00.000Z', 'old', 0, '[]',
+      100, 0, 100, 0, 0, 0, 0, 0, 100, 0, 100, 1, 0
+    )`)
     old.close()
     old = undefined
 
@@ -219,11 +223,16 @@ describe('metrics store', () => {
     expect(names).toContain('battery_charging')
     expect(names).toContain('psi_io_some_avg10')
     expect(names).toContain('memory_pressure_level')
+    expect(names).toContain('linux_oom_kills')
+    expect(names).toContain('linux_boot_id')
     expect(names).toContain('cpu_power_watts')
     expect(names).toContain('disk_devices')
     expect(names).toContain('temperatures')
     expect(names).toContain('pageins_per_s')
     expect(names).toContain('cpu_core_kinds')
+    const legacy = queryHistory(db, '2026-01-01T00:00:00.000Z', 1)[0]!
+    expect(legacy.id).toBe(1)
+    expect(legacy).not.toHaveProperty('linux_oom_kills')
     insertSample(
       db,
       new Date().toISOString(),
@@ -234,6 +243,7 @@ describe('metrics store', () => {
     const row = queryHistory(db, new Date(Date.now() - 3_600_000).toISOString(), 1)[0]!
     expect(row.swap_used_bytes).toBe(40)
     expect(row).not.toHaveProperty('battery_charge_percent')
+    expect(row).not.toHaveProperty('linux_oom_kills')
     db.close()
     db = undefined
     Bun.gc(true)

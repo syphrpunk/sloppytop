@@ -770,6 +770,9 @@ function pressureRows(system: Partial<SystemStats>, width: number): string[] {
   add('cpu', system.psi_cpu_some_avg10)
   add('io', system.psi_io_some_avg10)
   add('mem', system.psi_memory_some_avg10)
+  if (system.linux_oom_kills !== undefined) {
+    facts.push({ label: 'kernel OOM kills since boot', value: String(system.linux_oom_kills) })
+  }
   lines.push(...stackFacts(facts, width))
   return lines
 }

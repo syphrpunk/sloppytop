@@ -16,7 +16,7 @@ Keep active scanning, packet capture, remote administration, fan control, cleanu
 ## Deep dives
 
 - [01 — Sampling gaps, idle rates, and counter resets](slices/01-sampling-gaps.md): three source snapshots compared; reproduced incorrect RX history and dropped chart slots.
-- [02 — Linux memory pressure versus OOM kills](slices/02-linux-memory-pressure-and-oom.md): Headroom and Below compared; host kernel counter implementation scoped.
+- [02 — Linux memory pressure versus OOM kills](slices/02-linux-memory-pressure-and-oom.md): Headroom and Below compared; host kernel counter implemented and verified against live Linux procfs.
 
 ## Archive inventory
 

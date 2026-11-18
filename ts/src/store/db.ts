@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS system_samples (
   psi_io_some_avg10 REAL,
   psi_memory_some_avg10 REAL,
   memory_pressure_level TEXT,
+  linux_oom_kills INTEGER,
+  linux_boot_id TEXT,
   cpu_power_watts REAL,
   gpu_power_watts REAL,
   ane_power_watts REAL,
@@ -89,6 +91,8 @@ const ADDED_SYSTEM_COLUMNS: [name: string, type: string][] = [
   ['psi_io_some_avg10', 'REAL'],
   ['psi_memory_some_avg10', 'REAL'],
   ['memory_pressure_level', 'TEXT'],
+  ['linux_oom_kills', 'INTEGER'],
+  ['linux_boot_id', 'TEXT'],
   ['cpu_power_watts', 'REAL'],
   ['gpu_power_watts', 'REAL'],
   ['ane_power_watts', 'REAL'],
@@ -140,6 +144,7 @@ export function insertSample(
   system: SystemStats,
   processes: ProcessInfo[],
   opts: { processLimit: number; retentionDays: number },
+  linuxBootId?: string,
 ): RecordResult {
   const insertSystem = db.prepare(`
     INSERT INTO system_samples (
@@ -158,13 +163,13 @@ export function insertSample(
       temperatures, fans, thermal_state,
       memory_wired_bytes, memory_compressed_bytes, memory_app_bytes, memory_cached_bytes,
       pageins_per_s, pageouts_per_s, compressions_per_s, decompressions_per_s,
-      cpu_core_kinds
+      cpu_core_kinds, linux_oom_kills, linux_boot_id
     ) VALUES (
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-      ?, ?
+      ?, ?, ?, ?
     )
   `)
   const insertProcess = db.prepare(`
@@ -266,6 +271,8 @@ export function insertSample(
       compressions,
       decompressions,
       coreKinds,
+      system.linux_oom_kills ?? null,
+      system.linux_oom_kills !== undefined ? linuxBootId ?? null : null,
     )
     const sampleId = Number(lastInsertRowid)
     for (const p of top) {
@@ -316,6 +323,7 @@ export interface HistoryRow {
   psi_io_some_avg10?: number
   psi_memory_some_avg10?: number
   memory_pressure_level?: string
+  linux_oom_kills?: number
   cpu_power_watts?: number
   gpu_power_watts?: number
   ane_power_watts?: number
@@ -353,6 +361,7 @@ interface HistorySqlRow {
   psi_io_some_avg10: number | null
   psi_memory_some_avg10: number | null
   memory_pressure_level: string | null
+  linux_oom_kills: number | null
   cpu_power_watts: number | null
   gpu_power_watts: number | null
   ane_power_watts: number | null
@@ -396,6 +405,7 @@ function historyRow(row: HistorySqlRow): HistoryRow {
   if (row.psi_io_some_avg10 != null) out.psi_io_some_avg10 = row.psi_io_some_avg10
   if (row.psi_memory_some_avg10 != null) out.psi_memory_some_avg10 = row.psi_memory_some_avg10
   if (row.memory_pressure_level != null) out.memory_pressure_level = row.memory_pressure_level
+  if (row.linux_oom_kills != null) out.linux_oom_kills = row.linux_oom_kills
   if (row.cpu_power_watts != null) out.cpu_power_watts = row.cpu_power_watts
   if (row.gpu_power_watts != null) out.gpu_power_watts = row.gpu_power_watts
   if (row.ane_power_watts != null) out.ane_power_watts = row.ane_power_watts
@@ -434,7 +444,7 @@ export function queryHistory(db: Database, sinceIso: string, limit: number): His
               swap_total_bytes, swap_used_bytes,
               battery_charge_percent, battery_charging,
               psi_cpu_some_avg10, psi_io_some_avg10, psi_memory_some_avg10,
-              memory_pressure_level,
+              memory_pressure_level, linux_oom_kills,
               cpu_power_watts, gpu_power_watts, ane_power_watts, dram_power_watts,
               disk_devices, temperatures, fans, thermal_state,
               memory_wired_bytes, memory_compressed_bytes, memory_app_bytes, memory_cached_bytes,

@@ -45,11 +45,12 @@ const record = (
   at: string,
   overrides: Partial<SystemStats> = {},
   procs: ProcessInfo[] = [],
+  boot?: string,
 ) =>
   insertSample(db, at, { ...baseSystem, ...overrides }, procs, {
     processLimit: 30,
     retentionDays: 365,
-  })
+  }, boot)
 
 describe('report', () => {
   let db: Database
@@ -60,6 +61,23 @@ describe('report', () => {
 
   test('reportWindow is null with no samples in range', () => {
     expect(reportWindow(db, '2026-01-01T00:00:00Z')).toBeNull()
+  })
+
+  test('reports only increases with an adjacent confirmed same-boot baseline', () => {
+    const at = (n: number) => `2026-08-17T00:${String(n).padStart(2, '0')}:00.000Z`
+    const counts = [5, 5, 7, undefined, 20, 25, 0, 1, 4, 6, 7]
+    const boots = ['a', 'a', 'a', 'a', 'a', 'b', 'b', 'b', undefined, 'b', 'b']
+    counts.forEach((count, i) => record(db, at(i), count === undefined ? {} : { linux_oom_kills: count }, [], boots[i]))
+    const kills = (since: string) => reportAnomalies(db, since)
+      .filter((entry) => entry.type === 'kernel_oom_kill')
+      .map(({ at, detail }) => [at, detail])
+    expect(kills(at(0))).toEqual([
+      [at(2), '2 Linux kernel OOM kills since the previous sample'],
+      [at(7), '1 Linux kernel OOM kill since the previous sample'],
+      [at(10), '1 Linux kernel OOM kill since the previous sample'],
+    ])
+    expect(kills(at(10))).toEqual([])
+    expect(reportAnomalies(db, at(0)).some((entry) => entry.type === 'memory_pressure')).toBe(false)
   })
 
   test('hourly buckets aggregate avg and peak per hour', () => {

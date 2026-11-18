@@ -24,4 +24,10 @@ The [Linux PSI docs](https://docs.kernel.org/accounting/psi.html) define `some` 
 - Persist it in nullable storage. If reporting increases, compare adjacent observations with confirmed same-boot identity and a nondecreasing count. Missing readings, reset or reboot establish a new baseline; the oldest observation in a requested window alone is not evidence of a kill in that window. Keep boot identity internal rather than emitting it in the CLI or metrics.
 - Test the parser with absent, zero, positive and malformed values; test probe gating and old DB rows, then report behavior for flat counts, increases, missing rows, and a reboot whose new count already exceeds the old one. Verify a read-only live Linux sample without inducing an OOM.
 
-No OOM telemetry code has changed yet. Cgroup attribution, journald event attribution, and oomd policy discovery are outside K1.
+## Implementation and verification
+
+K1 now exposes `linux_oom_kills` in Linux system samples and recorded history, and `sloppytop_linux_oom_kills_total` in live and recorded OpenMetrics. It reuses the paging read of `/proc/vmstat`. The pressure switch hides the count, and an independent nullable boot ID is only used inside the recorder and report. Missing values and old rows remain absent while a measured zero is preserved. `kernel_oom_kill` report entries describe increases between adjacent samples, rather than attributing exact event times or victims.
+
+Verification: 241 tests passed on macOS arm64 (the Linux-only test skipped), plus type-check, build, and compiled TUI smoke. On Linux aarch64, 36 targeted tests passed in an unprivileged container, including a read-only comparison with live procfs and a check that disabling the pressure probe omits the count. No OOM was induced.
+
+Cgroup attribution, journald event attribution, and oomd policy discovery remain outside K1. Next research candidate: per-device disk history and topology (iodyne).

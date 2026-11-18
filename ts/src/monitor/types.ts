@@ -102,6 +102,8 @@ export interface SystemStats {
    * Omitted on other platforms and on an unrecognized value.
    */
   memory_pressure_level?: MemoryPressureLevel
+  /** Linux kernel OOM kills since boot, scoped to the mounted procfs. */
+  linux_oom_kills?: number
   /**
    * Apple Silicon package power between the last two refreshes.
    * Omitted when IOReport has no reading. A measured 0 is an idle rail.
@@ -275,6 +277,9 @@ export interface PlatformSample {
   psiCpuSomeAvg10?: number
   psiIoSomeAvg10?: number
   psiMemorySomeAvg10?: number
+  linuxOomKills?: number
+  /** Recorder metadata, never part of the public system stats. */
+  linuxBootId?: string
   /** macOS note: normal / warning / critical. */
   memoryPressureLevel?: MemoryPressureLevel
   /** Cumulative package energy in nanojoules. Monitor turns the delta into watts. */

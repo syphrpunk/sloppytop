@@ -6,9 +6,14 @@ import type { ProcessInfo, SystemStats } from './monitor/types.ts'
 import { loadConfig } from './store/config.ts'
 import { appendProbeLog } from './store/probe-log.ts'
 
-export interface Sample {
+export interface RecordableSample {
   system: SystemStats
   processes: ProcessInfo[]
+  /** Internal metadata for comparing Linux OOM counts across stored samples. */
+  linuxBootId?: string
+}
+
+export interface Sample extends RecordableSample {
   probes: ProbeSet
 }
 
@@ -19,5 +24,5 @@ export async function takeSample(sampleMs: number): Promise<Sample> {
   const system = projectSystem(snap.system, probes)
   const processes = projectProcesses(snap.processes, probes)
   appendProbeLog(probeEntries(system, processes, probes))
-  return { system, processes, probes }
+  return { system, processes, probes, ...(snap.linuxBootId ? { linuxBootId: snap.linuxBootId } : {}) }
 }

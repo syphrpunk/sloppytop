@@ -148,13 +148,11 @@ function collectMem() {
   return memoryFromMeminfo(readProc('meminfo'))
 }
 
-function collectPaging() {
-  try {
-    const pages = pagingFromVmstat(readProc('vmstat'), PAGE_SIZE)
-    return hasCounter(pages) ? pages : undefined
-  } catch {
-    return
-  }
+export function parseOomKills(text: string): number | undefined {
+  const value = /^oom_kill[ \t]+([0-9]+)[ \t]*$/m.exec(text)?.[1]
+  if (value === undefined) return
+  const count = Number(value)
+  if (Number.isSafeInteger(count)) return count
 }
 
 function hasCounter(pages: {
@@ -356,7 +354,10 @@ export function collect(flags?: CollectFlags): PlatformSample {
   const psiCpu = flagOn(flags, 'pressure') ? collectPsi('cpu') : undefined
   const psiIo = flagOn(flags, 'pressure') ? collectPsi('io') : undefined
   const psiMemory = flagOn(flags, 'pressure') ? collectPsi('memory') : undefined
-  const pages = collectPaging()
+  const vmstat = readText('/proc/vmstat')
+  const pages = vmstat === undefined ? undefined : pagingFromVmstat(vmstat, PAGE_SIZE)
+  const oomKills = vmstat !== undefined && flagOn(flags, 'pressure') ? parseOomKills(vmstat) : undefined
+  const bootId = oomKills === undefined ? undefined : readText('/proc/sys/kernel/random/boot_id')?.trim()
   const sensors = flagOn(flags, 'sensors') ? collectHwmon() : {}
   const gpuActivity = flagOn(flags, 'gpu') ? collectDrm() : undefined
 
@@ -370,7 +371,7 @@ export function collect(flags?: CollectFlags): PlatformSample {
     ...(mem.app !== undefined ? { memoryApp: mem.app } : {}),
     ...(mem.cached !== undefined ? { memoryCached: mem.cached } : {}),
     ...(mem.compressed !== undefined ? { memoryCompressed: mem.compressed } : {}),
-    ...(pages ? { pageCounters: pages } : {}),
+    ...(pages && hasCounter(pages) ? { pageCounters: pages } : {}),
     netRxTotal: net.rx,
     netTxTotal: net.tx,
     diskTotal: disk.total,
@@ -389,6 +390,10 @@ export function collect(flags?: CollectFlags): PlatformSample {
     ...(psiCpu !== undefined ? { psiCpuSomeAvg10: psiCpu } : {}),
     ...(psiIo !== undefined ? { psiIoSomeAvg10: psiIo } : {}),
     ...(psiMemory !== undefined ? { psiMemorySomeAvg10: psiMemory } : {}),
+    ...(oomKills !== undefined ? { linuxOomKills: oomKills } : {}),
+    ...(bootId && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(bootId)
+      ? { linuxBootId: bootId.toLowerCase() }
+      : {}),
     ...(disks ? { disks } : {}),
     ...(sensors.temperatures ? { temperatures: sensors.temperatures } : {}),
     ...(sensors.fans ? { fans: sensors.fans } : {}),

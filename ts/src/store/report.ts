@@ -65,7 +65,7 @@ export interface GroupReport {
 
 export interface Anomaly {
   at: string
-  type: 'io_pressure' | 'cpu_saturation' | 'memory_pressure'
+  type: 'io_pressure' | 'cpu_saturation' | 'memory_pressure' | 'kernel_oom_kill'
   detail: string
   cpu_usage_total: number
   load_1: number
@@ -82,6 +82,8 @@ interface SampleRow {
   psi_io_some_avg10: number | null
   psi_memory_some_avg10: number | null
   memory_pressure_level: string | null
+  linux_oom_kills: number | null
+  linux_boot_id: string | null
 }
 
 /**
@@ -280,13 +282,14 @@ export function reportAnomalies(db: Database, sinceIso: string): Anomaly[] {
   const rows = db
     .prepare(
       `SELECT at, cpu_usage_total, cpu_usage_per_core, memory_used, memory_total, load_1,
-              psi_io_some_avg10, psi_memory_some_avg10, memory_pressure_level
-       FROM system_samples WHERE at >= ? ORDER BY at`,
+              psi_io_some_avg10, psi_memory_some_avg10, memory_pressure_level,
+              linux_oom_kills, linux_boot_id
+       FROM system_samples WHERE at >= ? ORDER BY at, id`,
     )
     .all(sinceIso) as SampleRow[]
 
   const anomalies: Anomaly[] = []
-  for (const r of rows) {
+  for (const [i, r] of rows.entries()) {
     let cores = 0
     try {
       cores = (JSON.parse(r.cpu_usage_per_core) as unknown[]).length
@@ -300,6 +303,21 @@ export function reportAnomalies(db: Database, sinceIso: string): Anomaly[] {
       cpu_usage_total: round1(r.cpu_usage_total),
       load_1: round1(r.load_1),
       memory_used_pct: round1(memPct),
+    }
+    // Use adjacent observations within the window; never bridge a missing reading or a reboot.
+    const previous = rows[i - 1]
+    if (
+      previous && previous.at < r.at && r.linux_boot_id &&
+      r.linux_boot_id === previous.linux_boot_id &&
+      r.linux_oom_kills != null && previous.linux_oom_kills != null &&
+      r.linux_oom_kills > previous.linux_oom_kills
+    ) {
+      const count = r.linux_oom_kills - previous.linux_oom_kills
+      anomalies.push({
+        ...base,
+        type: 'kernel_oom_kill',
+        detail: `${count} Linux kernel OOM ${count === 1 ? 'kill' : 'kills'} since the previous sample`,
+      })
     }
     if (r.psi_io_some_avg10 != null) {
       if (r.psi_io_some_avg10 >= PSI_SOME_AVG10_ANOMALY) {

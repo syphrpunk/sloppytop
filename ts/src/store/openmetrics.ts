@@ -25,6 +25,7 @@ export function renderOpenMetrics(row: HistoryRow): string {
   optionalGauge(lines, 'sloppytop_memory_cached_bytes', 'Cached memory, bytes', row.memory_cached_bytes)
   optionalGauge(lines, 'sloppytop_pageins_per_second', 'Page-ins per second', row.pageins_per_s)
   optionalGauge(lines, 'sloppytop_pageouts_per_second', 'Page-outs per second', row.pageouts_per_s)
+  appendOomKills(lines, row.linux_oom_kills)
   optionalGauge(lines, 'sloppytop_compressions_per_second', 'Memory compressions per second', row.compressions_per_s)
   optionalGauge(
     lines,
@@ -89,6 +90,7 @@ export function renderSystemMetrics(system: Partial<SystemStats>, at = new Date(
   gauge(lines, 'sloppytop_psi_cpu_some_avg10', 'CPU PSI some avg10', system.psi_cpu_some_avg10)
   gauge(lines, 'sloppytop_psi_io_some_avg10', 'I/O PSI some avg10', system.psi_io_some_avg10)
   gauge(lines, 'sloppytop_psi_memory_some_avg10', 'Memory PSI some avg10', system.psi_memory_some_avg10)
+  appendOomKills(lines, system.linux_oom_kills)
   gauge(lines, 'sloppytop_cpu_power_watts', 'CPU package power, watts', system.cpu_power_watts)
   gauge(lines, 'sloppytop_gpu_power_watts', 'GPU package power, watts', system.gpu_power_watts)
   gauge(lines, 'sloppytop_ane_power_watts', 'ANE package power, watts', system.ane_power_watts)
@@ -121,6 +123,15 @@ export function renderSystemMetrics(system: Partial<SystemStats>, at = new Date(
   }
   lines.push('# EOF')
   return lines.join('\n') + '\n'
+}
+
+function appendOomKills(lines: string[], value: number | undefined) {
+  if (value === undefined) return
+  lines.push(
+    '# HELP sloppytop_linux_oom_kills Linux kernel OOM kills since boot, scoped to the mounted procfs',
+    '# TYPE sloppytop_linux_oom_kills counter',
+    `sloppytop_linux_oom_kills_total ${value}`,
+  )
 }
 
 function gauge(lines: string[], name: string, help: string, value: number | undefined) {

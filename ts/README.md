@@ -43,7 +43,7 @@ sloppytop service status            # job state + DB stats
 sloppytop service uninstall
 ```
 
-`report` flags unhealthy samples: `io_pressure` (load1 far above core count at moderate CPU — I/O wait), `cpu_saturation` (>90% CPU), `memory_pressure` (>92% used).
+`report` flags I/O pressure, CPU saturation, and memory pressure. It uses measured pressure when available, otherwise it falls back to load or memory use. On Linux, `kernel_oom_kill` reports an increase between adjacent samples in the report window from the same boot. The optional `pressure` probe exposes the cumulative `linux_oom_kills` count from the mounted `/proc` and exports it as `sloppytop_linux_oom_kills_total`. A missing count is not zero. This is distinct from PSI stalls and does not identify victims or count systemd-oomd actions.
 
 `service install` stores one sample before it returns, then starts the scheduler. The required probes are `cpu`, `memory`, `disk`, `network`, and `host`. One of those being off stops the install and leaves the scheduler unchanged. Read the sample with `sloppytop history`, `sloppytop report`, or `sloppytop tui` and press `v`. The Homebrew cask in `Casks/sloppytop.rb` runs `record` and then `service install` for the published binary.
 

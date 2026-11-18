@@ -5,7 +5,7 @@
 import type { Database } from 'bun:sqlite'
 import { disabledRecordProbes, type ProbeSet } from '../monitor/probes.ts'
 import type { FanReading, ProcessInfo, SystemStats, TemperatureReading } from '../monitor/types.ts'
-import { takeSample } from '../sample.ts'
+import { takeSample, type RecordableSample } from '../sample.ts'
 import { loadConfig } from '../store/config.ts'
 import { insertSample, openDb, queryHistory, type HistoryRow } from '../store/db.ts'
 import { metricsResponse } from '../store/metrics.ts'
@@ -40,8 +40,8 @@ const CLIP = 48
 const HIDDEN_LOG_KEYS = new Set(['cwd', 'environ', 'command', 'local', 'remote'])
 
 export interface RecordDeps {
-  sample: () => Promise<{ system: SystemStats; processes: ProcessInfo[] }>
-  insert: (system: SystemStats, processes: ProcessInfo[]) => { sampleId: number; processesStored: number }
+  sample: () => Promise<RecordableSample>
+  insert: (system: SystemStats, processes: ProcessInfo[], linuxBootId?: string) => { sampleId: number; processesStored: number }
 }
 
 export interface ReportInput {
@@ -75,8 +75,8 @@ export async function attemptRecord(
       message: `PROBE_DISABLED  record needs these probes enabled: ${blocked.join(', ')}`,
     }
   }
-  const { system, processes } = await deps.sample()
-  const result = deps.insert(system, processes)
+  const { system, processes, linuxBootId } = await deps.sample()
+  const result = deps.insert(system, processes, linuxBootId)
   return { recorded: true, message: `recorded sample ${result.sampleId}  ${result.processesStored} processes` }
 }
 
@@ -295,15 +295,12 @@ export function hasStoreEffect(effect: ScreenEffect): boolean {
 export async function recordWithStore(): Promise<{ recorded: boolean; message: string }> {
   const config = loadConfig()
   return attemptRecord(config.probes, {
-    sample: async () => {
-      const sample = await takeSample(loadConfig().record.sampleMs)
-      return { system: sample.system, processes: sample.processes }
-    },
-    insert: (system, processes) => {
+    sample: () => takeSample(loadConfig().record.sampleMs),
+    insert: (system, processes, linuxBootId) => {
       const record = loadConfig().record
       const db = openDb()
       try {
-        const result = insertSample(db, new Date().toISOString(), system, processes, record)
+        const result = insertSample(db, new Date().toISOString(), system, processes, record, linuxBootId)
         return { sampleId: result.sampleId, processesStored: result.processesStored }
       } finally {
         db.close()

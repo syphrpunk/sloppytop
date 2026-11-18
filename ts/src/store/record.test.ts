@@ -58,7 +58,11 @@ async function withConfigHome(run: (home: string) => Promise<void>) {
 describe('recordSample', () => {
   test('stores one sample from the supplied reading', async () => {
     await withConfigHome(async (home) => {
-      const stored = await recordSample(async () => ({ system, processes: [proc] }))
+      const stored = await recordSample(async () => ({
+        system: { ...system, linux_oom_kills: 0 },
+        processes: [proc],
+        linuxBootId: 'private-boot-id',
+      }))
       expect(stored.recorded).toBe(true)
       expect(stored.processes_stored).toBe(1)
       expect(stored.db_path).toBe(join(home, 'sloppytop', 'sloppytop.db'))
@@ -67,6 +71,9 @@ describe('recordSample', () => {
         const rows = queryHistory(db, new Date(Date.now() - 3_600_000).toISOString(), 10)
         expect(rows).toHaveLength(1)
         expect(rows[0]!.cpu_usage_total).toBe(15)
+        expect(rows[0]!.linux_oom_kills).toBe(0)
+        expect(JSON.stringify(rows)).not.toContain('private-boot-id')
+        expect(db.query('SELECT linux_boot_id FROM system_samples').get()).toEqual({ linux_boot_id: 'private-boot-id' })
       } finally {
         db.close()
       }

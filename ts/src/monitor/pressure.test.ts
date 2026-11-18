@@ -1,8 +1,37 @@
 import { describe, expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
 import { parseMemoryPressureLevel } from './darwin.ts'
-import { optionalSystemStats } from './index.ts'
-import { parsePsiSomeAvg10 } from './linux.ts'
+import { optionalSystemStats, snapshot } from './index.ts'
+import { parseOomKills, parsePsiSomeAvg10 } from './linux.ts'
+import { collectFlags, defaultProbes } from './probes.ts'
 import type { PlatformSample } from './types.ts'
+
+test('parses only a safe nonnegative oom_kill count from vmstat', () => {
+  expect(parseOomKills('pgpgin 1024\noom_kill 0\n')).toBe(0)
+  expect(parseOomKills('oom_kill\t123\npgpgout 2048')).toBe(123)
+  for (const text of ['', 'not_oom_kill 3', 'oom_kill -1', 'oom_kill 1.5', 'oom_kill 1 extra',
+    'oom_kill 9007199254740992', 'oom_kill\n1']) {
+    expect(parseOomKills(text)).toBeUndefined()
+  }
+})
+
+test.skipIf(process.platform !== 'linux')('reads the live Linux counter and omits it with pressure off', async () => {
+  const readCount = () => Number(/^oom_kill\s+(\d+)$/m.exec(readFileSync('/proc/vmstat', 'utf8'))?.[1])
+  const before = readCount()
+  const flags = collectFlags(defaultProbes())
+  const on = await snapshot(0, { ...flags, pressure: true })
+  const after = readCount()
+  if (Number.isFinite(before) && Number.isFinite(after)) {
+    expect(on.system.linux_oom_kills).toBeGreaterThanOrEqual(before)
+    expect(on.system.linux_oom_kills).toBeLessThanOrEqual(after)
+    expect(on.linuxBootId).toBe(readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim())
+  } else {
+    expect(on.system).not.toHaveProperty('linux_oom_kills')
+  }
+  const off = await snapshot(0, { ...flags, pressure: false })
+  expect(off.system).not.toHaveProperty('linux_oom_kills')
+  expect(off).not.toHaveProperty('linuxBootId')
+})
 
 describe('parsePsiSomeAvg10', () => {
   test('reads some avg10 and ignores the full line', () => {
@@ -70,5 +99,10 @@ describe('optionalSystemStats pressure', () => {
       psi_io_some_avg10: 1.26,
       memory_pressure_level: 'normal',
     })
+  })
+
+  test('OOM zero is independent of PSI and excludes boot metadata', () => {
+    const stats = optionalSystemStats({ ...base, linuxOomKills: 0, linuxBootId: 'internal' })
+    expect(stats).toEqual({ linux_oom_kills: 0 })
   })
 })

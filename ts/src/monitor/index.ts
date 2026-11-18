@@ -78,6 +78,10 @@ export class Monitor {
     this.#flags = flags
   }
 
+  linuxBootId(): string | undefined {
+    return this.#sample?.linuxBootId
+  }
+
   refresh(): void {
     const sample = this.#impl.collect(this.#flags)
     const at = Date.now()
@@ -264,6 +268,7 @@ export function optionalSystemStats(s: PlatformSample): Partial<SystemStats> {
   if (s.psiIoSomeAvg10 !== undefined) out.psi_io_some_avg10 = round2(s.psiIoSomeAvg10)
   if (s.psiMemorySomeAvg10 !== undefined) out.psi_memory_some_avg10 = round2(s.psiMemorySomeAvg10)
   if (s.memoryPressureLevel !== undefined) out.memory_pressure_level = s.memoryPressureLevel
+  if (s.linuxOomKills !== undefined) out.linux_oom_kills = s.linuxOomKills
   if (s.memoryWired !== undefined) out.memory_wired_bytes = Math.round(s.memoryWired)
   if (s.memoryCompressed !== undefined) out.memory_compressed_bytes = Math.round(s.memoryCompressed)
   if (s.memoryApp !== undefined) out.memory_app_bytes = Math.round(s.memoryApp)
@@ -309,13 +314,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export async function snapshot(sampleMs = 500, flags?: CollectFlags): Promise<{
   system: SystemStats
   processes: ProcessInfo[]
+  linuxBootId?: string
 }> {
   const mon = await Monitor.create()
   mon.setFlags(flags)
   mon.refresh()
   await sleep(sampleMs)
   mon.refresh()
-  return { system: mon.stats(), processes: mon.processes() }
+  const bootId = mon.linuxBootId()
+  return { system: mon.stats(), processes: mon.processes(), ...(bootId ? { linuxBootId: bootId } : {}) }
 }
 
 /** On-demand expensive fields (cwd, environ) — port of getProcessDetail */

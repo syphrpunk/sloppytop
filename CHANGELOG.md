@@ -14,6 +14,7 @@ The `handoff-create --changelog` flow appends entries to "## Unreleased" as you 
 - `Casks/sloppytop.rb` is a Homebrew cask for the v0.3.0 Apple Silicon binary. `brew tap syphrpunk/sloppytop https://github.com/syphrpunk/sloppytop` and then `brew install syphrpunk/sloppytop/sloppytop` stores one sample and starts the hourly recorder.
 - Linux temperature readings include critical limits and headroom when the same hwmon sensor reports a valid `tempN_crit`.
 - TUI history charts show more recorded signals, plot network rates as stored, and retain gaps for missing readings.
+- Linux samples include kernel OOM kills since boot when available. Reports flag increases across adjacent same-boot samples separately from memory pressure.
 
 ## 0.3.0 - 2026-10-23
 
