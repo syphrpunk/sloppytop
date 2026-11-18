@@ -105,7 +105,7 @@ def run(fixture, output):
             tmux("new-session", "-d", "-s", "visual", "-x", "112", "-y", "30", command)
             capture("01-wide", ["PID", "fixture-worker"], 112, 30)
             tmux("resize-window", "-t", "visual", "-x", "56", "-y", "18")
-            capture("02-narrow", ["sloppytop", "system", "PID", "fixture-worker"], 56, 18)
+            capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0"], 56, 18)
             tmux("send-keys", "-t", "visual", "D")
             capture("03-discovery-coverage", ["cached peers", "denied", "partial"], 56, 18)
             for _ in range(3):
@@ -115,6 +115,8 @@ def run(fixture, output):
             capture("05-refreshed", ["refreshed", "fe80::1%eth0"], 56, 18)
             tmux("send-keys", "-t", "visual", "Escape")
             capture("06-return", ["sloppytop", "system", "PID", "fixture-worker"], 56, 18)
+            tmux("resize-window", "-t", "visual", "-x", "112", "-y", "30")
+            capture("07-grow", ["sloppytop", "╭─ cpu", "PID", "fixture-worker"], 112, 30)
             tmux("send-keys", "-t", "visual", "q")
             for _ in range(30):
                 if not tmux("list-sessions", check=False):

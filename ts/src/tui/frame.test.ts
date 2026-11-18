@@ -100,6 +100,19 @@ test('discovery navigation renders denied and partial coverage at narrow and wid
   }
 })
 
+test('short wide and narrow screens favor process rows and primary metrics', () => {
+  const processes = [proc({ pid: 42, name: '界-worker', cpu_usage: 32, memory_bytes: 450 * 2 ** 20 })]
+  const system = measured({ cpu_usage_per_core: [1, 2, 3, 4], core_count: 4 })
+  const draw = (width: number, height: number) =>
+    compose(screen({ width, height, selectedPid: 42 }), { processes, system, history: emptyHistory() })
+  const narrow = draw(56, 18)
+  expect(narrow.layout.columns.map(c => c.id)).toEqual(expect.arrayContaining(['pid', 'name', 'memory', 'cpu']))
+  expect(narrow.text).toContain('界-worker')
+  expect(narrow.text).toContain('450M')
+  expect(narrow.text).toContain('32.0')
+  expect(draw(112, 30).layout.bodyRows).toBeGreaterThanOrEqual(14)
+})
+
 describe('stats strip', () => {
   test('renders missing network intervals as gaps, not as zeros', () => {
     const idle = { network_rx_bytes: 0 }

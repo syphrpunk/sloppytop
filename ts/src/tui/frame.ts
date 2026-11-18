@@ -140,7 +140,7 @@ export function compose(
   const width = Math.max(1, state.width)
   const height = Math.max(1, state.height)
   const view = visibleRows(state, input.processes)
-  const fitted = fitColumns(state.columns, width)
+  const fitted = fitColumns(state.columns, width, state.sortBy)
   const lines: string[] = []
   const capacity = Math.max(0, height - 1)
   const add = (line: string): boolean => {
@@ -328,7 +328,8 @@ function compactStrip(system: Partial<SystemStats>, history: SampleHistory, widt
  */
 function panelStrip(system: Partial<SystemStats>, history: SampleHistory, width: number, height: number): string[] {
   const columns = width >= 120 ? 3 : 2
-  const budget = Math.max(6, height - 14)
+  // Keep short wide terminals table-first, growing the panels with spare rows.
+  const budget = Math.min(height - 14, 10 + 2 * (height - 30))
   const slotWidths = columnWidths(width, Array.from({ length: columns }, () => 1))
   const contentW = Math.max(8, (slotWidths[0] ?? 12) - 4)
   const fitted = fitProbePanels(probePanels(system, history, contentW), columns, budget)
@@ -871,27 +872,25 @@ function kindMark(kind: CpuCoreKind | undefined): string {
 
 const COLUMN_GAP = 1
 
-function fitColumns(requested: TuiColumn[], width: number): { id: TuiColumn; width: number }[] {
+function fitColumns(requested: TuiColumn[], width: number, sort: SortKey): { id: TuiColumn; width: number }[] {
   let cols = (requested.length > 0 ? requested : (['pid', 'name'] as TuiColumn[])).filter((id) => COLUMNS[id])
   const widths = new Map<TuiColumn, number>(cols.map((id) => [id, COLUMNS[id].width]))
   const sum = () =>
     MARKER + cols.reduce((total, id) => total + (widths.get(id) ?? 0), 0) + Math.max(0, cols.length - 1) * COLUMN_GAP
   const shrink = (id: TuiColumn, min: number) => {
-    while (sum() > width && cols.includes(id) && (widths.get(id) ?? 0) > min) {
-      widths.set(id, (widths.get(id) ?? 0) - 1)
-    }
+    const current = widths.get(id)
+    if (current !== undefined && current > min) widths.set(id, Math.max(min, current - Math.max(0, sum() - width)))
   }
-  shrink('command', 8)
+  const protectedColumn = (id: TuiColumn) => id === 'pid' || id === 'name'
+  const priority = (id: TuiColumn) => COLUMNS[id].sort === sort ? 2 : id === 'cpu' || id === 'memory' ? 1 : 0
+  shrink('command', 12)
   while (sum() > width) {
-    const drop = [...cols].reverse().find((id) => id !== 'pid' && id !== 'name')
+    const drop = [...cols].reverse().filter((id) => !protectedColumn(id)).sort((a, b) => priority(a) - priority(b))[0]
     if (!drop) break
+    if (priority(drop) > 0) shrink('name', 8)
+    if (sum() <= width) break
     cols = cols.filter((id) => id !== drop)
     widths.delete(drop)
-  }
-  shrink('command', 1)
-  if (cols.includes('command') && sum() > width) {
-    cols = cols.filter((id) => id !== 'command')
-    widths.delete('command')
   }
   shrink('name', 1)
   shrink('pid', 1)
