@@ -66,7 +66,7 @@ jobs:
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
           VERSION="${TAG#v}"
-          bun build --compile --minify src/index.ts \
+          bun build --compile --minify src/index.ts src/tui/sample-worker.ts \
             --outfile "dist/sloppytop-${{ matrix.suffix }}${{ matrix.exe }}" \
             --define "__INCUR_BINARY_NAME__=\"sloppytop\"" \
             --define "__INCUR_BINARY_TARGET__=\"${{ matrix.incur_target }}\"" \

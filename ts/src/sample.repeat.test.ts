@@ -7,7 +7,7 @@ import { defaultProbes } from './monitor/probes.ts'
 import { takeSample } from './sample.ts'
 import { configParseCount, configPath, loadConfig, updateProbes } from './store/config.ts'
 import { defaultPageLoaders, fulfillPage, pageFulfillCount } from './tui/pages.ts'
-import { runSampleTick } from './tui/run.ts'
+import { createTuiSampler } from './tui/sampler.ts'
 
 function names(sample: Awaited<ReturnType<typeof takeSample>>): string[] {
   return (sample.system.temperatures ?? []).map((reading) => reading.name).sort()
@@ -30,7 +30,9 @@ describe('sample and tick', () => {
 
       const pausedReads = hidReadCount()
       const pausedParses = configParseCount()
-      expect(await runSampleTick({ paused: true, sampleMs: 0 })).toBeUndefined()
+      const sampler = createTuiSampler()
+      expect(await sampler.tick({ paused: true, sampleMs: 0 })).toBeUndefined()
+      sampler.close()
       expect(hidReadCount()).toBe(pausedReads)
       expect(configParseCount()).toBe(pausedParses)
       expect(pageFulfillCount()).toBe(fulfills + 1)
@@ -42,7 +44,7 @@ describe('sample and tick', () => {
       const parsesMid = configParseCount()
       const setupMid = hidSetupCounts()
       const readsMid = hidReadCount()
-      const second = await runSampleTick({ paused: false, sampleMs: 0 })
+      const second = await takeSample(0)
       const parsesAfter = configParseCount()
       const setupAfter = hidSetupCounts()
       const readsAfter = hidReadCount()

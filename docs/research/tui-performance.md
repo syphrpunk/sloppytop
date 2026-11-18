@@ -77,3 +77,18 @@ session to observing the screen. Resize composition p95 was 2.31 ms.
 These measurements distinguish frame construction from the longer startup
 and resize paths; they do not yet localize the wait before `runTui`, the
 time between resize request and renderer event, or individual collectors.
+
+## Live sampling off the UI thread
+
+The TUI now runs the same `takeSample` on a retained Bun worker. It has at
+most one live sample outstanding, preserves the configured counter window,
+and surfaces a worker error or timeout in the screen. Freezing starts no new
+samples and does not publish an in-flight result while frozen. The standalone
+build embeds `src/tui/sample-worker.ts` as a second entrypoint; the compiled
+PTY smoke waits for a selected live PID so a missing worker cannot pass.
+
+The same trace exercise after isolation measured live search p95 of 48 ms
+and worst loop delay of 45 ms (previous trace: 333 ms maximum). Resize p95
+was still 280 ms and startup had an 8.8 s outlier; neither gate is met.
+The 5,000-row run used 1.0% paused CPU with tracing. These small runs guide
+the work; they are not a final performance certification.

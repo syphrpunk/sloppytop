@@ -26,7 +26,7 @@ jobs:
       - name: Compile standalone binary
         working-directory: ts
         run: |
-          bun build --compile --minify src/index.ts \
+          bun build --compile --minify src/index.ts src/tui/sample-worker.ts \
             --outfile dist/sloppytop \
             --define "__INCUR_BINARY_NAME__=\"sloppytop\"" \
             --define "__INCUR_BINARY_TARGET__=\"linux-x64-glibc-baseline\"" \

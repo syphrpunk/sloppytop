@@ -5,7 +5,7 @@ import { createCliRenderer, MouseButton, TextRenderable, type CliRenderer } from
 import type { ProbeSet } from '../monitor/probes.ts'
 import type { ProcessInfo, SystemStats } from '../monitor/types.ts'
 import { isProbeName, type ProbeName } from '../monitor/probes.ts'
-import { takeSample, type Sample } from '../sample.ts'
+import { takeSample } from '../sample.ts'
 import { ensureTuiConfig, loadConfig, saveConfig, updateMetrics, updateProbes } from '../store/config.ts'
 import { appendProbeLog } from '../store/probe-log.ts'
 import { defaultPageLoaders, fulfillPage, hasPageEffect, type PageLoaders } from './pages.ts'
@@ -44,6 +44,7 @@ import {
 import { styleFrame } from './style.ts'
 import { getTheme, type Theme } from './theme.ts'
 import { startTuiTrace } from './trace.ts'
+import { createTuiSampler, type SampleTick } from './sampler.ts'
 
 export function mountFrame(renderer: CliRenderer, theme: Theme): void {
   renderer.root.add(
@@ -72,16 +73,10 @@ export function bindQuit(renderer: CliRenderer, onQuit: () => void): void {
   })
 }
 
-/** One screen sample. A paused tick does not sample, and this path does not load an overlay page. */
-export async function runSampleTick(opts: { paused: boolean; sampleMs: number }): Promise<Sample | undefined> {
-  if (opts.paused) return
-  return takeSample(opts.sampleMs)
-}
-
 export async function runTui(
   loaders: PageLoaders = defaultPageLoaders(),
   loadDiscovery = async () => (await import('../discovery/overview.ts')).discoverOverview(),
-  sampleTick = runSampleTick,
+  sampleTick?: SampleTick,
   loadDiscoveryDetail = async (section: 'connections' | 'dns') =>
     (await import('../discovery/overview.ts')).discoverDetail(section),
 ): Promise<void> {
@@ -117,6 +112,7 @@ export async function runTui(
   let pageToken = 0
   let storeToken = 0
   let metricsStop: (() => void) | null = null
+  const sampler = sampleTick ? undefined : createTuiSampler()
 
   const theme = getTheme(state.theme)
   const rendererStarted = performance.now()
@@ -177,6 +173,7 @@ export async function runTui(
     if (stopped) return
     stopped = true
     if (timer) clearTimeout(timer)
+    sampler?.close()
     if (metricsStop) {
       try {
         metricsStop()
@@ -441,10 +438,11 @@ export async function runTui(
     if (stopped) return
     const started = performance.now()
     try {
-      const sample = await sampleTick({ paused: state.paused, sampleMs })
+      const options = { paused: state.paused, sampleMs }
+      const sample = await (sampleTick ? sampleTick(options) : sampler?.tick(options))
       if (sample) trace?.since('sample', started)
       if (stopped) return
-      if (sample) {
+      if (sample && !state.paused) {
         system = sample.system
         processes = sample.processes
         probes = sample.probes

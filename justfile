@@ -9,7 +9,7 @@ setup:
 
 # Compile this checkout to ts/dist/sloppytop
 build:
-    cd ts && bun build --compile --minify src/index.ts --outfile dist/sloppytop
+    cd ts && bun build --compile --minify src/index.ts src/tui/sample-worker.ts --outfile dist/sloppytop
     @echo "Binary built: ts/dist/sloppytop"
 
 # Run this checkout. Pass args after --, for example `just dev system`
