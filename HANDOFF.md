@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 4d2b4a5 docs: checkpoint slices 4–8 and NVIDIA validation blocker
+HEAD: 6afd514 docs: defer NVIDIA validation to a cloud GPU
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -45,6 +45,8 @@ Vetted all 77 reference archives in `_repos/new`; see the [corpus review](docs/r
 [Slices 04](docs/research/slices/04-live-network-rates.md), [05](docs/research/slices/05-linux-hwmon-electrical.md), [06](docs/research/slices/06-macos-battery-capacity.md), and [08](docs/research/slices/08-workload-resource-use.md) are implemented and verified locally: host network rate validity (`nht-4e0e0e` closed), Linux hwmon electrical readings, macOS raw battery capacity on demand, and visible process-subtree summaries. All changes are committed locally; nothing was pushed.
 
 [Slice 07](docs/research/slices/07-nvidia-telemetry.md) has a bounded experimental Linux probe. Fixtures and the driver-free Linux smoke passed. Real hardware validation is intentionally deferred to a Linux cloud GPU and tracked as `nht-f456db`. The slice document contains the commands and evidence checklist. The five-slice goal remains blocked on that evidence.
+
+[Proposed slices 09–13](docs/research/slices/09-13-plan.md) are ready for review, starting with Linux cgroup workload totals. No implementation has started; the NVIDIA cloud validation remains separate.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->

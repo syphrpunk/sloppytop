@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Next five slices proposed — 2026-11-18
+
+- Prepared the sequence and verification criteria for slices 09–13 in `docs/research/slices/09-13-plan.md`. Planning only; NVIDIA validation is unchanged.
+
+
 ## NVIDIA hardware validation deferred — 2026-11-18
 
 - Filed `nht-f456db` and recorded the Linux cloud GPU validation procedure in the Slice 07 notes. No cloud setup, tests, or runtime changes in this checkpoint.
