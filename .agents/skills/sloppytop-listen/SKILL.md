@@ -8,3 +8,6 @@ command: sloppytop listen
 # sloppytop listen
 
 Local TCP sockets in LISTEN. Not a remote scan and not a packet capture. A missing tool is an error; sockets the tool cannot see are omitted.
+
+For bind addresses, visibility and separate UDP endpoints, use
+`sloppytop discover --section listeners` on Linux or macOS.

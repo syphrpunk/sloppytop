@@ -8,6 +8,8 @@ The `handoff-create --changelog` flow appends entries to "## Unreleased" as you 
 
 ## Unreleased
 
+- Added on-demand local network inventory with `discover` and the TUI `D` page, plus explicit snapshot comparison and redacted summaries. Discovery reads local OS tables; it does not probe peers or send DNS queries.
+
 - Removed the Go sources in `cli/` and the `.augment` skill links. `just build` compiles `ts/dist/sloppytop`. CI tests and builds the TypeScript CLI only.
 - `service install` stores one sample before it returns, then starts the hourly recorder. `sloppytop history`, `sloppytop report`, and `v` on the screen read that sample.
 - The Linux recorder timer starts 5 seconds after the user service manager (`OnStartupSec=5s`, `AccuracySec=1s`).

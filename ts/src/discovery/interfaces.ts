@@ -17,13 +17,14 @@ export interface Interface {
   tx_bytes_per_s?: number
 }
 
-export function linuxIp(args: string[]): Input {
-  for (const bin of ['/usr/sbin/ip', '/sbin/ip', '/usr/bin/ip', '/bin/ip', '/run/current-system/sw/bin/ip']) {
-    const result = localCommand(bin, args)
+export function linuxNetworkTool(tool: 'ip' | 'ss' | 'resolvectl', args: string[]): Input {
+  for (const root of ['/usr/sbin', '/sbin', '/usr/bin', '/bin', '/run/current-system/sw/bin']) {
+    const result = localCommand(`${root}/${tool}`, args)
     if (!('issue' in result) || result.issue !== 'missing') return result
   }
   return { issue: 'missing' }
 }
+export const linuxIp = (args: string[]) => linuxNetworkTool('ip', args)
 
 export const validInterface = (value: unknown): value is string =>
   typeof value === 'string' && /^[a-zA-Z0-9_.:@-]{1,64}$/.test(value)

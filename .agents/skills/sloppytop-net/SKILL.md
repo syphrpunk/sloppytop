@@ -9,6 +9,9 @@ command: sloppytop net
 
 Per-connection byte rates attributed to a process. Does not sniff packets or escalate privileges.
 
+For a local socket inventory including idle and unattributed rows, use
+`sloppytop discover --section connections` on Linux or macOS.
+
 ## Options
 
 | Flag | Type | Default | Description |

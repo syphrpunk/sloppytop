@@ -164,6 +164,8 @@ macOS, Linux, and Windows — no runtime dependencies
 
 ```bash
 sloppytop tui                      # open the process monitor
+sloppytop discover                 # read local network tables without probing peers
+sloppytop discover --redact        # share counts and coverage, not addresses
 sloppytop snapshot --format json   # one-shot JSON snapshot
 sloppytop --help                   # see all commands
 ```

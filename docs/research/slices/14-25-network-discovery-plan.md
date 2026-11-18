@@ -32,4 +32,6 @@ collection mechanisms or import code without checking licensing.
 Start with 14, then 15–17 to establish a useful inventory before adding
 socket detail and UI. Capture source and privacy semantics with each slice.
 Use isolated fixtures and authorized read-only host checks, and checkpoint
-each completed slice with its evidence. No implementation has started.
+each completed slice with its evidence. See the implementation and evidence
+notes for [14](14-discovery-contract.md), [15–17](15-17-discovery-inventory.md)
+and [18–25](18-25-discovery-workflow.md).

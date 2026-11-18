@@ -16,7 +16,7 @@ just ts-check  # tsc --noEmit
 just build     # compile ts/dist/sloppytop
 ```
 
-Commands: `system`, `processes`, `top`, `tree`, `proc`, `snapshot`, `watch`, `kill`, `record`, `history`, `report`, `config`, `service`, `net`, `listen`, `hardware`, `probe`, `log`, `metrics`, `tui`. Monitors cover macOS (`bun:ffi` libproc), Linux (`/proc`), and Windows (PowerShell CIM). State lives in `~/.config/sloppytop/` (an existing `~/.config/neohtop/` directory is reused). An existing `~/.config/sloppytop-cli/config.json` is read once to seed columns, theme, and refresh, and is not written. All commands support `--format toon|json|yaml|md|jsonl`, `--llms`, and MCP. Compiled release binaries self-update via `--update`. The runtime dependencies in `ts/package.json` are `incur` and `@opentui/core`; the collectors and SQLite store use Bun APIs.
+Commands: `system`, `processes`, `top`, `tree`, `proc`, `snapshot`, `watch`, `kill`, `record`, `history`, `report`, `config`, `service`, `net`, `listen`, `discover`, `hardware`, `probe`, `log`, `metrics`, `tui`. Monitors cover macOS (`bun:ffi` libproc), Linux (`/proc`), and Windows (PowerShell CIM). State lives in `~/.config/sloppytop/` (an existing `~/.config/neohtop/` directory is reused). An existing `~/.config/sloppytop-cli/config.json` is read once to seed columns, theme, and refresh, and is not written. The CLI supports `--format toon|json|yaml|md|jsonl`, `--llms`, and MCP; `discover` is excluded from MCP. Compiled release binaries self-update via `--update`. The runtime dependencies in `ts/package.json` are `incur` and `@opentui/core`; the collectors and SQLite store use Bun APIs.
 
 ## Architecture
 
@@ -24,6 +24,7 @@ Commands: `system`, `processes`, `top`, `tree`, `proc`, `snapshot`, `watch`, `ki
 ts/src/
 ├── index.ts           # incur CLI
 ├── monitor/           # platform collectors
+├── discovery/         # on-demand local network inventory; not offered through MCP
 ├── store/             # config, sqlite, report, service
 ├── tui/               # screen: frame, state, themes, keys
 ├── filter/            # search, sort, process tree

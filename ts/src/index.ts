@@ -187,14 +187,32 @@ Cli.create('sloppytop', {
     description: 'Inspect local network state on demand without probing the network',
     mcp: false,
     options: z.object({
-      section: z.enum(['interfaces', 'routes', 'neighbors']).default('interfaces').describe('Local inventory section'),
+      section: z.enum(['overview', 'interfaces', 'routes', 'neighbors', 'listeners', 'connections', 'dns'])
+        .default('overview').describe('Local inventory section'),
+      before: z.string().optional().describe('Compare an explicitly supplied local JSON snapshot'),
+      after: z.string().optional().describe('Newer local JSON snapshot for comparison'),
+      redact: z.boolean().default(false).describe('Export a shareable overview with only counts and coverage states'),
     }),
     async run(c) {
       if (!loadConfig().probes.network) return c.error(probeOff('network'))
-      if (c.options.section === 'routes') return { providers: (await import('./discovery/routes.ts')).discoverRoutes() }
-      if (c.options.section === 'neighbors') return { providers: (await import('./discovery/neighbors.ts')).discoverNeighbors() }
-      const { discoverInterfaces } = await import('./discovery/interfaces.ts')
-      return discoverInterfaces()
+      if (c.options.before !== undefined || c.options.after !== undefined) {
+        if (!c.options.before || !c.options.after || c.options.redact || c.options.section !== 'overview') {
+          return c.error({ code: 'INVALID_ARGS', message: 'comparison requires --before and --after without a section or redaction' })
+        }
+        const { readSnapshot, compareSnapshots } = await import('./discovery/snapshot.ts')
+        const before = readSnapshot(c.options.before), after = readSnapshot(c.options.after)
+        if (!before || !after) return c.error({ code: 'DISCOVERY_INVALID', message: 'could not read a valid local discovery snapshot' })
+        return compareSnapshots(before, after)
+      }
+      if (c.options.redact && c.options.section !== 'overview') {
+        return c.error({ code: 'INVALID_ARGS', message: 'redaction is available for the overview only' })
+      }
+      const { discoverOverview, discoverSection } = await import('./discovery/overview.ts')
+      if (c.options.redact) {
+        try { return (await import('./discovery/redact.ts')).shareableOverview(await discoverOverview()) }
+        catch { return c.error({ code: 'DISCOVERY_UNAVAILABLE', message: 'unable to produce a redacted discovery overview' }) }
+      }
+      return c.options.section === 'overview' ? discoverOverview() : discoverSection(c.options.section)
     },
   })
   .command('system', {

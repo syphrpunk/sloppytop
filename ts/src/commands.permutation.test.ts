@@ -31,6 +31,7 @@ const commands: { id: string; args: string[] }[] = [
   { id: 'system', args: ['system', '--sample-ms', '0'] },
   { id: 'net', args: ['net', '--sample-ms', '100', '--limit', '1'] },
   { id: 'listen', args: ['listen'] },
+  { id: 'discover-redact', args: ['discover', '--redact'] },
   { id: 'processes', args: ['processes', '--sample-ms', '0', '--limit', '1'] },
   { id: 'top', args: ['top', '--sample-ms', '0', '--count', '1'] },
   { id: 'tree', args: ['tree', '--sample-ms', '0'] },
