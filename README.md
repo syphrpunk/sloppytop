@@ -34,12 +34,10 @@ brew install --cask syphrpunk/sloppytop/sloppytop
 ```
 
 Homebrew needs the git URL because this repository name has no `homebrew-` prefix.
-The cask installs the published **v0.3.0 Apple Silicon binary**, not the tip of
+The cask installs the published **v0.4.0 Apple Silicon binary**, not the tip of
 `main`. Use `brew update` then `brew upgrade --cask syphrpunk/sloppytop/sloppytop`
-when a newer cask version is available. To try the unreleased tree navigation,
-names-only environment view, and recorder controls now, run `./st tui` from a
-checkout. See the [TUI audit closeout](docs/research/tui-audit-closeout.md)
-for the remaining release check.
+when a newer cask version is available. Run `sloppytop tui` for tree navigation,
+names-only environment inspection, and recorder controls.
 
 The macOS release build is Apple Silicon. An Intel Mac runs this checkout with bun. A downloadable binary is the fallback below. `sloppytop tui` opens the process monitor. `sloppytop --help` lists the other commands.
 
