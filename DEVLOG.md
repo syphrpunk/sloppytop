@@ -4,6 +4,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ---
 
+## Session digest — 2026-11-19
+
+- Closed the TUI audit, verified its Memento statuses and retained the unresolved release certification as a separate follow-up. No product or benchmark changes.
+
+
 ## Session digest — 2026-11-18
 
 - Completed fixed-host collection and offline replay. Mac passed; the OptiPlex result was inconclusive for one lag budget. Private reports retained, benchmark builds removed, no installations or schedule changes.

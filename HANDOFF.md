@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 65505e2 chore(handoff): append checkpoint performance-host-booking
+HEAD: 5e1e094 Close out the TUI audit and record the outstanding release gate
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -92,6 +92,7 @@ Confirmed and stopped four stale visual fixture processes and their surviving pr
 Recorder destination controls are installed: both checkout and shared st verified preview/cancel/confirm/restore on disposable config. Owned-process harness cleanup is integrated, with no matching TUI/test processes or private test servers remaining after validation. Fixed-host SLA acceptance remains outstanding.
 Only nht-bee39c remains in the audit epic. Awaiting an authorized quiet macOS/Linux host pair; no certification runs started. Proposed candidate 735521a83a39809d786da91291c6df1c808125a6.
 Booked candidate 735521a on MBARemote.local and optiplex. Mac passed; the only Linux issue was insufficient evidence for live full-soak lag p95 (retained 3600/8942, tail p95 0.34 ms, overall max 92.94 ms). Keep nht-bee39c open; count full-soak threshold exceedances before the next candidate run.
+The [closing report](docs/research/tui-audit-closeout.md) supersedes earlier audit queue notes. Memento verified all 13 children and epic nht-f4dce9 completed; nht-a618d6 carries the separate release gate. Do not tag on the inconclusive Linux lag result.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
@@ -109,7 +110,7 @@ Booked candidate 735521a on MBARemote.local and optiplex. Mac passed; the only L
 Open tasks:
 (task manager: memento)
 {
-  "count": 9,
+  "count": 8,
   "items": [
     {
       "id": "nht-9de7a2",
@@ -128,20 +129,20 @@ Open tasks:
       "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-9de7a2-apple-silicon-energy-sample.md"
     },
     {
-      "id": "nht-bee39c",
-      "uuid": "01a1efcf-a170-7000-8077-31f34c6b54cf",
-      "slug": "nht-bee39c-enforce-interactive-and-soak-budgets-on-fixed-hosts",
-      "title": "Enforce interactive and soak budgets on fixed hosts",
-      "status": "in-progress",
+      "id": "nht-a618d6",
+      "uuid": "01a1f25d-833f-7000-b60c-e9e17681881b",
+      "slug": "nht-a618d6-certify-whole-soak-linux-event-loop-lag-on-the-next-release-cand",
+      "title": "Certify whole-soak Linux event-loop lag on the next release candidate",
+      "status": "todo",
       "type": "task",
-      "parent": "nht-f4dce9",
+      "parent": "nht-b1794f",
       "blockedBy": [],
       "blocking": [],
       "priority": "high",
       "attention": null,
       "attentionReason": null,
-      "updatedAt": "2026-11-18T22:04:22.092Z",
-      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-bee39c-enforce-interactive-and-soak-budgets-on-fixed-hosts.md"
+      "updatedAt": "2026-11-19T05:52:57.152Z",
+      "path": "/Users/dk/ghq/github.com/syphrpunk/neohtop-cli/.memento/items/nht-a618d6-certify-whole-soak-linux-event-loop-lag-on-the-next-release-cand.md"
     },
     {
       "id": "nht-cb0edf",
