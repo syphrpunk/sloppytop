@@ -68,6 +68,8 @@ cask "sloppytop" do
   caveats <<~EOS
     A performance sample is stored at install. An hourly recorder keeps writing.
     Read it with `sloppytop history`, `sloppytop report`, or `sloppytop tui` and press v.
-    The log stays in ~/.config/sloppytop after uninstall.
+    To stop scheduled recording, run `sloppytop service uninstall`.
+    Uninstall keeps your history. Run `sloppytop config` to see the database path,
+    including the legacy ~/.config/neohtop location if it is in use.
   EOS
 end
