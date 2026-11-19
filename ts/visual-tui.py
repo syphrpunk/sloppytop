@@ -141,7 +141,7 @@ def run(fixture, output, review_only=False):
             capture("01d-tree-reopen", ["+2 界-fixture", "22/24"], 56, 18)
             tmux("send-keys", "-t", "visual", "T")
             capture("02-narrow", ["sloppytop", "system", "PID", "Memory", "CPU%", "fixture-worker", "450M", "100.0", "D discover",
-                                  "界-fixture", "440M    97.0"], 56, 18)
+                                  "界-fixture", "440M    97.0", "24/24", "CPU%  v"], 56, 18)
             tmux("send-keys", "-t", "visual", "D")
             capture("02b-discovery-loading", ["reading local tables…", "q close"], 56, 18)
             tmux("send-keys", "-t", "visual", "q")

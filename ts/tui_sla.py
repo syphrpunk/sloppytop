@@ -59,7 +59,13 @@ def check_lag(lag):
     # A 20 ms timer with this maximum stall must cover the soak interval.
     if (lag["count"] + 1) * (20 + lag["max"] + .005) < SOAK * 1000:
         raise ValueError("too few trace observations to cover the soak")
-    if lag["retained"] < lag["count"] and lag["max"] > 50:
+    if "over50ms" in lag:
+        exceeded = lag["over50ms"]
+        if type(exceeded) is not int or not 0 <= exceeded <= lag["count"] or (lag["max"] > 50 and not exceeded):
+            raise ValueError("invalid full-soak exceedance count")
+        if exceeded * 20 > lag["count"]:
+            raise ValueError("over budget: full-soak p95 exceeds 50 ms")
+    elif lag["retained"] < lag["count"] and lag["max"] > 50:
         raise ValueError("inconclusive: retained p95 cannot establish full-soak p95")
 
 

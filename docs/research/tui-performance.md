@@ -107,7 +107,8 @@ For **each** of live collection and the 5,000-row fixture, the protocol runs:
   for p95, and the **full-session maximum** regardless of wrap. Report both
   counts. Reject p95 >50 ms or max >150 ms. If wrapped and max >50 ms, a
   passing retained p95 does **not** prove full-soak p95: block as unverified
-  pending whole-soak evidence. If max ≤50 ms it bounds the full p95 too.
+  unless the whole-soak count above 50 ms is at most 5% of observations.
+  Older reports without this count remain unverified unless max ≤50 ms.
 - A separate private tmux session for input-to-visible-frame: 20 each of
   search, Escape dismissal and scroll, both running and frozen, with phase
   jitter relative to sampling. Require every distribution's n/p95/max and

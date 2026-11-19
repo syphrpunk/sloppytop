@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs'
 export function startTuiTrace(path = process.env.SLOPPYTOP_TUI_TRACE) {
   if (!path) return undefined
   const capacity = 3600
+  let over50ms = 0
   const phases = new Map<string, { count: number; max: number; values: number[] }>()
   function record(name: string, duration: number) {
     let phase = phases.get(name)
@@ -12,6 +13,7 @@ export function startTuiTrace(path = process.env.SLOPPYTOP_TUI_TRACE) {
       phases.set(name, phase)
     }
     phase.values[phase.count++ % capacity] = duration
+    if (name === 'loopLag' && duration > 50) over50ms++
     phase.max = Math.max(phase.max, duration)
   }
   let last = performance.now()
@@ -30,7 +32,8 @@ export function startTuiTrace(path = process.env.SLOPPYTOP_TUI_TRACE) {
       const summary = Object.fromEntries([...phases].map(([name, { count, max, values }]) => {
         values.sort((a, b) => a - b)
         const percentile = (p: number) => Number(values[Math.ceil(values.length * p) - 1]!.toFixed(2))
-        return [name, { count, retained: values.length, p50: percentile(.50), p95: percentile(.95), max: Number(max.toFixed(2)) }]
+        return [name, { count, retained: values.length, p50: percentile(.50), p95: percentile(.95), max: Number(max.toFixed(2)),
+          ...(name === 'loopLag' && { over50ms }) }]
       }))
       try {
         writeFileSync(path, JSON.stringify(summary, null, 2) + '\n', { mode: 0o600 })

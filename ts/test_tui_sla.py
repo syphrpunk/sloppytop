@@ -75,6 +75,11 @@ class TuiSlaTest(unittest.TestCase):
         self.assertIn("direct_pty.shrink_ms: missing", self.problems())
 
     def test_unverified_full_lag_or_hidden_early_violation(self):
+        self.row["lag"].update(count=8600, retained=3600, p95=1, max=100, over50ms=431)
+        self.assertIn("full-soak p95 exceeds", self.problems())
+        self.row["lag"]["over50ms"] = 430
+        self.assertFalse(self.problems())
+        del self.row["lag"]["over50ms"]
         for maximum, reason in [(51, "inconclusive"), (151, "over budget")]:
             self.row["lag"]["max"] = maximum
             self.assertIn("lag: " + reason, self.problems())
