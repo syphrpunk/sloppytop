@@ -25,14 +25,14 @@ function fixture(change?: (files: Map<string, string>) => void) {
   }
 }
 
-test('uses hierarchical counters once, including full precision of the baseline', async () => {
+test.skipIf(process.platform === 'win32')('uses hierarchical counters once, including full precision of the baseline', async () => {
   expect(await summarizeCgroup(12, 100, fixture())).toEqual({
     pid: 12, cgroup: '/nested/child', scope: 'cgroup_and_descendants',
     cpu_percent_of_one_core: 150, charged_memory_bytes: 4000,
   })
 })
 
-test('omits unavailable controllers without losing a separately measured zero', async () => {
+test.skipIf(process.platform === 'win32')('omits unavailable controllers without losing a separately measured zero', async () => {
   const report = await summarizeCgroup(12, 100, fixture((files) => {
     files.delete('/mounted root/child/cpu.stat')
     files.set('/mounted root/child/memory.current', '0')

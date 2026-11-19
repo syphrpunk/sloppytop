@@ -57,7 +57,10 @@ async function withConfigHome(run: (home: string) => Promise<void>) {
   } finally {
     if (previous === undefined) delete process.env.XDG_CONFIG_HOME
     else process.env.XDG_CONFIG_HOME = previous
-    rmSync(home, { recursive: true, force: true })
+    // Windows cannot unlink SQLite files while GC-managed statements hold
+    // a deferred close. Release them before removing the disposable store.
+    if (process.platform === 'win32') Bun.gc(true)
+    rmSync(home, { recursive: true, force: true, maxRetries: 8, retryDelay: 100 })
   }
 }
 

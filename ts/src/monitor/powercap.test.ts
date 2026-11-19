@@ -16,7 +16,8 @@ test('uses monotonic per-zone time, preserves zero, and rejects ambiguous decrea
   expect(packageWatts(undefined, [next])).toEqual([])
 })
 
-test('reads only explicitly named packages and omits inaccessible counters', () => {
+// Linux sysfs zone directory names contain colons, illegal on NTFS.
+test.skipIf(process.platform === 'win32')('reads only explicitly named packages and omits inaccessible counters', () => {
   const root = mkdtempSync(join(tmpdir(), 'powercap-'))
   try {
     for (const [zone, name] of [
