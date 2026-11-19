@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-19
 
+- Fixed visual CI races, confirmed GitHub Actions success, and exercised the two-host release gate. Preserved the macOS misses; no release tag or cask change.
+
+
+## Session digest — 2026-11-19
+
 - Published the source, Homebrew cask and install docs on main; verified the tap resolves the released v0.3.0 checksum. No new binary release.
 
 
