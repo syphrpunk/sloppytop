@@ -6,6 +6,11 @@ Dated checkpoint history. Appended by `handoff-create`. Newest entries on top.
 
 ## Session digest — 2026-11-19
 
+- Published the source, Homebrew cask and install docs on main; verified the tap resolves the released v0.3.0 checksum. No new binary release.
+
+
+## Session digest — 2026-11-19
+
 - Closed the TUI audit, verified its Memento statuses and retained the unresolved release certification as a separate follow-up. No product or benchmark changes.
 
 

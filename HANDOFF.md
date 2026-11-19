@@ -22,7 +22,7 @@ Read the files listed in `.handoff/config.yaml` under `project.readingOrder`.
 
 <!-- handoff:state -->
 
-HEAD: 5e1e094 Close out the TUI audit and record the outstanding release gate
+HEAD: 2ca6528 Clarify Homebrew installation, recorder shutdown and checkout-only features
 
 <!-- handoff:state-notes -->
 Sloppytop is now TypeScript/Bun only. The OpenTUI screen shipped as `sloppytop tui` in v0.3.0; `./st tui` runs this checkout. The Go tree was removed in `6102a7e`. Start with `ts/src/index.ts` for the incur CLI, `ts/src/sample.ts` for shared probe-gated sampling, `ts/src/monitor/` for platform collectors, `ts/src/store/` for SQLite, OpenMetrics and the scheduler, and `ts/src/tui/` for rendering, state and store effects.
@@ -93,6 +93,7 @@ Recorder destination controls are installed: both checkout and shared st verifie
 Only nht-bee39c remains in the audit epic. Awaiting an authorized quiet macOS/Linux host pair; no certification runs started. Proposed candidate 735521a83a39809d786da91291c6df1c808125a6.
 Booked candidate 735521a on MBARemote.local and optiplex. Mac passed; the only Linux issue was insufficient evidence for live full-soak lag p95 (retained 3600/8942, tail p95 0.34 ms, overall max 92.94 ms). Keep nht-bee39c open; count full-soak threshold exceedances before the next candidate run.
 The [closing report](docs/research/tui-audit-closeout.md) supersedes earlier audit queue notes. Memento verified all 13 children and epic nht-f4dce9 completed; nht-a618d6 carries the separate release gate. Do not tag on the inconclusive Linux lag result.
+Pushed main through 2ca6528 with the Homebrew cask and updated README. Checked published tap metadata against the v0.3.0 arm64 digest; no release tag, install or recorder action. Newer checkout features are not in that archive.
 <!-- /handoff:state-notes -->
 
 <!-- /handoff:state -->
