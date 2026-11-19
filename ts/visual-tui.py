@@ -98,6 +98,7 @@ def run(fixture, output, review_only=False):
 
         def capture(label, expected, width, height, *, compare=False, timeout=8):
             deadline = time.monotonic() + timeout
+            mismatch = None
             while time.monotonic() < deadline:
                 plain = tmux("capture-pane", "-p", "-t", "visual")
                 if all(token in plain for token in expected):
@@ -120,14 +121,18 @@ def run(fixture, output, review_only=False):
                         if actual_frame != expected_frame:
                             diff = difflib.unified_diff(expected_frame.splitlines(True), actual_frame.splitlines(True),
                                                         fromfile=str(baseline), tofile=str(output / f"{label}.txt"))
-                            raise RuntimeError("terminal frame changed:\n" + "".join(diff))
+                            mismatch = "terminal frame changed:\n" + "".join(diff)
+                            time.sleep(.06)
+                            continue  # resize/input may not yet have repainted every cell
                     if label in style_baselines and not review_only:
                         digest = hashlib.sha256(styled.encode()).hexdigest()
                         if digest != style_baselines[label]:
-                            raise RuntimeError(f"{label}: styled frame changed ({digest}); review {output / (label + '.svg')}")
+                            mismatch = f"{label}: styled frame changed ({digest}); review {output / (label + '.svg')}"
+                            time.sleep(.06)
+                            continue
                     return
                 time.sleep(.06)
-            raise RuntimeError(f"{label}: expected {expected!r}\n{plain}")
+            raise RuntimeError(mismatch or f"{label}: expected {expected!r}\n{plain}")
 
         with PrivateTmux(folder) as tmux:
             tmux.start("visual", 112, 30, command)
