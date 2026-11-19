@@ -69,7 +69,8 @@ describe('sample and tick', () => {
         expect(setupMid.managers).toBeGreaterThan(setupBefore.managers)
         expect(readsMid - readsBefore).toBe(2)
         expect(readsAfter - readsMid).toBe(2)
-        expect(names(first).some((name) => name.includes('PMU tdie'))).toBe(true)
+        // A successful HID read does not imply a particular physical sensor
+        // exists (notably on hosted Macs). Validate reported readings above.
       }
 
       const seen = loadConfig()
