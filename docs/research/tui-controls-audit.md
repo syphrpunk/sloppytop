@@ -1,5 +1,8 @@
 # TUI audit: find a process, explain a spike, trust the recorder
 
+For delivered changes, test results and the release decision, see the
+[audit closeout](tui-audit-closeout.md). The priorities below are the original plan.
+
 **Decision:** keep `@opentui/core` pinned to 0.9.2 (verified against the
 [npm latest tag](https://registry.npmjs.org/@opentui%2fcore/latest) at audit).
 The process table benefits more from stable selection, useful drill-downs
